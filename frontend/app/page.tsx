@@ -1,72 +1,129 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Logo } from './components/Logo';
+import { ActionButton } from './components/ActionButton';
+import { SidebarIcon } from './components/SidebarIcon';
+import { MathExercise } from './components/MathExercise';
+import { User } from 'lucide-react';
+
+/**
+ * Page d'accueil - Design desktop et mobile selon Figma
+ * Layout responsive avec sidebar (desktop) et bottom bar (mobile)
+ */
 export default function Home() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const sidebarContent = (
+    <>
+      <SidebarIcon emoji="📚" active />
+      <SidebarIcon emoji="📊" />
+      <SidebarIcon emoji="🏋️" />
+      <div className="flex-1" />
+      <SidebarIcon emoji="⚙️" />
+    </>
+  );
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8">
-      <div className="max-w-4xl w-full text-center space-y-8">
-        {/* En-tête principal */}
-        <div className="space-y-4">
-          <h1 className="text-6xl font-bold text-primary-600 dark:text-primary-400">
-            Novlearn
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Plateforme d&apos;entraînement ludique et personnalisée pour le Bac de mathématiques
-          </p>
-        </div>
-
-        {/* Section description */}
-        <div className="mt-12 space-y-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 space-y-4">
-            <h3 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-              À propos du projet
-            </h3>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-              Novlearn est une application web conçue pour aider les élèves de Terminale spécialité Mathématiques 
-              à se préparer efficacement au Bac. La plateforme propose des exercices interactifs, un suivi personnalisé 
-              de la progression, et des fonctionnalités ludiques pour maintenir la motivation.
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 flex flex-col">
+      {/* Desktop Layout */}
+      {!isMobile && (
+        <div className="flex flex-1">
+          {/* Sidebar */}
+          <div className="w-24 bg-slate-900/60 backdrop-blur-sm p-4 flex flex-col items-center gap-6 pt-32">
+            {sidebarContent}
           </div>
 
-          {/* Fonctionnalités principales */}
-          <div className="grid md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-6 space-y-2">
-              <div className="text-3xl mb-2">📚</div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                Exercices interactifs
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Exercices générés dynamiquement avec correction automatique
-              </p>
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col">
+            {/* Header */}
+            <div className="p-8 flex items-center justify-between">
+              <Logo />
+
+              {/* User Profile */}
+              <div className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-800/80 transition-colors duration-200">
+                <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
+                  <User className="w-7 h-7 text-white" />
+                </div>
+                <span
+                  className="text-white"
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 600,
+                    fontSize: '1.125rem',
+                  }}
+                >
+                  GOTAGA
+                </span>
+              </div>
             </div>
 
-            <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-6 space-y-2">
-              <div className="text-3xl mb-2">📊</div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                Suivi personnalisé
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Visualisation de la progression et recommandations adaptées
-              </p>
-            </div>
+            {/* Central Area */}
+            <div className="flex-1 flex items-center justify-center px-8 pb-8">
+              <div className="max-w-4xl w-full space-y-8">
+                {/* Math Exercise with S'entraîner button */}
+                <MathExercise />
 
-            <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-6 space-y-2">
-              <div className="text-3xl mb-2">🎮</div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                Approche ludique
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Duels entre élèves et classements pour motiver l&apos;apprentissage
-              </p>
+                {/* Action Buttons */}
+                <div className="flex items-center justify-center gap-8 flex-wrap">
+                  <ActionButton variant="primary" icon="⚔️">
+                    1VS1
+                  </ActionButton>
+
+                  <ActionButton variant="secondary" icon="📚">
+                    Réviser le cours
+                  </ActionButton>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Statut de développement */}
-        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            🚧 Application en développement - Version 0.1.0
-          </p>
+      {/* Mobile Layout */}
+      {isMobile && (
+        <div className="flex flex-col flex-1">
+          {/* Header - Logo only */}
+          <div className="p-6 flex items-center justify-center">
+            <Logo />
+          </div>
+
+          {/* Central Area */}
+          <div className="flex-1 flex items-center justify-center px-4 pb-24">
+            <div className="w-full max-w-md space-y-6">
+              {/* Math Exercise with S'entraîner button */}
+              <MathExercise />
+
+              {/* Action Buttons */}
+              <div className="flex flex-col items-center justify-center gap-4">
+                <ActionButton variant="primary" icon="⚔️">
+                  1VS1
+                </ActionButton>
+
+                <ActionButton variant="secondary" icon="📚">
+                  Réviser le cours
+                </ActionButton>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Navigation Bar */}
+          <div className="fixed bottom-0 left-0 right-0 bg-slate-900/80 backdrop-blur-md p-4 flex items-center justify-around gap-4 border-t border-slate-800/50">
+            {sidebarContent}
+          </div>
         </div>
-      </div>
-    </main>
+      )}
+    </div>
   );
 }
-
