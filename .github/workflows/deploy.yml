@@ -1,0 +1,172 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+    
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+      env:
+        NODE_ENV: production
+    
+    - name: Create .env file for backend
+      run: |
+        echo "# Novlearn Backend Configuration" > backend/.env
+        echo "APP_ENV=production" >> backend/.env
+        echo "DEBUG=False" >> backend/.env
+        echo "HOST=0.0.0.0" >> backend/.env
+        echo "PORT=8000" >> backend/.env
+        echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> backend/.env
+        echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> backend/.env
+        echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr" >> backend/.env
+        echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
+    
+    - name: Deploy frontend build to VPS
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        source: "frontend/.next/**,frontend/public/**"
+        target: "/var/www/novlearn"
+        strip_components: 1
+    
+    - name: Deploy backend code and .env to VPS
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        source: "backend/**,backend/.env"
+        target: "/opt/novlearn"
+        strip_components: 0
+    
+    - name: Deploy deploy script to VPS
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        source: "deploy.sh"
+        target: "/opt/novlearn"
+        strip_components: 0
+    
+    - name: Deploy Apache configuration to VPS
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        source: "apache/*.conf"
+        target: "/tmp/"
+        strip_components: 0
+    
+    - name: Deploy systemd service to VPS
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        source: "systemd/novlearn-backend.service"
+        target: "/tmp/novlearn-backend.service"
+        strip_components: 0
+    
+    - name: Setup and deploy application
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # Créer les répertoires si nécessaire
+          sudo mkdir -p /opt/novlearn
+          sudo mkdir -p /var/www/novlearn
+          sudo chown -R $USER:$USER /opt/novlearn
+          sudo chown -R $USER:$USER /var/www/novlearn
+          
+          # Naviguer vers le répertoire de déploiement
+          cd /opt/novlearn
+          
+          # Rendre le script de déploiement exécutable
+          chmod +x deploy.sh
+          
+          # Exécuter le script de déploiement
+          ./deploy.sh
+          
+          # Copier les configurations Apache
+          sudo cp /tmp/novlearn.fr.conf /etc/apache2/sites-available/novlearn.fr.conf
+          sudo cp /tmp/novlearn.fr-le-ssl.conf /etc/apache2/sites-available/novlearn.fr-le-ssl.conf
+          
+          # Activer les sites
+          sudo a2ensite novlearn.fr.conf
+          sudo a2ensite novlearn.fr-le-ssl.conf
+          
+          # Activer les modules Apache nécessaires
+          sudo a2enmod proxy
+          sudo a2enmod proxy_http
+          sudo a2enmod rewrite
+          sudo a2enmod ssl
+          
+          # Tester la configuration Apache
+          sudo apache2ctl configtest
+          
+          # Recharger Apache
+          sudo systemctl reload apache2
+          
+          # Installer le service systemd (première fois seulement)
+          if [ ! -f /etc/systemd/system/novlearn-backend.service ]; then
+            # Remplacer YOUR_USERNAME par le vrai nom d'utilisateur
+            sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-backend.service > /tmp/novlearn-backend.service.tmp
+            sudo mv /tmp/novlearn-backend.service.tmp /etc/systemd/system/novlearn-backend.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable novlearn-backend
+          fi
+    
+    - name: Verify deployment
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # Attendre un peu pour le démarrage
+          sleep 5
+          
+          # Vérifier que le fichier .env existe
+          echo "🔍 Vérification de la configuration..."
+          if [ ! -f /opt/novlearn/backend/.env ]; then
+            echo "❌ Erreur: fichier .env introuvable dans /opt/novlearn/backend/"
+            exit 1
+          fi
+          
+          # Vérifier que le backend répond
+          echo "🔍 Test du health check..."
+          curl -f http://localhost:8000/api/health || {
+            echo "❌ Le health check a échoué"
+            echo "Logs du backend (50 dernières lignes):"
+            sudo journalctl -u novlearn-backend -n 50 || echo "Aucun log trouvé"
+            exit 1
+          }
+          
+          echo "✅ Déploiement vérifié avec succès"
+

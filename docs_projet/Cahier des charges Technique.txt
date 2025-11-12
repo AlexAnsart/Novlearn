@@ -5,16 +5,18 @@ Spécifications techniques et architecture
 Novembre 2025
 1. ARCHITECTURE GÉNÉRALE
 1.1 Architecture applicative
-L'application suit une architecture client-serveur classique avec séparation claire entre frontend et backend. Le choix d'une webapp responsive permet une compatibilité multiplateforme sans développement natif.
+L'application suit une architecture client-serveur classique avec séparation claire entre frontend et backend. Le choix d'une webapp responsive avec Progressive Web App (PWA) permet une compatibilité multiplateforme sans développement natif, avec possibilité d'installation sur mobile.
 Frontend (Client)
 * Framework : React + Next.js
-* Rendu : Server-Side Rendering (SSR) pour optimiser le SEO et les performances
+* Rendu : Client-Side Rendering (CSR) pour optimiser les performances et la réactivité
+* PWA : Application installable sur iOS et Android via manifest et service worker
 Backend (Serveur)
-* Langage : PHP (pour compatibilité avec hébergement économique)
-* Base de données : MySQL ou PostgreSQL (selon hébergeur)
+* Langage : Python 3.11+ (pour algorithmes de recommandation et calculs mathématiques)
+* Framework API : FastAPI (API REST moderne et performante)
+* Base de données : PostgreSQL 15+ (base de données relationnelle robuste)
 * Hébergement : VPS PulseHeberg (offre étudiante 20€/an)
 Services externes
-* Authentification : Firebase Auth ou Supabase Auth
+* Authentification : Supabase Auth (gratuit, intégré avec PostgreSQL)
 * Storage : Supabase Storage (pour médias si nécessaire)
 1.2 Stack technologique
 Frontend
@@ -24,9 +26,11 @@ Frontend
 * JSXGraph : bibliothèque pour graphiques mathématiques interactifs
 * KaTeX : rendu rapide de formules mathématiques LaTeX
 Backend
-* PHP 8+ : langage serveur pour API REST
-* MySQL 8+ / PostgreSQL : base de données relationnelle
-* Composer : gestionnaire de dépendances PHP
+* Python 3.11+ : langage serveur pour API REST et algorithmes
+* FastAPI : framework moderne pour API REST asynchrone
+* PostgreSQL 15+ : base de données relationnelle avec support JSON natif
+* SQLAlchemy : ORM Python pour interactions base de données
+* Poetry ou pip : gestionnaire de dépendances Python
 DevOps & Outils
 * Git & GitHub : versioning et collaboration
 * npm / yarn : gestionnaire de packages JavaScript
@@ -37,7 +41,7 @@ Utilisateur (User)
 * id : identifiant unique (UUID)
 * email : adresse email (unique)
 * nom, prenom : informations personnelles
-* firebase_uid : identifiant Firebase Auth
+* supabase_uid : identifiant Supabase Auth
 * created_at, updated_at : timestamps
 * preferences : JSON (notifications, anonymat, etc.)
 Chapitre (Chapter)
@@ -86,7 +90,7 @@ Duel (Duel)
 L'API REST suit les conventions RESTful avec des endpoints organisés par ressources. Toutes les réponses sont au format JSON.
 Structure des endpoints
 * Base URL : https://api.mathbacboost.fr/v1
-* Authentification : Bearer token (Firebase JWT)
+* Authentification : Bearer token (Supabase JWT)
 * Format : JSON (Content-Type: application/json)
 3.2 Endpoints principaux
 Authentification
@@ -175,10 +179,10 @@ Formule
 * Normalisation sur échelle 0-100
 7. SÉCURITÉ
 7.1 Authentification
-* Firebase Auth : gestion sécurisée des identifiants
+* Supabase Auth : gestion sécurisée des identifiants (gratuit)
 * JWT tokens : expiration 1 heure, refresh token 30 jours
-* Hashage bcrypt pour mots de passe (si auth custom)
-* Rate limiting : 5 tentatives max / 15 min
+* Hashage bcrypt pour mots de passe (géré par Supabase)
+* Rate limiting : 5 tentatives max / 15 min (via FastAPI middleware)
 7.2 Protection des données
 * HTTPS obligatoire (TLS 1.3)
 * Chiffrement données sensibles en base
@@ -186,23 +190,26 @@ Formule
 * Anonymisation pour statistiques agrégées
 7.3 Validation des entrées
 * Sanitization côté serveur (protection XSS)
-* Prepared statements (protection SQL injection)
-* Validation schéma JSON pour réponses exercices
+* SQLAlchemy ORM avec paramètres liés (protection SQL injection)
+* Validation schéma JSON pour réponses exercices (Pydantic models)
+* Validation automatique des types via FastAPI
 8. OPTIMISATIONS TECHNIQUES
 8.1 Frontend
 * Code splitting : chargement lazy des routes
 * Compression images (WebP, lazy loading)
-* Cache navigateur : service worker pour offline
+* Cache navigateur : service worker pour offline (PWA)
 * Minification JS/CSS en production
+* Manifest PWA : installation sur mobile (iOS et Android)
 8.2 Backend
-* Indexation base de données (user_id, exercise_id)
-* Cache Redis : sessions, résultats fréquents
+* Indexation base de données (user_id, exercise_id, chapter_id)
+* Cache en mémoire (Python cachetools) : résultats fréquents
 * Pagination API : 20 résultats max par requête
-* Connection pooling pour base de données
+* Connection pooling pour base de données (SQLAlchemy pool)
+* Requêtes asynchrones via FastAPI pour meilleures performances
 9. STRATÉGIE DE TESTS
 9.1 Tests unitaires
 * Frontend : Jest + React Testing Library
-* Backend : PHPUnit
+* Backend : pytest (framework de tests Python)
 * Couverture cible : > 70% fonctions critiques
 9.2 Tests d'intégration
 * Tests API : Postman / Newman
@@ -213,13 +220,18 @@ Formule
 * Recrutement via Lionel Guimont (élèves Terminale)
 10. DÉPLOIEMENT
 10.1 Environnements
-* Développement : localhost
-* Staging : Vercel preview branches
-* Production : Vercel + VPS PulseHeberg
-10.2 Pipeline CI/CD
+* Développement : localhost (frontend Next.js + backend FastAPI + PostgreSQL local)
+* Staging : VPS PulseHeberg (branche staging pour tests)
+* Production : VPS PulseHeberg (frontend Next.js export statique + backend FastAPI + PostgreSQL)
+10.2 Architecture de déploiement VPS
+* Nginx : reverse proxy (port 80/443) → backend FastAPI (port 8000) + fichiers statiques frontend
+* Gunicorn/Uvicorn : serveur ASGI pour FastAPI en production
+* PostgreSQL : base de données sur le même VPS
+10.3 Pipeline CI/CD
 * GitHub Actions : tests automatiques sur PR
-* Déploiement automatique : merge sur main → production
-* Rollback rapide : tags Git versionnés
+* Déploiement manuel ou semi-automatisé via SSH sur VPS
+* Script de déploiement : mise à jour code, migrations base de données, redémarrage services
+* Rollback rapide : tags Git versionnés + restauration backup base de données
 11. MONITORING & MAINTENANCE
 11.1 Logs
 * Logs applicatifs : erreurs, requêtes lentes
