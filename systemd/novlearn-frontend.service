@@ -1,0 +1,19 @@
+[Unit]
+Description=Novlearn Frontend Next.js
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/opt/novlearn/frontend
+Environment="NODE_ENV=production"
+Environment="PORT=3000"
+Environment="PATH=/usr/bin:/bin:/usr/local/bin"
+# Utiliser node directement avec le script start de Next.js
+ExecStart=/usr/bin/node node_modules/.bin/next start
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
