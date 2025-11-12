@@ -34,17 +34,21 @@ pip install -r requirements.txt
 # echo "🗄️ Application des migrations..."
 # alembic upgrade head
 
-# Redémarrer le service systemd
+# Redémarrer le service systemd (seulement s'il existe)
 echo "🔄 Redémarrage du service backend..."
-sudo systemctl restart $SERVICE_NAME
-
-# Vérifier le statut du service
-if sudo systemctl is-active --quiet $SERVICE_NAME; then
-    echo "✅ Service $SERVICE_NAME démarré avec succès"
+if systemctl list-unit-files | grep -q "^${SERVICE_NAME}.service"; then
+    sudo systemctl restart $SERVICE_NAME
+    
+    # Vérifier le statut du service
+    if sudo systemctl is-active --quiet $SERVICE_NAME; then
+        echo "✅ Service $SERVICE_NAME démarré avec succès"
+    else
+        echo "❌ Erreur: le service $SERVICE_NAME n'a pas démarré"
+        sudo systemctl status $SERVICE_NAME
+        exit 1
+    fi
 else
-    echo "❌ Erreur: le service $SERVICE_NAME n'a pas démarré"
-    sudo systemctl status $SERVICE_NAME
-    exit 1
+    echo "⚠️  Le service $SERVICE_NAME n'existe pas encore. Il sera créé par le workflow GitHub Actions."
 fi
 
 echo "✅ Déploiement terminé avec succès!"

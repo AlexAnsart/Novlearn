@@ -71,16 +71,6 @@ jobs:
         target: "/opt/novlearn"
         strip_components: 0
     
-    - name: Deploy Apache configuration to VPS
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USERNAME }}
-        key: ${{ secrets.VPS_SSH_KEY }}
-        source: "apache/*.conf"
-        target: "/tmp/"
-        strip_components: 0
-    
     - name: Deploy systemd service to VPS
       uses: appleboy/scp-action@master
       with:
@@ -88,8 +78,8 @@ jobs:
         username: ${{ secrets.VPS_USERNAME }}
         key: ${{ secrets.VPS_SSH_KEY }}
         source: "systemd/novlearn-backend.service"
-        target: "/tmp/novlearn-backend.service"
-        strip_components: 0
+        target: "/tmp/"
+        strip_components: 1
     
     - name: Setup and deploy application
       uses: appleboy/ssh-action@master
@@ -110,29 +100,6 @@ jobs:
           # Rendre le script de déploiement exécutable
           chmod +x deploy.sh
           
-          # Exécuter le script de déploiement
-          ./deploy.sh
-          
-          # Copier les configurations Apache
-          sudo cp /tmp/novlearn.fr.conf /etc/apache2/sites-available/novlearn.fr.conf
-          sudo cp /tmp/novlearn.fr-le-ssl.conf /etc/apache2/sites-available/novlearn.fr-le-ssl.conf
-          
-          # Activer les sites
-          sudo a2ensite novlearn.fr.conf
-          sudo a2ensite novlearn.fr-le-ssl.conf
-          
-          # Activer les modules Apache nécessaires
-          sudo a2enmod proxy
-          sudo a2enmod proxy_http
-          sudo a2enmod rewrite
-          sudo a2enmod ssl
-          
-          # Tester la configuration Apache
-          sudo apache2ctl configtest
-          
-          # Recharger Apache
-          sudo systemctl reload apache2
-          
           # Installer le service systemd (première fois seulement)
           if [ ! -f /etc/systemd/system/novlearn-backend.service ]; then
             # Remplacer YOUR_USERNAME par le vrai nom d'utilisateur
@@ -140,7 +107,20 @@ jobs:
             sudo mv /tmp/novlearn-backend.service.tmp /etc/systemd/system/novlearn-backend.service
             sudo systemctl daemon-reload
             sudo systemctl enable novlearn-backend
+          else
+            # Si le service existe mais est masqué, le démasquer
+            if sudo systemctl is-enabled novlearn-backend 2>&1 | grep -q "masked"; then
+              echo "🔓 Démasquage du service novlearn-backend..."
+              sudo systemctl unmask novlearn-backend
+              sudo systemctl enable novlearn-backend
+            fi
           fi
+          
+          # Exécuter le script de déploiement
+          ./deploy.sh
+          
+          # Recharger Apache (les configurations sont déjà sur le VPS)
+          sudo systemctl reload apache2
     
     - name: Verify deployment
       uses: appleboy/ssh-action@master
