@@ -103,12 +103,50 @@ jobs:
           sudo mkdir -p /opt/novlearn
           sudo chown -R $USER:$USER /opt/novlearn
           
-          # Installer Node.js si nécessaire
-          if ! command -v node &> /dev/null; then
-            echo "📦 Installation de Node.js..."
+          # Installer Node.js et npm si nécessaire
+          if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+            echo "📦 Installation de Node.js et npm..."
             curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
             sudo apt-get install -y nodejs
+            # S'assurer que npm est installé (NodeSource inclut généralement npm, mais vérifions)
+            if ! command -v npm &> /dev/null; then
+              echo "⚠️  npm n'est pas disponible, installation via apt..."
+              sudo apt-get install -y npm
+            fi
           fi
+          
+          # Trouver les emplacements de node et npm
+          NODE_PATH=$(which node 2>/dev/null || echo "/usr/bin/node")
+          NPM_PATH=$(which npm 2>/dev/null || echo "/usr/bin/npm")
+          
+          # Vérifier et mettre à jour le PATH pour Node.js/npm
+          export PATH="/usr/bin:/usr/local/bin:$PATH"
+          
+          # Si node ou npm sont dans un autre répertoire, l'ajouter au PATH
+          if [ -f "$NODE_PATH" ]; then
+            NODE_DIR=$(dirname "$NODE_PATH")
+            export PATH="$NODE_DIR:$PATH"
+          fi
+          if [ -f "$NPM_PATH" ]; then
+            NPM_DIR=$(dirname "$NPM_PATH")
+            export PATH="$NPM_DIR:$PATH"
+          fi
+          
+          # Vérifier que node et npm sont accessibles
+          echo "🔍 Vérification de Node.js et npm..."
+          if ! node --version; then
+            echo "❌ Erreur: node non accessible"
+            echo "Recherche de node dans le système..."
+            find /usr -name node 2>/dev/null | head -5
+            exit 1
+          fi
+          if ! npm --version; then
+            echo "❌ Erreur: npm non accessible"
+            echo "Recherche de npm dans le système..."
+            find /usr -name npm 2>/dev/null | head -5
+            exit 1
+          fi
+          echo "✅ Node.js $(node --version) et npm $(npm --version) sont disponibles"
           
           # Installer les services systemd
           echo "🔧 Configuration des services systemd..."
@@ -152,7 +190,9 @@ jobs:
           # Rendre le script de déploiement exécutable
           chmod +x deploy.sh
           
-          # Exécuter le script de déploiement
+          # Exécuter le script de déploiement avec le PATH correct
+          # S'assurer que node et npm sont dans le PATH pour le script
+          export PATH="/usr/bin:/usr/local/bin:$PATH"
           ./deploy.sh
     
     - name: Verify deployment
