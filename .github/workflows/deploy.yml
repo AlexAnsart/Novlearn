@@ -147,11 +147,16 @@ jobs:
             sudo mv /tmp/novlearn-frontend.service.tmp /etc/systemd/system/novlearn-frontend.service
             sudo systemctl daemon-reload
             sudo systemctl enable novlearn-frontend
+            sudo systemctl start novlearn-frontend
           else
             if sudo systemctl is-enabled novlearn-frontend 2>&1 | grep -q "masked"; then
               echo "🔓 Démasquage du service novlearn-frontend..."
               sudo systemctl unmask novlearn-frontend
               sudo systemctl enable novlearn-frontend
+            fi
+            # Démarrer le service s'il n'est pas actif
+            if ! sudo systemctl is-active --quiet novlearn-frontend; then
+              sudo systemctl start novlearn-frontend
             fi
           fi
           

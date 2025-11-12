@@ -70,16 +70,26 @@ npm ci --production=false
 echo "🔨 Build de l'application Next.js..."
 NODE_ENV=production npm run build
 
-# Redémarrer le service systemd frontend
-echo "🔄 Redémarrage du service frontend..."
+# Démarrer/redémarrer le service systemd frontend
+echo "🔄 Démarrage/redémarrage du service frontend..."
 if systemctl list-unit-files | grep -q "^${FRONTEND_SERVICE}.service"; then
-    sudo systemctl restart $FRONTEND_SERVICE
+    # Si le service est actif, le redémarrer, sinon le démarrer
+    if sudo systemctl is-active --quiet $FRONTEND_SERVICE; then
+        sudo systemctl restart $FRONTEND_SERVICE
+    else
+        sudo systemctl start $FRONTEND_SERVICE
+    fi
+    
+    # Attendre un peu pour le démarrage
+    sleep 2
     
     # Vérifier le statut du service
     if sudo systemctl is-active --quiet $FRONTEND_SERVICE; then
         echo "✅ Service $FRONTEND_SERVICE démarré avec succès"
     else
         echo "❌ Erreur: le service $FRONTEND_SERVICE n'a pas démarré"
+        echo "Logs du service:"
+        sudo journalctl -u $FRONTEND_SERVICE -n 50 --no-pager
         sudo systemctl status $FRONTEND_SERVICE
         exit 1
     fi
