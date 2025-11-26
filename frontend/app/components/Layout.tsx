@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Logo } from './Logo';
 import { SidebarIcon } from './SidebarIcon';
 import { User, Home } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { user, profile, loading } = useAuth();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -80,24 +82,45 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                 </div>
 
                 {/* User Profile */}
-                <button
-                  onClick={() => router.push('/compte')}
-                  className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer"
-                >
-                  <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
-                    <User className="w-7 h-7 text-white" />
-                  </div>
-                  <span
-                    className="text-white"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 600,
-                      fontSize: "1.125rem",
-                    }}
+                {user && profile ? (
+                  <button
+                    onClick={() => router.push('/compte')}
+                    className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer"
                   >
-                    GOTAGA
-                  </span>
-                </button>
+                    <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
+                      <User className="w-7 h-7 text-white" />
+                    </div>
+                    <span
+                      className="text-white"
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                        fontSize: "1.125rem",
+                      }}
+                    >
+                      {profile.first_name.toUpperCase() || 'UTILISATEUR'}
+                    </span>
+                  </button>
+                ) : !loading ? (
+                  <button
+                    onClick={() => router.push('/auth/login')}
+                    className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer"
+                  >
+                    <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
+                      <User className="w-7 h-7 text-white" />
+                    </div>
+                    <span
+                      className="text-white"
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                        fontSize: "1.125rem",
+                      }}
+                    >
+                      Se connecter
+                    </span>
+                  </button>
+                ) : null}
               </div>
             )}
 

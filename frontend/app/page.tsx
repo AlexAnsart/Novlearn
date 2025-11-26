@@ -1,12 +1,21 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Layout } from './components/Layout';
 import { ActionButton } from './components/ActionButton';
 import { MathExercise } from './components/MathExercise';
+import { useAuth } from './contexts/AuthContext';
 
 export default function Home() {
   const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth/login');
+    }
+  }, [user, loading, router]);
 
   const handleStartTraining = () => {
     router.push('/entrainement');

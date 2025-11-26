@@ -28,6 +28,8 @@ jobs:
       run: npm run build
       env:
         NODE_ENV: production
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     
     - name: Create .env file for backend
       run: |
@@ -189,6 +191,10 @@ jobs:
           
           # Rendre le script de déploiement exécutable
           chmod +x deploy.sh
+          
+          # Créer le fichier .env pour le frontend avec les variables Supabase
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > /opt/novlearn/frontend/.env.local
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> /opt/novlearn/frontend/.env.local
           
           # Exécuter le script de déploiement avec le PATH correct
           # S'assurer que node et npm sont dans le PATH pour le script

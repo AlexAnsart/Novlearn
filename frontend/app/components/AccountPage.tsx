@@ -1,8 +1,90 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { User, Mail, Calendar, Award } from "lucide-react";
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+
+interface UserStats {
+  exercises_completed: number;
+  level: string;
+}
 
 export function AccountPage() {
+  const { user, profile, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth/login');
+      return;
+    }
+
+    if (user) {
+      fetchUserStats();
+    }
+  }, [user, authLoading, router]);
+
+  const fetchUserStats = async () => {
+    if (!user) return;
+
+    try {
+      // Récupérer le nombre total d'exercices réalisés
+      const { data: attempts, error: attemptsError } = await supabase
+        .from('exercise_attempts')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Récupérer la progression pour déterminer le niveau
+      const { data: progress, error: progressError } = await supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (attemptsError || progressError) {
+        console.error('Error fetching stats:', attemptsError || progressError);
+        setStats({ exercises_completed: 0, level: 'Terminale' });
+      } else {
+        const exercisesCompleted = attempts?.length || 0;
+        // Pour l'instant, on garde "Terminale" comme niveau par défaut
+        // Plus tard, on pourra calculer le niveau basé sur la progression
+        setStats({
+          exercises_completed: exercisesCompleted,
+          level: 'Terminale',
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      setStats({ exercises_completed: 0, level: 'Terminale' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return null;
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const months = [
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
   return (
     <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
       <div className="max-w-4xl w-full space-y-6">
@@ -27,7 +109,7 @@ export function AccountPage() {
               className="text-white text-3xl"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
             >
-              GOTAGA
+              {profile.first_name.toUpperCase() || 'UTILISATEUR'}
             </h3>
           </div>
 
@@ -47,7 +129,7 @@ export function AccountPage() {
                 className="text-white ml-8"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
               >
-                gotaga@novlearn.fr
+                {profile.email || user.email}
               </p>
             </div>
 
@@ -65,7 +147,7 @@ export function AccountPage() {
                 className="text-white ml-8"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
               >
-                Septembre 2024
+                {formatDate(profile.created_at)}
               </p>
             </div>
 
@@ -83,7 +165,7 @@ export function AccountPage() {
                 className="text-white ml-8"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}
               >
-                42
+                {stats?.exercises_completed || 0}
               </p>
             </div>
 
@@ -101,7 +183,7 @@ export function AccountPage() {
                 className="text-white ml-8"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}
               >
-                Terminale
+                {stats?.level || 'Terminale'}
               </p>
             </div>
           </div>
