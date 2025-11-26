@@ -82,7 +82,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                 </div>
 
                 {/* User Profile */}
-                {user && profile ? (
+                {user ? (
                   <button
                     onClick={() => router.push('/compte')}
                     className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer"
@@ -98,7 +98,9 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                         fontSize: "1.125rem",
                       }}
                     >
-                      {profile.first_name.toUpperCase() || 'UTILISATEUR'}
+                      {profile?.first_name && profile?.last_name
+                        ? `${profile.first_name.toUpperCase()} ${profile.last_name.toUpperCase()}`
+                        : profile?.first_name?.toUpperCase() || user.email?.split('@')[0].toUpperCase() || 'UTILISATEUR'}
                     </span>
                   </button>
                 ) : !loading ? (

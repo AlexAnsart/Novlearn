@@ -10,6 +10,7 @@ export function SignupForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
@@ -53,7 +54,7 @@ export function SignupForm() {
 
     setLoading(true);
 
-    const { error } = await signUp(email, password, firstName, birthDate);
+    const { error } = await signUp(email, password, firstName, lastName, birthDate);
 
     if (error) {
       setError(error.message || 'Erreur lors de l\'inscription');
@@ -102,6 +103,28 @@ export function SignupForm() {
                   required
                   className="w-full pl-12 pr-4 py-3 bg-slate-900/40 backdrop-blur-sm rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Votre prénom"
+                  style={{ fontFamily: "'Fredoka', sans-serif" }}
+                />
+              </div>
+            </div>
+
+            {/* Nom */}
+            <div>
+              <label
+                className="block text-blue-200 mb-2"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+              >
+                Nom
+              </label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-400" />
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  className="w-full pl-12 pr-4 py-3 bg-slate-900/40 backdrop-blur-sm rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Votre nom"
                   style={{ fontFamily: "'Fredoka', sans-serif" }}
                 />
               </div>

@@ -109,7 +109,9 @@ export function AccountPage() {
               className="text-white text-3xl"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
             >
-              {profile.first_name.toUpperCase() || 'UTILISATEUR'}
+              {profile.first_name && profile.last_name
+                ? `${profile.first_name.toUpperCase()} ${profile.last_name.toUpperCase()}`
+                : profile.first_name.toUpperCase() || 'UTILISATEUR'}
             </h3>
           </div>
 

@@ -8,6 +8,7 @@ interface Profile {
   id: string;
   email: string;
   first_name: string;
+  last_name: string | null;
   birth_date: string;
   created_at: string;
   consent_date: string;
@@ -19,7 +20,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, firstName: string, birthDate: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, birthDate: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -71,6 +72,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Si c'est une connexion Google OAuth, récupérer le prénom/nom depuis les metadata
+        if (event === 'SIGNED_IN' && session.user.app_metadata?.provider === 'google') {
+          const fullName = session.user.user_metadata?.full_name || '';
+          const firstName = session.user.user_metadata?.given_name || session.user.user_metadata?.name?.split(' ')[0] || '';
+          const lastName = session.user.user_metadata?.family_name || session.user.user_metadata?.name?.split(' ').slice(1).join(' ') || '';
+          
+          // Mettre à jour le profil avec les données Google si disponibles
+          if (firstName || lastName) {
+            await supabase
+              .from('profiles')
+              .update({
+                first_name: firstName || fullName.split(' ')[0] || '',
+                last_name: lastName || fullName.split(' ').slice(1).join(' ') || null,
+              })
+              .eq('id', session.user.id);
+          }
+        }
+        
         await fetchProfile(session.user.id);
       } else {
         setProfile(null);
@@ -90,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, firstName: string, birthDate: string) => {
+  const signUp = async (email: string, password: string, firstName: string, lastName: string, birthDate: string) => {
     // Vérifier l'âge
     const birth = new Date(birthDate);
     const today = new Date();
@@ -110,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         data: {
           first_name: firstName,
+          last_name: lastName,
           birth_date: birthDate,
         },
       },
@@ -121,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .update({
           first_name: firstName,
+          last_name: lastName || null,
           birth_date: birthDate,
           consent_date: new Date().toISOString(),
         })
