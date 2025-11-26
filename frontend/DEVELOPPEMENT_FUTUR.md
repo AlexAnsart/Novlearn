@@ -1,75 +1,71 @@
-# Guide de développement futur - Page d'accueil
+# Guide de développement futur
 
-Ce document liste les éléments à modifier pour implémenter les comportements interactifs de la page d'accueil.
+Ce document liste les éléments restants à implémenter après l'intégration de la maquette.
 
-## Boutons et interactions
+## ✅ Implémenté
 
-### 1. Bouton "S'entraîner" (MathExercise)
-- **Fichier**: `app/components/MathExercise.tsx`
-- **Action à implémenter**: Navigation vers la page d'exercice ou ouverture d'un modal
-- **Modification**: Ajouter `onClick` prop et handler dans le composant parent
+- ✅ Système de routing Next.js App Router avec toutes les pages
+- ✅ Navigation complète avec sidebar (desktop) et bottom bar (mobile)
+- ✅ Page d'accueil avec exercice et boutons d'action
+- ✅ Page d'entraînement avec exercices interactifs (TableVariationExercise, ExponentialExercise)
+- ✅ Page de progression avec graphiques radar et linéaires (recharts)
+- ✅ Page de compte avec informations utilisateur
+- ✅ Page de cours avec liste des chapitres
+- ✅ Composants de validation et feedback
+- ✅ Layout partagé avec navigation responsive
 
-### 2. Bouton "1VS1" (ActionButton - primary)
+## À implémenter
+
+### 1. Bouton "1VS1" (ActionButton - primary)
 - **Fichier**: `app/page.tsx`
 - **Action à implémenter**: Créer/rejoindre un duel
-- **Modification**: Passer une fonction `onClick` au composant ActionButton
+- **Modification**: Implémenter la logique de création/rejoindre un duel
+- **Connecteur API**: `POST /duels/create` - Créer un duel
 
-### 3. Bouton "Réviser le cours" (ActionButton - secondary)
-- **Fichier**: `app/page.tsx`
-- **Action à implémenter**: Navigation vers la page de révision ou ouverture du cours
-- **Modification**: Passer une fonction `onClick` au composant ActionButton
-
-### 4. Icônes de navigation (SidebarIcon)
-- **Fichier**: `app/page.tsx`
-- **Actions à implémenter**:
-  - 📚 (actif): Page d'accueil / Exercices
-  - 📊: Page de progression / Statistiques
-  - 🏋️: Page d'entraînement / Recommandations
-  - ⚙️: Page de paramètres / Profil
-- **Modification**: Passer des fonctions `onClick` à chaque SidebarIcon et gérer l'état `active`
-
-## Navigation et routing
-
-### 5. Système de routing
-- **Fichier**: À créer - structure Next.js App Router
-- **Pages à créer**:
-  - `/exercices` - Liste des exercices
-  - `/progression` - Statistiques et progression
-  - `/entrainement` - Recommandations d'entraînement
-  - `/parametres` - Paramètres utilisateur
-  - `/duel` - Interface de duel
-  - `/cours` - Révision du cours
-
-### 6. Gestion de l'état utilisateur
+### 2. Gestion de l'état utilisateur
 - **Fichier**: À créer - Context ou store (Zustand/Redux)
 - **Données à gérer**:
-  - Utilisateur connecté
-  - État de navigation actif
-  - Données de progression
+  - Utilisateur connecté (actuellement hardcodé "GOTAGA")
+  - Données de progression réelles
+  - État de session
 
-## Composants à enrichir
-
-### 7. Composant MathExercise
+### 3. Composant MathExercise - Données dynamiques
 - **Fichier**: `app/components/MathExercise.tsx`
 - **Améliorations**:
   - Récupérer l'exercice depuis l'API
   - Afficher dynamiquement le contenu
   - Gérer le chargement et les erreurs
+- **Connecteur API**: `GET /exercises?chapter_id=X&type=flash` - Liste exercices
 
-### 8. Composant Logo
+### 4. Composant Logo
 - **Fichier**: `app/components/Logo.tsx`
 - **Amélioration**: Ajouter `onClick` pour navigation vers l'accueil
 
-### 9. Profil utilisateur (Header desktop)
-- **Fichier**: `app/page.tsx`
+### 5. Profil utilisateur (Header desktop)
+- **Fichier**: `app/components/Layout.tsx`
 - **Améliorations**:
   - Récupérer les données utilisateur depuis l'API
   - Ajouter menu déroulant au clic
   - Navigation vers profil
+- **Connecteur API**: `GET /users/me` - Profil utilisateur
+
+### 6. Page de progression - Données réelles
+- **Fichier**: `app/components/ProgressPage.tsx`
+- **Améliorations**:
+  - Récupérer les données de progression depuis l'API
+  - Afficher les données réelles de l'utilisateur
+- **Connecteur API**: `GET /progress` - Progression utilisateur
+
+### 7. Page de compte - Données réelles
+- **Fichier**: `app/components/AccountPage.tsx`
+- **Améliorations**:
+  - Récupérer les données utilisateur depuis l'API
+  - Afficher les statistiques réelles
+- **Connecteur API**: `GET /users/me` - Profil utilisateur
 
 ## API et données
 
-### 10. Intégration API backend
+### 8. Intégration API backend
 - **Fichier**: À créer - `app/lib/api.ts` ou similaire
 - **Endpoints à utiliser**:
   - `GET /users/me` - Profil utilisateur
@@ -77,28 +73,45 @@ Ce document liste les éléments à modifier pour implémenter les comportements
   - `POST /duels/create` - Créer un duel
   - `GET /progress` - Progression utilisateur
 
-### 11. Gestion des erreurs
+### 9. Gestion des erreurs
 - **Fichier**: À créer - Error boundaries et handlers
 - **À implémenter**: Gestion des erreurs API, affichage de messages d'erreur
 
 ## Responsive et UX
 
-### 12. Amélioration mobile
-- **Fichier**: `app/page.tsx`
+### 10. Amélioration mobile
+- **Fichier**: Tous les composants
 - **Améliorations**:
-  - Gestion du clavier virtuel
-  - Optimisation des espacements sur petits écrans
+  - Gestion du clavier virtuel (déjà géré partiellement)
+  - Optimisation des espacements sur petits écrans (déjà fait)
   - Gestures (swipe) pour navigation
 
-### 13. États de chargement
+### 11. États de chargement
 - **Fichier**: À créer - Composants de loading
 - **À implémenter**: Skeletons, spinners pour les données en chargement
 
 ## Notes techniques
 
-- Tous les boutons sont actuellement cliquables mais sans comportement
-- Les composants utilisent `'use client'` pour les interactions
-- La police Fredoka est chargée via Google Fonts
-- Les couleurs suivent la charte graphique définie
-- Les effets hover sont déjà implémentés
+- ✅ Navigation complète implémentée avec Next.js App Router
+- ✅ Tous les composants utilisent `'use client'` pour les interactions
+- ✅ La police Fredoka est chargée via Google Fonts dans `app/layout.tsx`
+- ✅ Les couleurs suivent la charte graphique définie
+- ✅ Les effets hover sont déjà implémentés
+- ✅ Layout responsive avec sidebar (desktop) et bottom bar (mobile)
+- ✅ Composants d'exercices interactifs avec validation
+- ✅ Graphiques de progression avec recharts
+
+## Connecteurs API à utiliser
+
+1. **GET /users/me** - Récupérer le profil utilisateur
+   - Utilisé dans: Layout (header), AccountPage
+   
+2. **GET /exercises?chapter_id=X&type=flash** - Liste des exercices
+   - Utilisé dans: MathExercise, TrainingPage
+   
+3. **POST /duels/create** - Créer un duel
+   - Utilisé dans: Page d'accueil (bouton 1VS1)
+   
+4. **GET /progress** - Progression utilisateur
+   - Utilisé dans: ProgressPage
 

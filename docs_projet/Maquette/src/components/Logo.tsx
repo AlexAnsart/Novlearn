@@ -1,31 +1,17 @@
-'use client';
-
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import logoImage from "figma:asset/e87ed438d673a206ab378f4bc50ae391b5d1f031.png";
 
 interface LogoProps {
   small?: boolean;
 }
 
-/**
- * Composant Logo - Affiche le logo NovLearn
- * Utilise la police Fredoka selon la charte graphique
- */
 export function Logo({ small = false }: LogoProps) {
-  const router = useRouter();
-
   return (
-    <div 
-      className="flex items-center gap-3 cursor-pointer"
-      onClick={() => router.push('/')}
-    >
+    <div className="flex items-center gap-3">
       {/* Logo NovLearn avec fond transparent */}
       <div className={small ? "w-12 h-12" : "w-16 h-16"}>
-        <Image 
-          src="/logo.png" 
+        <img 
+          src={logoImage} 
           alt="NovLearn Logo" 
-          width={64}
-          height={64}
           className="w-full h-full object-contain"
           style={{
             filter: "drop-shadow(0 4px 12px rgba(59, 130, 246, 0.3))",
@@ -51,4 +37,3 @@ export function Logo({ small = false }: LogoProps) {
     </div>
   );
 }
-

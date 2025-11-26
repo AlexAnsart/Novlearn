@@ -26,12 +26,12 @@ Le frontend sera accessible sur [http://localhost:3000](http://localhost:3000)
 
 ```bash
 cd backend
-python -m venv venv
 
 # Sur Windows
-venv\Scripts\activate
+.\venv\Scripts\Activate.ps1
 
 # Sur Linux/Mac
+python -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt

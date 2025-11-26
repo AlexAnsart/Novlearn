@@ -1,5 +1,7 @@
+import { ReactNode } from "react";
+
 interface SidebarIconProps {
-  emoji: string;
+  emoji: string | ReactNode;
   active?: boolean;
   onClick?: () => void;
 }
@@ -18,7 +20,11 @@ export function SidebarIcon({ emoji, active = false, onClick }: SidebarIconProps
         }
       `}
     >
-      <span className="text-2xl">{emoji}</span>
+      {typeof emoji === 'string' ? (
+        <span className="text-2xl">{emoji}</span>
+      ) : (
+        <div className="text-white">{emoji}</div>
+      )}
     </button>
   );
 }

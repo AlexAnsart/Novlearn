@@ -5,7 +5,7 @@ export function MathExercise() {
         {/* Titre de l'exercice */}
         <div className="border-b-2 border-gray-200 pb-3">
           <h3 className="text-gray-700" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600, fontSize: '1.25rem' }}>
-            Exercice - Fonction exponentielle
+            Exercice - Tableau de variations
           </h3>
           <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
             Terminale - Analyse
@@ -15,20 +15,20 @@ export function MathExercise() {
         {/* Énoncé */}
         <div className="space-y-3 text-gray-700">
           <p style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
-            Soit la fonction <span className="italic">f</span> définie sur ℝ par :
+            Soit <span className="italic">f</span> une fonction définie sur ℝ par :
           </p>
           
           {/* Formule mathématique */}
           <div className="bg-blue-50 rounded-2xl p-4 my-3 flex items-center justify-center">
             <span className="text-2xl" style={{ fontFamily: "serif" }}>
-              <i>f</i>(<i>x</i>) = <i>x</i>² · e<sup>-<i>x</i></sup>
+              <i>f</i>(<i>x</i>) = <i>x</i>³ - 3<i>x</i>² + 2
             </span>
           </div>
           
           {/* Questions */}
           <div className="space-y-2">
             <p style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
-              1. Déterminer la limite de <i>f</i> en +∞
+              Dresser le tableau de variations de <i>f</i>
             </p>
           </div>
         </div>

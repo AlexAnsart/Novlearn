@@ -1,11 +1,13 @@
 'use client';
 
+import { ReactNode } from "react";
+
 /**
  * Composant SidebarIcon - Icône de navigation dans la sidebar
  * Supporte les états actif/inactif avec effets hover
  */
 interface SidebarIconProps {
-  emoji: string;
+  emoji: string | ReactNode;
   active?: boolean;
   onClick?: () => void;
 }
@@ -25,7 +27,11 @@ export function SidebarIcon({ emoji, active = false, onClick }: SidebarIconProps
         }
       `}
     >
-      <span className="text-2xl">{emoji}</span>
+      {typeof emoji === 'string' ? (
+        <span className="text-2xl">{emoji}</span>
+      ) : (
+        <div className="text-white">{emoji}</div>
+      )}
     </button>
   );
 }
