@@ -8,13 +8,11 @@ import {
   VariationTableContent,
   GraphContent,
   SignTableContent,
-  DiscreteGraphContent,
   EquationContent,
   QuestionContent,
   MCQContent,
-  SequenceContent,
 } from '../../types/exercise';
-import { useVariables } from '../../hooks/useVariables';
+import { useVariables } from '../../hooks/useVariable';
 import {
   TextRenderer,
   FunctionRenderer,

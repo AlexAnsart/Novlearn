@@ -7,7 +7,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { VariableValues } from '../../types/exercise';
-import { substituteVariables, toLatex, parseMathText } from '../../utils/mathParser';
+import { substituteVariables, toLatex, parseMathText } from '../../utils/MathParser';
 
 // Interface pour KaTeX
 interface KaTeXStatic {
