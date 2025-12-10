@@ -13,10 +13,8 @@ import {
   VariationTableContent,
   SignTableContent,
   GraphContent,
-  DiscreteGraphContent,
   QuestionContent,
   MCQContent,
-  SequenceContent,
 } from '../types/exercise';
 import { generateVariables } from '../utils/variableGenerator';
 import {
