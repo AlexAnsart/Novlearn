@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Mail, Calendar, Award } from "lucide-react";
 import { useAuth } from '../contexts/AuthContext';
@@ -17,20 +17,10 @@ export function AccountPage() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/login');
-      return;
-    }
-
-    if (user) {
-      fetchUserStats();
-    }
-  }, [user, authLoading, router]);
-
-  const fetchUserStats = async () => {
+  const fetchUserStats = useCallback(async () => {
     if (!user) return;
 
+    setLoading(true);
     try {
       // Récupérer le nombre total d'exercices réalisés
       const { data: attempts, error: attemptsError } = await supabase
@@ -62,7 +52,18 @@ export function AccountPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth/login');
+      return;
+    }
+
+    if (user && profile) {
+      fetchUserStats();
+    }
+  }, [user, profile, authLoading, router, fetchUserStats]);
 
   if (authLoading || loading) {
     return (
