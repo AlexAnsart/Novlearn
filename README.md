@@ -46,6 +46,8 @@ Le backend sera accessible sur [http://localhost:8000](http://localhost:8000)
 - Backend API : [http://localhost:8000](http://localhost:8000)
 - Health check : [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
+> **Note** : Le système d'authentification ne fonctionne pas en environnement local mais fonctionne correctement en production.
+
 ## 📁 Structure du projet
 
 ```

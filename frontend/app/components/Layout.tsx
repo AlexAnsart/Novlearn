@@ -31,6 +31,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
 
   const isHome = pathname === '/';
   const isProgress = pathname === '/progression';
+  const isClasses = pathname === '/classes';
   const isTraining = pathname === '/entrainement';
   const isSettings = pathname === '/parametres';
   const isAccount = pathname === '/compte';
@@ -46,6 +47,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         emoji="📊"
         active={isProgress}
         onClick={() => router.push('/progression')}
+      />
+      <SidebarIcon
+        emoji="📚"
+        active={isClasses}
+        onClick={() => router.push('/classes')}
       />
       <SidebarIcon
         emoji="🏋️"
@@ -67,7 +73,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
       {!isMobile && (
         <div className="flex flex-1">
           {/* Sidebar */}
-          <div className="w-24 bg-slate-900/60 backdrop-blur-sm p-4 flex flex-col items-center gap-6 pt-64">
+          <div className="w-24 bg-slate-900/60 backdrop-blur-sm p-4 flex flex-col items-center gap-6 pt-8">
             {sidebarContent}
           </div>
 
@@ -85,11 +91,12 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                 {user ? (
                   <button
                     onClick={() => router.push('/compte')}
-                    className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer"
+                    className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer relative"
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
                       <User className="w-7 h-7 text-white" />
                     </div>
+                    {/* Badge de notification pour demandes d'amis - à implémenter avec les données réelles */}
                     <span
                       className="text-white"
                       style={{

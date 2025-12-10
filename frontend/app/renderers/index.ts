@@ -7,8 +7,4 @@ export { default as VariationTableRenderer } from './VariationTableRenderer';
 export { default as SignTableRenderer } from './SignTableRenderer';
 export { default as GraphRenderer } from './GraphRenderer';
 export { default as QuestionRenderer } from './QuestionRenderer';
-<<<<<<< Updated upstream
 export { default as MCQRenderer } from './MCQRenderer';
-=======
-export { default as MCQRenderer } from './MCQRenderer';
->>>>>>> Stashed changes

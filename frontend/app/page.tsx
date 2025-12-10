@@ -35,7 +35,7 @@ export default function Home() {
 
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-8 flex-wrap">
-            <ActionButton variant="primary" icon="⚔️">
+            <ActionButton variant="primary" icon="⚔️" onClick={() => router.push('/duel')}>
               1VS1
             </ActionButton>
 
