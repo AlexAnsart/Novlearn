@@ -46,7 +46,7 @@ Le backend sera accessible sur [http://localhost:8000](http://localhost:8000)
 - Backend API : [http://localhost:8000](http://localhost:8000)
 - Health check : [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
-> **Note** : Le système d'authentification ne fonctionne pas en environnement local mais fonctionne correctement en production.
+> **Note** : Pour que l'authentification fonctionne en local, voir [GUIDE_LOCAL_SETUP.md](GUIDE_LOCAL_SETUP.md)
 
 ## 📁 Structure du projet
 
@@ -97,6 +97,26 @@ uvicorn main:app --reload         # Alternative avec uvicorn
 ## 🔧 Configuration
 
 ### Variables d'environnement
+
+#### Frontend (Supabase)
+
+Créez un fichier `.env.local` dans le dossier `frontend/` :
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://votre-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=votre-anon-key-ici
+```
+
+**Où trouver ces valeurs ?**
+- Aller sur https://supabase.com/dashboard
+- Sélectionner votre projet > **Settings** > **API**
+- Copier le **Project URL** et la clé **anon public**
+
+**Important** : Après avoir créé/modifié `.env.local`, redémarrer le serveur (`npm run dev`)
+
+Voir [GUIDE_LOCAL_SETUP.md](GUIDE_LOCAL_SETUP.md) pour la configuration complète de l'authentification en local.
+
+#### Backend
 
 Créez un fichier `.env` dans le dossier `backend/` :
 

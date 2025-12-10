@@ -10,7 +10,8 @@ Environment="NODE_ENV=production"
 Environment="PORT=3000"
 Environment="PATH=/usr/bin:/bin:/usr/local/bin"
 # Utiliser node directement avec le script start de Next.js
-ExecStart=/usr/bin/node node_modules/.bin/next start
+# Utiliser 'node' depuis le PATH pour utiliser la version installée (>= 20)
+ExecStart=/usr/bin/env node node_modules/.bin/next start
 Restart=always
 RestartSec=10
 

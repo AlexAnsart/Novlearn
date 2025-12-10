@@ -59,6 +59,37 @@ fi
 # ===== FRONTEND =====
 echo "📦 Déploiement du frontend..."
 
+# Vérifier et installer Node.js 20+ si nécessaire
+echo "🔍 Vérification de la version de Node.js..."
+NODE_VERSION=$(node --version 2>/dev/null | cut -d'v' -f2 | cut -d'.' -f1 || echo "0")
+if [ "$NODE_VERSION" -lt 20 ]; then
+    echo "⚠️  Node.js version $NODE_VERSION détectée. Installation de Node.js 20+..."
+    
+    # Détecter la distribution Linux
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+    else
+        OS="unknown"
+    fi
+    
+    # Installer Node.js 20+ selon la distribution
+    if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    elif [ "$OS" = "centos" ] || [ "$OS" = "rhel" ] || [ "$OS" = "fedora" ]; then
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+        sudo yum install -y nodejs
+    else
+        echo "❌ Distribution non supportée: $OS. Veuillez installer Node.js 20+ manuellement."
+        exit 1
+    fi
+    
+    echo "✅ Node.js $(node --version) installé avec succès"
+else
+    echo "✅ Node.js $(node --version) est déjà installé (version >= 20)"
+fi
+
 # Aller dans le répertoire frontend
 cd "$FRONTEND_DIR"
 
