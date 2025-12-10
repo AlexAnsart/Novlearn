@@ -18,7 +18,7 @@ export default function Home() {
   }, [user, loading, router]);
 
   const handleStartTraining = () => {
-    router.push('/entrainement');
+    router.push('/currentexercise');
   };
 
   return (
