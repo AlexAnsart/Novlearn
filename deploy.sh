@@ -93,6 +93,11 @@ fi
 # Aller dans le répertoire frontend
 cd "$FRONTEND_DIR"
 
+# Nettoyer le cache Next.js pour éviter les problèmes de build corrompu
+echo "🧹 Nettoyage du cache Next.js..."
+rm -rf .next
+rm -rf node_modules/.cache
+
 # Installer les dépendances npm
 echo "📦 Installation des dépendances Node.js..."
 npm ci --production=false
