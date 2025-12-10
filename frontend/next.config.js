@@ -1,6 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Désactiver le cache pour éviter les problèmes de build corrompu
+  experimental: {
+    staleTimes: {
+      dynamic: 0,
+      static: 0,
+    },
+  },
   // Configuration pour le développement local et la production
   async rewrites() {
     // En développement, proxy vers localhost
