@@ -76,7 +76,7 @@ export function SignupForm() {
         <div className="text-center">
           <h2
             className="text-4xl md:text-5xl tracking-tight text-white drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
-            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, marginTop: '25px' }}
           >
             Inscription
           </h2>

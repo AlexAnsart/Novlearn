@@ -1,34 +1,38 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
+import { useVariables } from "../../hooks/useVariable";
 import {
+  EquationRenderer,
+  FunctionRenderer,
+  GraphRenderer,
+  MCQRenderer,
+  QuestionRenderer,
+  SignTableRenderer,
+  TextRenderer,
+  VariationTableRenderer,
+} from "../../renderers";
+import {
+  EquationContent,
   Exercise,
   ExerciseElement,
-  VariableValues,
-  TextContent,
   FunctionContent,
-  VariationTableContent,
   GraphContent,
-  SignTableContent,
-  EquationContent,
-  QuestionContent,
   MCQContent,
-} from '../../types/exercise';
-import { useVariables } from '../../hooks/useVariable';
-import {
-  TextRenderer,
-  FunctionRenderer,
-  EquationRenderer,
-  VariationTableRenderer,
-  SignTableRenderer,
-  GraphRenderer,
-  QuestionRenderer,
-  MCQRenderer,
-} from '../../renderers';
+  QuestionContent,
+  SignTableContent,
+  TextContent,
+  VariableValues,
+  VariationTableContent,
+} from "../../types/exercise";
 
 interface ExerciseRendererProps {
   /** L'exercice à afficher */
   exercise: Exercise;
   /** Callback quand un élément interactif est soumis */
-  onElementSubmit?: (elementId: number, answer: unknown, isCorrect: boolean) => void;
+  onElementSubmit?: (
+    elementId: number,
+    answer: unknown,
+    isCorrect: boolean
+  ) => void;
   /** Variables pré-générées (optionnel) */
   preGeneratedVariables?: VariableValues;
 }
@@ -48,7 +52,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
   onSubmit,
 }) => {
   switch (element.type) {
-    case 'text':
+    case "text":
       return (
         <TextRenderer
           content={element.content as TextContent}
@@ -56,7 +60,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case 'function':
+    case "function":
       return (
         <FunctionRenderer
           content={element.content as FunctionContent}
@@ -64,7 +68,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case 'equation':
+    case "equation":
       return (
         <EquationRenderer
           content={element.content as EquationContent}
@@ -72,7 +76,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case 'variation_table':
+    case "variation_table":
       return (
         <VariationTableRenderer
           content={element.content as VariationTableContent}
@@ -80,7 +84,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case 'sign_table':
+    case "sign_table":
       return (
         <SignTableRenderer
           content={element.content as SignTableContent}
@@ -88,7 +92,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case 'graph':
+    case "graph":
       return (
         <GraphRenderer
           content={element.content as GraphContent}
@@ -96,7 +100,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case 'question':
+    case "question":
       return (
         <QuestionRenderer
           content={element.content as QuestionContent}
@@ -105,7 +109,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case 'mcq':
+    case "mcq":
       return (
         <MCQRenderer
           content={element.content as MCQContent}
@@ -116,7 +120,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
 
     default:
       return (
-        <div 
+        <div
           className="p-5 bg-white/95 rounded-2xl shadow-md border border-gray-100 text-gray-500"
           style={{ fontFamily: "'Fredoka', sans-serif" }}
         >
@@ -141,19 +145,29 @@ export const ExerciseRenderer: React.FC<ExerciseRendererProps> = ({
     [preGeneratedVariables, generatedValues]
   );
 
+  console.log("[ExerciseRenderer] Rendering exercise:", {
+    title: exercise.title,
+    elementsCount: exercise.elements.length,
+    variables,
+    elements: exercise.elements,
+  });
+
   return (
     <div className="space-y-5">
       {/* Elements */}
-      {exercise.elements.map((element) => (
-        <ElementRenderer
-          key={element.id}
-          element={element}
-          variables={variables}
-          onSubmit={(answer, isCorrect) =>
-            onElementSubmit?.(element.id, answer, isCorrect)
-          }
-        />
-      ))}
+      {exercise.elements.map((element) => {
+        console.log("[ExerciseRenderer] Rendering element:", element);
+        return (
+          <ElementRenderer
+            key={element.id}
+            element={element}
+            variables={variables}
+            onSubmit={(answer, isCorrect) =>
+              onElementSubmit?.(element.id, answer, isCorrect)
+            }
+          />
+        );
+      })}
     </div>
   );
 };

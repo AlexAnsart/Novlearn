@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Exercise, VariableValues } from '../../types/exercise';
-import { generateVariables } from '../../utils/variableGenerator';
-import ExerciseRenderer from './ExerciseRenderer';
+import React, { useCallback, useEffect, useState } from "react";
+import { Exercise, VariableValues } from "../../types/exercise";
+import { generateVariables } from "../../utils/variableGenerator";
+import ExerciseRenderer from "./ExerciseRenderer";
 
 interface ExerciseLoaderProps {
   /** ID ou nom du fichier de l'exercice (sans extension) */
@@ -13,7 +13,11 @@ interface ExerciseLoaderProps {
   /** Callback quand l'exercice est chargé */
   onLoad?: (exercise: Exercise) => void;
   /** Callback quand un élément interactif est soumis */
-  onElementSubmit?: (elementId: number, answer: unknown, isCorrect: boolean) => void;
+  onElementSubmit?: (
+    elementId: number,
+    answer: unknown,
+    isCorrect: boolean
+  ) => void;
   /** Callback pour erreur de chargement */
   onError?: (error: Error) => void;
 }
@@ -24,12 +28,14 @@ interface ExerciseLoaderProps {
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   exerciseId,
   exercise: providedExercise,
-  dataPath = '/data',
+  dataPath = "/data",
   onLoad,
   onElementSubmit,
   onError,
 }) => {
-  const [exercise, setExercise] = useState<Exercise | null>(providedExercise || null);
+  const [exercise, setExercise] = useState<Exercise | null>(
+    providedExercise || null
+  );
   const [variables, setVariables] = useState<VariableValues>({});
   const [loading, setLoading] = useState(!providedExercise && !!exerciseId);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +57,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
       try {
         const response = await fetch(`${dataPath}/${exerciseId}.json`);
-        
+
         if (!response.ok) {
           throw new Error(`Exercice non trouvé: ${exerciseId}`);
         }
@@ -61,7 +67,8 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         setVariables(generateVariables(data.variables));
         onLoad?.(data);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Erreur de chargement';
+        const errorMessage =
+          err instanceof Error ? err.message : "Erreur de chargement";
         setError(errorMessage);
         onError?.(err instanceof Error ? err : new Error(errorMessage));
       } finally {
@@ -85,7 +92,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       <div className="flex items-center justify-center p-10">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p 
+          <p
             className="text-gray-600"
             style={{ fontFamily: "'Fredoka', sans-serif" }}
           >
@@ -103,13 +110,13 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-2xl">❌</span>
           <div>
-            <p 
+            <p
               className="text-red-800 font-semibold"
               style={{ fontFamily: "'Fredoka', sans-serif" }}
             >
               Erreur de chargement
             </p>
-            <p 
+            <p
               className="text-red-600 text-sm"
               style={{ fontFamily: "'Fredoka', sans-serif" }}
             >
@@ -125,7 +132,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   if (!exercise) {
     return (
       <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200">
-        <p 
+        <p
           className="text-gray-500 text-center"
           style={{ fontFamily: "'Fredoka', sans-serif" }}
         >
@@ -136,22 +143,51 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header avec titre et bouton régénérer */}
-      <div className="flex items-center justify-between">
-        <h2 
-          className="text-2xl text-gray-800 font-semibold"
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
-        >
-          {exercise.title}
-        </h2>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h2
+            className="text-3xl text-white font-bold mb-1"
+            style={{ fontFamily: "'Fredoka', sans-serif" }}
+          >
+            {exercise.title}
+          </h2>
+          {exercise.chapter && (
+            <div className="flex items-center gap-3 text-blue-200">
+              <span
+                className="text-sm"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+              >
+                📚 {exercise.chapter}
+              </span>
+              {exercise.difficulty && (
+                <>
+                  <span className="text-blue-400">•</span>
+                  <span
+                    className={`text-sm font-semibold ${
+                      exercise.difficulty === "Facile"
+                        ? "text-green-400"
+                        : exercise.difficulty === "Moyen"
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                    }`}
+                    style={{ fontFamily: "'Fredoka', sans-serif" }}
+                  >
+                    {exercise.difficulty}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         <button
           onClick={handleRegenerate}
-          className="px-4 py-2 rounded-xl text-sm font-semibold text-white
+          className="px-5 py-3 rounded-xl font-semibold text-white
                      bg-gradient-to-b from-purple-500 to-purple-700
-                     shadow-[0_3px_0_#6b21a8,0_4px_8px_rgba(147,51,234,0.3)]
-                     hover:translate-y-[-1px] hover:shadow-[0_4px_0_#6b21a8,0_6px_12px_rgba(147,51,234,0.4)]
-                     active:translate-y-[1px] active:shadow-[0_2px_0_#6b21a8,0_3px_6px_rgba(147,51,234,0.3)]
+                     shadow-[0_4px_0_#6b21a8,0_4px_12px_rgba(147,51,234,0.4)]
+                     hover:translate-y-[-2px] hover:shadow-[0_6px_0_#6b21a8,0_6px_16px_rgba(147,51,234,0.5)]
+                     active:translate-y-[1px] active:shadow-[0_2px_0_#6b21a8,0_3px_8px_rgba(147,51,234,0.3)]
                      transition-all duration-200"
           style={{ fontFamily: "'Fredoka', sans-serif" }}
           title="Régénérer les variables"
@@ -160,20 +196,14 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         </button>
       </div>
 
-      {/* Chapitre */}
-      <p 
-        className="text-gray-500"
-        style={{ fontFamily: "'Fredoka', sans-serif" }}
-      >
-        {exercise.chapter}
-      </p>
-
       {/* Rendu de l'exercice */}
-      <ExerciseRenderer
-        exercise={exercise}
-        preGeneratedVariables={variables}
-        onElementSubmit={onElementSubmit}
-      />
+      <div className="space-y-4">
+        <ExerciseRenderer
+          exercise={exercise}
+          preGeneratedVariables={variables}
+          onElementSubmit={onElementSubmit}
+        />
+      </div>
     </div>
   );
 };
