@@ -34,19 +34,23 @@ export function LoginForm() {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
+    <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8 min-h-screen">
       <div className="max-w-md w-full space-y-6">
-        {/* Titre */}
         <div className="text-center">
           <h2
-            className="text-4xl md:text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
+            className="text-4xl md:text-5xl tracking-tight text-white drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
             style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
           >
             Connexion
           </h2>
+          <p
+            className="text-blue-200 mt-2 drop-shadow-md"
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+          >
+            Connectez-vous à votre compte NovLearn
+          </p>
         </div>
 
-        {/* Formulaire */}
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email */}
@@ -93,13 +97,13 @@ export function LoginForm() {
               </div>
             </div>
 
-            {/* Erreur */}
-            {error && (
-              <div className="flex items-center gap-2 text-red-400 bg-red-900/20 rounded-xl p-3">
-                <AlertCircle className="w-5 h-5" />
-                <span style={{ fontFamily: "'Fredoka', sans-serif" }}>{error}</span>
-              </div>
-            )}
+          {/* Erreur */}
+          {error && (
+            <div className="flex items-center gap-2 text-red-400 bg-red-900/20 rounded-xl p-3">
+              <AlertCircle className="w-5 h-5" />
+              <span style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>{error}</span>
+            </div>
+          )}
 
             {/* Bouton Connexion */}
             <button
