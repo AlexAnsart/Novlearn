@@ -3,7 +3,7 @@
 import { BookOpen, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Layout } from "../components/Layout";
-import { ExerciseLoader } from "../components/exercise";
+import { ExerciseLoader } from "../components/Exercise";
 
 export default function ExercicesPage() {
   const [error, setError] = useState<string | null>(null);
