@@ -80,54 +80,93 @@ export function AccountPage() {
   };
 
   const fetchUserStats = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[AccountPage] fetchUserStats: No user, skipping');
+      return;
+    }
 
+    console.log('[AccountPage] fetchUserStats: Starting for user', user.id);
     setLoading(true);
+    
+    let timeoutId: NodeJS.Timeout | null = null;
+    
     try {
+      // Timeout de sécurité : si la requête prend plus de 10 secondes, on arrête le loading
+      timeoutId = setTimeout(() => {
+        console.error('[AccountPage] fetchUserStats: Timeout after 10s, setting loading to false');
+        setLoading(false);
+        setStats({ exercises_completed: 0, level: 'Terminale' });
+      }, 10000);
       // Récupérer le nombre total d'exercices réalisés
-      const { data: attempts, error: attemptsError } = await supabase
+      console.log('[AccountPage] fetchUserStats: Fetching exercise attempts...');
+      const { data: attempts, error: attemptsError, count } = await supabase
         .from('exercise_attempts')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
+      if (attemptsError) {
+        console.error('[AccountPage] fetchUserStats: Error fetching attempts:', attemptsError);
+      } else {
+        console.log('[AccountPage] fetchUserStats: Attempts count:', count);
+      }
+
       // Récupérer la progression pour déterminer le niveau
+      console.log('[AccountPage] fetchUserStats: Fetching user progress...');
       const { data: progress, error: progressError } = await supabase
         .from('user_progress')
         .select('*')
         .eq('user_id', user.id);
 
+      if (progressError) {
+        console.error('[AccountPage] fetchUserStats: Error fetching progress:', progressError);
+      } else {
+        console.log('[AccountPage] fetchUserStats: Progress data:', progress);
+      }
+
       if (attemptsError || progressError) {
-        console.error('Error fetching stats:', attemptsError || progressError);
+        console.error('[AccountPage] fetchUserStats: Errors occurred, using defaults');
         setStats({ exercises_completed: 0, level: 'Terminale' });
       } else {
-        const exercisesCompleted = attempts?.length || 0;
-        // Pour l'instant, on garde "Terminale" comme niveau par défaut
-        // Plus tard, on pourra calculer le niveau basé sur la progression
+        const exercisesCompleted = count || 0;
+        console.log('[AccountPage] fetchUserStats: Setting stats - exercises:', exercisesCompleted);
         setStats({
           exercises_completed: exercisesCompleted,
           level: 'Terminale',
         });
       }
     } catch (error) {
-      console.error('Error fetching user stats:', error);
+      console.error('[AccountPage] fetchUserStats: Exception caught:', error);
       setStats({ exercises_completed: 0, level: 'Terminale' });
     } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      console.log('[AccountPage] fetchUserStats: Finished, setting loading to false');
       setLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
+    console.log('[AccountPage] useEffect: authLoading=', authLoading, 'user=', !!user, 'profile=', !!profile);
+    
     if (!authLoading && !user) {
+      console.log('[AccountPage] useEffect: No user, redirecting to login');
       router.push('/auth/login');
       return;
     }
 
     if (user && profile) {
+      console.log('[AccountPage] useEffect: User and profile found, fetching stats');
       fetchUserStats();
+    } else {
+      console.log('[AccountPage] useEffect: Waiting for user/profile - user:', !!user, 'profile:', !!profile);
     }
   }, [user, profile, authLoading, router, fetchUserStats]);
 
+  console.log('[AccountPage] Render: authLoading=', authLoading, 'loading=', loading, 'user=', !!user, 'profile=', !!profile);
+
   if (authLoading || loading) {
+    console.log('[AccountPage] Render: Showing loading spinner');
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -136,8 +175,11 @@ export function AccountPage() {
   }
 
   if (!user || !profile) {
+    console.log('[AccountPage] Render: No user or profile, returning null');
     return null;
   }
+
+  console.log('[AccountPage] Render: Rendering account page content');
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

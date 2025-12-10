@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
+    console.log('[AuthContext] fetchProfile: Starting for userId', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -43,25 +44,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('[AuthContext] fetchProfile: Error:', error);
+        console.error('[AuthContext] fetchProfile: Error details:', JSON.stringify(error, null, 2));
+        setProfile(null);
         return;
       }
 
+      console.log('[AuthContext] fetchProfile: Success, profile data:', data ? 'found' : 'null');
       setProfile(data);
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('[AuthContext] fetchProfile: Exception:', error);
+      setProfile(null);
     }
   };
 
   useEffect(() => {
+    console.log('[AuthContext] useEffect: Initializing auth');
     // Récupérer la session initiale
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('[AuthContext] getSession error:', error);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] getSession: Session', session ? 'found' : 'not found');
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        console.log('[AuthContext] getSession: User found, fetching profile');
+        fetchProfile(session.user.id).finally(() => {
+          console.log('[AuthContext] getSession: Profile fetch completed');
+        });
+      } else {
+        console.log('[AuthContext] getSession: No user in session');
       }
       setLoading(false);
+      console.log('[AuthContext] getSession: Loading set to false');
     });
 
     // Écouter les changements d'authentification
