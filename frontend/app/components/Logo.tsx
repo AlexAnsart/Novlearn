@@ -22,7 +22,7 @@ export function Logo({ small = false }: LogoProps) {
       {/* Logo NovLearn avec fond transparent */}
       <div className={small ? "w-12 h-12" : "w-16 h-16"}>
         <Image 
-          src="/logo.png" 
+          src="/logo_seul.png" 
           alt="NovLearn Logo" 
           width={64}
           height={64}
