@@ -1,9 +1,9 @@
 "use client";
 
+import { ExerciseLoader } from "@/app/components/exercise/ExerciseLoader";
+import { Layout } from "@/app/components/Layout";
 import { BookOpen, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { ExerciseLoader } from "../components/exercise/ExerciseLoader";
-import { Layout } from "../components/Layout";
 
 export default function ExercicesPage() {
   const [error, setError] = useState<string | null>(null);
