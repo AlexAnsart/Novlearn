@@ -2,7 +2,7 @@
 
 import { BookOpen, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { ExerciseLoader } from "../components/exercise";
+import { ExerciseLoader } from "../components/exercise/ExerciseLoader";
 import { Layout } from "../components/Layout";
 
 export default function ExercicesPage() {
