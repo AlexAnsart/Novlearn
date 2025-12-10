@@ -1,9 +1,15 @@
 "use client";
 
-import { ExerciseLoader } from "@/app/components/exercise/ExerciseLoader";
-import { Layout } from "@/app/components/Layout";
 import { BookOpen, Sparkles } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useState } from "react";
+import { Layout } from "../components/Layout";
+
+// Import dynamique pour éviter les problèmes de build
+const ExerciseLoader = dynamic(
+  () => import("../components/exercise/ExerciseLoader"),
+  { ssr: false }
+);
 
 export default function ExercicesPage() {
   const [error, setError] = useState<string | null>(null);
