@@ -29,7 +29,8 @@ export function Logo({ small = false }: LogoProps) {
           className="w-full h-full object-contain"
           style={{
             filter: "drop-shadow(0 4px 12px rgba(59, 130, 246, 0.3))",
-            mixBlendMode: "normal"
+            mixBlendMode: "normal",
+            borderRadius: "5px"
           }}
         />
       </div>
