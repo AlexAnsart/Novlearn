@@ -37,7 +37,7 @@ jobs:
         echo "APP_ENV=production" >> backend/.env
         echo "DEBUG=False" >> backend/.env
         echo "HOST=0.0.0.0" >> backend/.env
-        echo "PORT=8000" >> backend/.env
+        echo "PORT=8010" >> backend/.env
         echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> backend/.env
         echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> backend/.env
         echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr" >> backend/.env
@@ -93,6 +93,115 @@ jobs:
         source: "systemd/*.service"
         target: "/tmp/"
         strip_components: 1
+    
+    - name: Deploy Apache configuration to VPS
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        source: "apache/*.conf"
+        target: "/tmp/"
+        strip_components: 1
+    
+    - name: Configure Apache and ensure it's running
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          echo "🔧 Configuration d'Apache..."
+          
+          # Installer Apache si nécessaire
+          if ! command -v apache2 &> /dev/null; then
+            echo "📦 Installation d'Apache..."
+            sudo apt-get update
+            sudo apt-get install -y apache2
+          fi
+          
+          # Installer les modules Apache nécessaires
+          echo "📦 Activation des modules Apache nécessaires..."
+          sudo a2enmod proxy
+          sudo a2enmod proxy_http
+          sudo a2enmod ssl
+          sudo a2enmod rewrite
+          sudo a2enmod headers
+          
+          # Vérifier si nginx est installé et en conflit
+          if systemctl is-active --quiet nginx 2>/dev/null; then
+            echo "⚠️  Nginx est actif. Arrêt de nginx pour éviter les conflits..."
+            sudo systemctl stop nginx
+            sudo systemctl disable nginx
+          fi
+          
+          # S'assurer qu'Apache est démarré et activé
+          if ! systemctl is-active --quiet apache2; then
+            echo "🚀 Démarrage d'Apache..."
+            sudo systemctl start apache2
+          fi
+          if ! systemctl is-enabled --quiet apache2; then
+            echo "✅ Activation d'Apache au démarrage..."
+            sudo systemctl enable apache2
+          fi
+          
+          # Déployer les fichiers de configuration Apache
+          echo "📝 Déploiement des configurations Apache..."
+          
+          # Copier la configuration HTTP
+          if [ -f /tmp/novlearn.fr.conf ]; then
+            sudo cp /tmp/novlearn.fr.conf /etc/apache2/sites-available/novlearn.fr.conf
+            echo "✅ Configuration HTTP déployée"
+          else
+            echo "❌ Erreur: /tmp/novlearn.fr.conf introuvable"
+            exit 1
+          fi
+          
+          # Copier la configuration HTTPS
+          if [ -f /tmp/novlearn.fr-le-ssl.conf ]; then
+            sudo cp /tmp/novlearn.fr-le-ssl.conf /etc/apache2/sites-available/novlearn.fr-le-ssl.conf
+            echo "✅ Configuration HTTPS déployée"
+          else
+            echo "❌ Erreur: /tmp/novlearn.fr-le-ssl.conf introuvable"
+            exit 1
+          fi
+          
+          # Activer les sites Apache
+          echo "🔗 Activation des sites Apache..."
+          sudo a2ensite novlearn.fr.conf
+          sudo a2ensite novlearn.fr-le-ssl.conf
+          
+          # Désactiver le site par défaut d'Apache s'il existe
+          if [ -f /etc/apache2/sites-enabled/000-default.conf ]; then
+            echo "🔇 Désactivation du site par défaut d'Apache..."
+            sudo a2dissite 000-default.conf
+          fi
+          
+          # Tester la configuration Apache
+          echo "🔍 Test de la configuration Apache..."
+          if sudo apache2ctl configtest; then
+            echo "✅ Configuration Apache valide"
+          else
+            echo "❌ Erreur dans la configuration Apache"
+            exit 1
+          fi
+          
+          # Recharger Apache
+          echo "🔄 Rechargement d'Apache..."
+          sudo systemctl reload apache2 || sudo systemctl restart apache2
+          
+          # Vérifier qu'Apache est actif
+          if systemctl is-active --quiet apache2; then
+            echo "✅ Apache est actif et fonctionne"
+          else
+            echo "❌ Erreur: Apache n'est pas actif"
+            sudo systemctl status apache2
+            exit 1
+          fi
+          
+          # Créer le répertoire .well-known si nécessaire
+          sudo mkdir -p /var/www/novlearn/.well-known
+          sudo chown -R $USER:$USER /var/www/novlearn
     
     - name: Setup and deploy application
       uses: appleboy/ssh-action@master
@@ -218,17 +327,27 @@ jobs:
             exit 1
           fi
           
-          # Vérifier que le backend répond
-          echo "🔍 Test du health check backend..."
-          curl -f http://localhost:8000/api/health || {
+          # Vérifier qu'Apache est actif
+          echo "🔍 Vérification d'Apache..."
+          if ! systemctl is-active --quiet apache2; then
+            echo "❌ Apache n'est pas actif"
+            sudo systemctl status apache2
+            exit 1
+          fi
+          echo "✅ Apache est actif"
+          
+          # Vérifier que le backend répond directement
+          echo "🔍 Test du health check backend (port 8010)..."
+          curl -f http://localhost:8010/health || {
             echo "❌ Le health check backend a échoué"
             echo "Logs du backend (50 dernières lignes):"
             sudo journalctl -u novlearn-backend -n 50 || echo "Aucun log trouvé"
             exit 1
           }
+          echo "✅ Backend répond sur le port 8000"
           
-          # Vérifier que le frontend répond
-          echo "🔍 Test du frontend..."
+          # Vérifier que le frontend répond directement
+          echo "🔍 Test du frontend (port 3000)..."
           sleep 3
           curl -f http://localhost:3000 || {
             echo "❌ Le frontend ne répond pas"
@@ -236,6 +355,17 @@ jobs:
             sudo journalctl -u novlearn-frontend -n 50 || echo "Aucun log trouvé"
             exit 1
           }
+          echo "✅ Frontend répond sur le port 3000"
+          
+          # Vérifier qu'Apache proxy fonctionne correctement
+          echo "🔍 Test du proxy Apache (via localhost)..."
+          curl -f http://localhost/health || {
+            echo "❌ Le proxy Apache ne fonctionne pas correctement"
+            echo "Logs Apache (50 dernières lignes):"
+            sudo tail -n 50 /var/log/apache2/error_novlearn.log || echo "Aucun log trouvé"
+            exit 1
+          }
+          echo "✅ Proxy Apache fonctionne correctement"
           
           echo "✅ Déploiement vérifié avec succès"
 
