@@ -41,9 +41,20 @@ async def root():
     )
 
 
-@app.get("/api/health")
+@app.get("/health")
 async def health_check():
     """Endpoint de vérification de santé de l'API"""
+    return JSONResponse(
+        content={
+            "status": "healthy",
+            "service": "Novlearn API"
+        }
+    )
+
+
+@app.get("/api/health")
+async def api_health_check():
+    """Endpoint de vérification de santé de l'API (alias)"""
     return JSONResponse(
         content={
             "status": "healthy",

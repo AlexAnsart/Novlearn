@@ -262,37 +262,46 @@ jobs:
           # Installer les services systemd
           echo "🔧 Configuration des services systemd..."
           
-          # Service backend
-          if [ ! -f /etc/systemd/system/novlearn-backend.service ]; then
-            sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-backend.service > /tmp/novlearn-backend.service.tmp
-            sudo mv /tmp/novlearn-backend.service.tmp /etc/systemd/system/novlearn-backend.service
-            sudo systemctl daemon-reload
-            sudo systemctl enable novlearn-backend
+          # Service backend - toujours mettre à jour
+          echo "📝 Mise à jour du service backend..."
+          sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-backend.service > /tmp/novlearn-backend.service.tmp
+          sudo mv /tmp/novlearn-backend.service.tmp /etc/systemd/system/novlearn-backend.service
+          sudo systemctl daemon-reload
+          
+          if sudo systemctl is-enabled novlearn-backend 2>&1 | grep -q "masked"; then
+            echo "🔓 Démasquage du service novlearn-backend..."
+            sudo systemctl unmask novlearn-backend
+          fi
+          sudo systemctl enable novlearn-backend
+          
+          # Redémarrer le service backend pour appliquer les changements
+          if sudo systemctl is-active --quiet novlearn-backend; then
+            echo "🔄 Redémarrage du service backend..."
+            sudo systemctl restart novlearn-backend
           else
-            if sudo systemctl is-enabled novlearn-backend 2>&1 | grep -q "masked"; then
-              echo "🔓 Démasquage du service novlearn-backend..."
-              sudo systemctl unmask novlearn-backend
-              sudo systemctl enable novlearn-backend
-            fi
+            echo "🚀 Démarrage du service backend..."
+            sudo systemctl start novlearn-backend
           fi
           
-          # Service frontend
-          if [ ! -f /etc/systemd/system/novlearn-frontend.service ]; then
-            sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-frontend.service > /tmp/novlearn-frontend.service.tmp
-            sudo mv /tmp/novlearn-frontend.service.tmp /etc/systemd/system/novlearn-frontend.service
-            sudo systemctl daemon-reload
-            sudo systemctl enable novlearn-frontend
-            sudo systemctl start novlearn-frontend
+          # Service frontend - toujours mettre à jour
+          echo "📝 Mise à jour du service frontend..."
+          sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-frontend.service > /tmp/novlearn-frontend.service.tmp
+          sudo mv /tmp/novlearn-frontend.service.tmp /etc/systemd/system/novlearn-frontend.service
+          sudo systemctl daemon-reload
+          
+          if sudo systemctl is-enabled novlearn-frontend 2>&1 | grep -q "masked"; then
+            echo "🔓 Démasquage du service novlearn-frontend..."
+            sudo systemctl unmask novlearn-frontend
+          fi
+          sudo systemctl enable novlearn-frontend
+          
+          # Redémarrer le service frontend s'il est actif, sinon le démarrer
+          if sudo systemctl is-active --quiet novlearn-frontend; then
+            echo "🔄 Redémarrage du service frontend..."
+            sudo systemctl restart novlearn-frontend
           else
-            if sudo systemctl is-enabled novlearn-frontend 2>&1 | grep -q "masked"; then
-              echo "🔓 Démasquage du service novlearn-frontend..."
-              sudo systemctl unmask novlearn-frontend
-              sudo systemctl enable novlearn-frontend
-            fi
-            # Démarrer le service s'il n'est pas actif
-            if ! sudo systemctl is-active --quiet novlearn-frontend; then
-              sudo systemctl start novlearn-frontend
-            fi
+            echo "🚀 Démarrage du service frontend..."
+            sudo systemctl start novlearn-frontend
           fi
           
           # Naviguer vers le répertoire de déploiement
@@ -344,7 +353,7 @@ jobs:
             sudo journalctl -u novlearn-backend -n 50 || echo "Aucun log trouvé"
             exit 1
           }
-          echo "✅ Backend répond sur le port 8000"
+          echo "✅ Backend répond sur le port 8010"
           
           # Vérifier que le frontend répond directement
           echo "🔍 Test du frontend (port 3000)..."
