@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { Logo } from "../frontend/app/components/Logo";
+import { ValidationResult } from "../frontend/app/components/ValidationResult";
 import {
   EquationRenderer,
   FunctionRenderer,
@@ -11,7 +13,7 @@ import {
   SignTableRenderer,
   TextRenderer,
   VariationTableRenderer,
-} from "../renderers";
+} from "../frontend/app/renderers";
 import {
   EquationContent,
   Exercise,
@@ -23,10 +25,8 @@ import {
   TextContent,
   VariableValues,
   VariationTableContent,
-} from "../types/exercise";
-import { generateVariables } from "../utils/variableGenerator";
-import { Logo } from "./Logo";
-import { ValidationResult } from "./ValidationResult";
+} from "../frontend/app/types/exercise";
+import { generateVariables } from "../frontend/app/utils/variableGenerator";
 
 type ValidationStatus = "correct" | "partial" | "incorrect" | null;
 

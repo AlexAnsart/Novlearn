@@ -1,203 +1,141 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Exercise, VariableValues } from "../../types/exercise";
+import { Exercise, VariableValues, Variable, ExerciseElement } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import ExerciseRenderer from "./ExerciseRenderer";
+import { supabase } from "../../lib/supabase";
 
 interface ExerciseLoaderProps {
-  /** ID ou nom du fichier de l'exercice (sans extension) */
   exerciseId?: string;
-  /** Exercice déjà chargé (optionnel) */
-  exercise?: Exercise;
-  /** Chemin vers le dossier des exercices */
-  dataPath?: string;
-  /** Callback quand l'exercice est chargé */
   onLoad?: (exercise: Exercise) => void;
-  /** Callback quand un élément interactif est soumis */
-  onElementSubmit?: (
-    elementId: number,
-    answer: unknown,
-    isCorrect: boolean
-  ) => void;
-  /** Callback pour erreur de chargement */
+  onElementSubmit?: (elementId: number, answer: unknown, isCorrect: boolean) => void;
   onError?: (error: Error) => void;
 }
 
-/**
- * Composant pour charger et afficher un exercice depuis un fichier JSON
- */
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   exerciseId,
-  exercise: providedExercise,
-  dataPath = "/data",
   onLoad,
   onElementSubmit,
   onError,
 }) => {
-  const [exercise, setExercise] = useState<Exercise | null>(
-    providedExercise || null
-  );
+  const [exercise, setExercise] = useState<Exercise | null>(null);
   const [variables, setVariables] = useState<VariableValues>({});
-  const [loading, setLoading] = useState(!providedExercise && !!exerciseId);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Charge l'exercice depuis le fichier JSON
+  // Charge l'exercice depuis Supabase
   useEffect(() => {
-    if (providedExercise) {
-      setExercise(providedExercise);
-      setVariables(generateVariables(providedExercise.variables));
-      onLoad?.(providedExercise);
-      return;
-    }
-
-    if (!exerciseId) return;
-
     const loadExercise = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await fetch(`${dataPath}/${exerciseId}.json`);
+        let query = supabase.from("exercises").select("*");
 
-        if (!response.ok) {
-          throw new Error(`Exercice non trouvé: ${exerciseId}`);
+        if (exerciseId) {
+          query = query.eq("id", exerciseId);
+        } else {
+          // Si pas d'ID, on prend le premier dispo
+          query = query.limit(1);
         }
 
-        const data: Exercise = await response.json();
-        setExercise(data);
-        setVariables(generateVariables(data.variables));
-        onLoad?.(data);
+        // Utilisation de maybeSingle pour ne pas crasher si 0 résultat
+        const { data, error: dbError } = await query.maybeSingle();
+
+        if (dbError) {
+          console.error("ERREUR SUPABASE:", dbError); // Regarde ta console F12 !
+          throw dbError;
+        }
+
+        if (!data) {
+          throw new Error("Aucun exercice trouvé dans la base de données. Avez-vous publié un exercice ?");
+        }
+
+        console.log("Données reçues de Supabase:", data); // Debug
+
+        // Reconstruction de l'objet Exercise
+        const content = data.content || {};
+        
+        // On s'assure que tout est défini pour éviter les crashs
+        const fullExercise = {
+          ...content, 
+          id: data.id,
+          title: data.title,
+          chapter: data.chapter,
+          difficulty: data.difficulty,
+          competences: data.competences || [],
+          variables: content.variables || [],
+          elements: content.elements || [],
+        } as unknown as Exercise;
+
+        setExercise(fullExercise);
+        setVariables(generateVariables(fullExercise.variables));
+        onLoad?.(fullExercise);
+
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Erreur de chargement";
-        setError(errorMessage);
-        onError?.(err instanceof Error ? err : new Error(errorMessage));
+        console.error("Erreur complète:", err);
+        const msg = err instanceof Error ? err.message : "Erreur inconnue";
+        setError(msg);
+        onError?.(err instanceof Error ? err : new Error(msg));
       } finally {
         setLoading(false);
       }
     };
 
     loadExercise();
-  }, [exerciseId, providedExercise, dataPath, onLoad, onError]);
+  }, [exerciseId]); // Dépendance uniquement sur l'ID
 
-  // Régénère les variables
   const handleRegenerate = useCallback(() => {
     if (exercise) {
       setVariables(generateVariables(exercise.variables));
     }
   }, [exercise]);
 
-  // État de chargement
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-10">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p
-            className="text-gray-600"
-            style={{ fontFamily: "'Fredoka', sans-serif" }}
-          >
-            Chargement de l'exercice...
-          </p>
-        </div>
+      <div className="flex flex-col items-center justify-center p-12">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-gray-500">Chargement de l'exercice...</p>
       </div>
     );
   }
 
-  // État d'erreur
   if (error) {
     return (
-      <div className="p-5 bg-red-50 rounded-2xl border border-red-200">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">❌</span>
-          <div>
-            <p
-              className="text-red-800 font-semibold"
-              style={{ fontFamily: "'Fredoka', sans-serif" }}
-            >
-              Erreur de chargement
-            </p>
-            <p
-              className="text-red-600 text-sm"
-              style={{ fontFamily: "'Fredoka', sans-serif" }}
-            >
-              {error}
-            </p>
-          </div>
-        </div>
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center">
+        <h3 className="text-red-800 font-bold text-lg mb-2">Erreur de chargement</h3>
+        <p className="text-red-600 mb-4">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
+        >
+          Réessayer
+        </button>
       </div>
     );
   }
 
-  // Pas d'exercice
-  if (!exercise) {
-    return (
-      <div className="p-5 bg-gray-50 rounded-2xl border border-gray-200">
-        <p
-          className="text-gray-500 text-center"
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
-        >
-          Aucun exercice à afficher
-        </p>
-      </div>
-    );
-  }
+  if (!exercise) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header avec titre et bouton régénérer */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
-          <h2
-            className="text-3xl text-white font-bold mb-1"
-            style={{ fontFamily: "'Fredoka', sans-serif" }}
-          >
-            {exercise.title}
-          </h2>
-          {exercise.chapter && (
-            <div className="flex items-center gap-3 text-blue-200">
-              <span
-                className="text-sm"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
-              >
-                📚 {exercise.chapter}
-              </span>
-              {exercise.difficulty && (
-                <>
-                  <span className="text-blue-400">•</span>
-                  <span
-                    className={`text-sm font-semibold ${
-                      exercise.difficulty === "Facile"
-                        ? "text-green-400"
-                        : exercise.difficulty === "Moyen"
-                        ? "text-yellow-400"
-                        : "text-red-400"
-                    }`}
-                    style={{ fontFamily: "'Fredoka', sans-serif" }}
-                  >
-                    {exercise.difficulty}
-                  </span>
-                </>
-              )}
-            </div>
-          )}
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">{exercise.title}</h2>
+          <div className="flex gap-2 text-sm text-gray-500">
+            <span className="bg-gray-100 px-2 py-0.5 rounded">{exercise.chapter}</span>
+            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">{exercise.difficulty}</span>
+          </div>
         </div>
         <button
           onClick={handleRegenerate}
-          className="px-5 py-3 rounded-xl font-semibold text-white
-                     bg-gradient-to-b from-purple-500 to-purple-700
-                     shadow-[0_4px_0_#6b21a8,0_4px_12px_rgba(147,51,234,0.4)]
-                     hover:translate-y-[-2px] hover:shadow-[0_6px_0_#6b21a8,0_6px_16px_rgba(147,51,234,0.5)]
-                     active:translate-y-[1px] active:shadow-[0_2px_0_#6b21a8,0_3px_8px_rgba(147,51,234,0.3)]
-                     transition-all duration-200"
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
-          title="Régénérer les variables"
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
         >
-          🔄 Nouvelles valeurs
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          Nouvelles valeurs
         </button>
       </div>
 
-      {/* Rendu de l'exercice */}
-      <div className="space-y-4">
+      <div className="bg-white rounded-xl shadow-lg p-6">
         <ExerciseRenderer
           exercise={exercise}
           preGeneratedVariables={variables}

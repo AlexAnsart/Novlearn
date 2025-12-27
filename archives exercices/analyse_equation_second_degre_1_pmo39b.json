@@ -1,0 +1,86 @@
+{
+  "title": "Equation second degré",
+  "difficulty": "Facile",
+  "chapter": "Analyse",
+  "competences": [
+    "Étudier les variations"
+  ],
+  "variables": [
+    {
+      "id": 1766593326382,
+      "name": "a",
+      "type": "integer",
+      "min": 1,
+      "max": 5,
+      "decimals": 2,
+      "choices": []
+    },
+    {
+      "id": 1766593326712,
+      "name": "b",
+      "type": "integer",
+      "min": 1,
+      "max": 10,
+      "decimals": 2,
+      "choices": []
+    },
+    {
+      "id": 1766593327010,
+      "name": "c",
+      "type": "integer",
+      "min": -5,
+      "max": -2,
+      "decimals": 2,
+      "choices": []
+    },
+    {
+      "id": 1766593327339,
+      "name": "delta",
+      "type": "computed",
+      "min": 1,
+      "max": 10,
+      "decimals": 2,
+      "choices": [],
+      "expression": "b^2-4*a*c"
+    },
+    {
+      "id": 1766593327649,
+      "name": "z",
+      "type": "computed",
+      "min": 1,
+      "max": 10,
+      "decimals": 2,
+      "choices": [],
+      "expression": "-(b+sqrt(delta))/2"
+    },
+    {
+      "id": 1766593327999,
+      "name": "y",
+      "type": "computed",
+      "min": 1,
+      "max": 10,
+      "decimals": 2,
+      "choices": [],
+      "expression": "-(b-sqrt(delta))/2"
+    }
+  ],
+  "elements": [
+    {
+      "id": 1766593372962,
+      "type": "text",
+      "content": {
+        "text": "Résouds l'équation"
+      }
+    },
+    {
+      "id": 1766593380776,
+      "type": "equation",
+      "content": {
+        "latex": "a x^2 + b x + c = 0",
+        "requireAnswer": true,
+        "answerType": "set",
+        "correctAnswer": "\\{z,y}\\"
+      }
+    }
+  ]
+}

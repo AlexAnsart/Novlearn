@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Layout } from './components/Layout';
 import { ActionButton } from './components/ActionButton';
 import { MathExercise } from './components/MathExercise';
 import { useAuth } from './contexts/AuthContext';
+import { supabase } from './lib/supabase'; // Important : Import de Supabase
 
 export default function Home() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  
+  // On stocke l'ID de l'exercice pour savoir où rediriger
+  const [exerciseId, setExerciseId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -17,8 +21,32 @@ export default function Home() {
     }
   }, [user, loading, router]);
 
+  // Récupérer un exercice valide pour le bouton "S'entraîner"
+  useEffect(() => {
+    const fetchExerciseId = async () => {
+      // On prend le dernier exercice créé
+      const { data } = await supabase
+        .from('exercises')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setExerciseId(data.id);
+      }
+    };
+
+    if (user) fetchExerciseId();
+  }, [user]);
+
   const handleStartTraining = () => {
-    router.push('/exercices');
+    if (exerciseId) {
+      // Si on a trouvé un exercice, on charge celui-là précisément
+      router.push(`/exercices?id=${exerciseId}`);
+    } else {
+      // Sinon on va sur la page par défaut (qui essaiera d'en trouver un)
+      router.push('/exercices');
+    }
   };
 
   return (
@@ -30,6 +58,8 @@ export default function Home() {
             onClick={handleStartTraining}
             className="cursor-pointer transform transition-transform hover:scale-105"
           >
+            {/* Note: Pour l'instant on affiche la carte statique sur l'accueil
+                car tu n'as pas demandé de charger le contenu ici, juste que ça marche. */}
             <MathExercise />
           </div>
 

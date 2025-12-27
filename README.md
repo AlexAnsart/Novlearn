@@ -159,3 +159,296 @@ Le workflow déploie automatiquement le frontend (Next.js) et le backend (FastAP
 
 Projet académique - École Centrale de Lyon
 
+
+```
+Novlearn
+├─ apache
+│  ├─ novlearn.fr-le-ssl.conf
+│  └─ novlearn.fr.conf
+├─ backend
+│  ├─ main.py
+│  └─ requirements.txt
+├─ clean-cache.sh
+├─ data
+│  └─ analyse_equation_de_degre_2_1_rgyfpt.json
+├─ deploy.sh
+├─ docs_projet
+│  ├─ AJOUTS_MAQUETTE2.md
+│  ├─ Cahier des charges Technique.txt
+│  ├─ Charte graphique.txt
+│  ├─ Fiche de lancement.txt
+│  ├─ Maquette1
+│  │  ├─ index.html
+│  │  ├─ package.json
+│  │  ├─ README.md
+│  │  ├─ src
+│  │  │  ├─ App.tsx
+│  │  │  ├─ assets
+│  │  │  │  └─ e87ed438d673a206ab378f4bc50ae391b5d1f031.png
+│  │  │  ├─ Attributions.md
+│  │  │  ├─ components
+│  │  │  │  ├─ AccountPage.tsx
+│  │  │  │  ├─ ActionButton.tsx
+│  │  │  │  ├─ CoursePage.tsx
+│  │  │  │  ├─ ExponentialExercise.tsx
+│  │  │  │  ├─ figma
+│  │  │  │  │  └─ ImageWithFallback.tsx
+│  │  │  │  ├─ Logo.tsx
+│  │  │  │  ├─ MathExercise.tsx
+│  │  │  │  ├─ ProgressPage.tsx
+│  │  │  │  ├─ SidebarIcon.tsx
+│  │  │  │  ├─ TableVariationExercise.tsx
+│  │  │  │  ├─ ui
+│  │  │  │  │  ├─ accordion.tsx
+│  │  │  │  │  ├─ alert-dialog.tsx
+│  │  │  │  │  ├─ alert.tsx
+│  │  │  │  │  ├─ aspect-ratio.tsx
+│  │  │  │  │  ├─ avatar.tsx
+│  │  │  │  │  ├─ badge.tsx
+│  │  │  │  │  ├─ breadcrumb.tsx
+│  │  │  │  │  ├─ button.tsx
+│  │  │  │  │  ├─ calendar.tsx
+│  │  │  │  │  ├─ card.tsx
+│  │  │  │  │  ├─ carousel.tsx
+│  │  │  │  │  ├─ chart.tsx
+│  │  │  │  │  ├─ checkbox.tsx
+│  │  │  │  │  ├─ collapsible.tsx
+│  │  │  │  │  ├─ command.tsx
+│  │  │  │  │  ├─ context-menu.tsx
+│  │  │  │  │  ├─ dialog.tsx
+│  │  │  │  │  ├─ drawer.tsx
+│  │  │  │  │  ├─ dropdown-menu.tsx
+│  │  │  │  │  ├─ form.tsx
+│  │  │  │  │  ├─ hover-card.tsx
+│  │  │  │  │  ├─ input-otp.tsx
+│  │  │  │  │  ├─ input.tsx
+│  │  │  │  │  ├─ label.tsx
+│  │  │  │  │  ├─ menubar.tsx
+│  │  │  │  │  ├─ navigation-menu.tsx
+│  │  │  │  │  ├─ pagination.tsx
+│  │  │  │  │  ├─ popover.tsx
+│  │  │  │  │  ├─ progress.tsx
+│  │  │  │  │  ├─ radio-group.tsx
+│  │  │  │  │  ├─ resizable.tsx
+│  │  │  │  │  ├─ scroll-area.tsx
+│  │  │  │  │  ├─ select.tsx
+│  │  │  │  │  ├─ separator.tsx
+│  │  │  │  │  ├─ sheet.tsx
+│  │  │  │  │  ├─ sidebar.tsx
+│  │  │  │  │  ├─ skeleton.tsx
+│  │  │  │  │  ├─ slider.tsx
+│  │  │  │  │  ├─ sonner.tsx
+│  │  │  │  │  ├─ switch.tsx
+│  │  │  │  │  ├─ table.tsx
+│  │  │  │  │  ├─ tabs.tsx
+│  │  │  │  │  ├─ textarea.tsx
+│  │  │  │  │  ├─ toggle-group.tsx
+│  │  │  │  │  ├─ toggle.tsx
+│  │  │  │  │  ├─ tooltip.tsx
+│  │  │  │  │  ├─ use-mobile.ts
+│  │  │  │  │  └─ utils.ts
+│  │  │  │  └─ ValidationResult.tsx
+│  │  │  ├─ DESIGN_DOCUMENTATION.md
+│  │  │  ├─ guidelines
+│  │  │  │  └─ Guidelines.md
+│  │  │  ├─ index.css
+│  │  │  ├─ main.tsx
+│  │  │  └─ styles
+│  │  │     └─ globals.css
+│  │  └─ vite.config.ts
+│  └─ Maquette2
+│     ├─ index.html
+│     ├─ package.json
+│     ├─ README.md
+│     ├─ src
+│     │  ├─ App.tsx
+│     │  ├─ assets
+│     │  │  └─ e87ed438d673a206ab378f4bc50ae391b5d1f031.png
+│     │  ├─ Attributions.md
+│     │  ├─ components
+│     │  │  ├─ AccountPage.tsx
+│     │  │  ├─ ActionButton.tsx
+│     │  │  ├─ ClassesPage.tsx
+│     │  │  ├─ CoursePage.tsx
+│     │  │  ├─ DuelPage.tsx
+│     │  │  ├─ ExponentialExercise.tsx
+│     │  │  ├─ figma
+│     │  │  │  └─ ImageWithFallback.tsx
+│     │  │  ├─ Logo.tsx
+│     │  │  ├─ MathExercise.tsx
+│     │  │  ├─ ProgressPage.tsx
+│     │  │  ├─ SidebarIcon.tsx
+│     │  │  ├─ SignupPage.tsx
+│     │  │  ├─ TableVariationExercise.tsx
+│     │  │  ├─ TrainingPage.tsx
+│     │  │  ├─ ui
+│     │  │  │  ├─ accordion.tsx
+│     │  │  │  ├─ alert-dialog.tsx
+│     │  │  │  ├─ alert.tsx
+│     │  │  │  ├─ aspect-ratio.tsx
+│     │  │  │  ├─ avatar.tsx
+│     │  │  │  ├─ badge.tsx
+│     │  │  │  ├─ breadcrumb.tsx
+│     │  │  │  ├─ button.tsx
+│     │  │  │  ├─ calendar.tsx
+│     │  │  │  ├─ card.tsx
+│     │  │  │  ├─ carousel.tsx
+│     │  │  │  ├─ chart.tsx
+│     │  │  │  ├─ checkbox.tsx
+│     │  │  │  ├─ collapsible.tsx
+│     │  │  │  ├─ command.tsx
+│     │  │  │  ├─ context-menu.tsx
+│     │  │  │  ├─ dialog.tsx
+│     │  │  │  ├─ drawer.tsx
+│     │  │  │  ├─ dropdown-menu.tsx
+│     │  │  │  ├─ form.tsx
+│     │  │  │  ├─ hover-card.tsx
+│     │  │  │  ├─ input-otp.tsx
+│     │  │  │  ├─ input.tsx
+│     │  │  │  ├─ label.tsx
+│     │  │  │  ├─ menubar.tsx
+│     │  │  │  ├─ navigation-menu.tsx
+│     │  │  │  ├─ pagination.tsx
+│     │  │  │  ├─ popover.tsx
+│     │  │  │  ├─ progress.tsx
+│     │  │  │  ├─ radio-group.tsx
+│     │  │  │  ├─ resizable.tsx
+│     │  │  │  ├─ scroll-area.tsx
+│     │  │  │  ├─ select.tsx
+│     │  │  │  ├─ separator.tsx
+│     │  │  │  ├─ sheet.tsx
+│     │  │  │  ├─ sidebar.tsx
+│     │  │  │  ├─ skeleton.tsx
+│     │  │  │  ├─ slider.tsx
+│     │  │  │  ├─ sonner.tsx
+│     │  │  │  ├─ switch.tsx
+│     │  │  │  ├─ table.tsx
+│     │  │  │  ├─ tabs.tsx
+│     │  │  │  ├─ textarea.tsx
+│     │  │  │  ├─ toggle-group.tsx
+│     │  │  │  ├─ toggle.tsx
+│     │  │  │  ├─ tooltip.tsx
+│     │  │  │  ├─ use-mobile.ts
+│     │  │  │  └─ utils.ts
+│     │  │  └─ ValidationResult.tsx
+│     │  ├─ DESIGN_DOCUMENTATION.md
+│     │  ├─ guidelines
+│     │  │  └─ Guidelines.md
+│     │  ├─ index.css
+│     │  ├─ main.tsx
+│     │  └─ styles
+│     │     └─ globals.css
+│     └─ vite.config.ts
+├─ frontend
+│  ├─ app
+│  │  ├─ api
+│  │  │  └─ exercises
+│  │  │     └─ route.ts
+│  │  ├─ auth
+│  │  │  ├─ callback
+│  │  │  │  └─ page.tsx
+│  │  │  ├─ login
+│  │  │  │  └─ page.tsx
+│  │  │  ├─ signup
+│  │  │  │  └─ page.tsx
+│  │  │  └─ verify-email
+│  │  │     └─ page.tsx
+│  │  ├─ classes
+│  │  │  └─ page.tsx
+│  │  ├─ components
+│  │  │  ├─ AccountPage.tsx
+│  │  │  ├─ ActionButton.tsx
+│  │  │  ├─ ClassesPage.tsx
+│  │  │  ├─ CoursePage.tsx
+│  │  │  ├─ DuelPage.tsx
+│  │  │  ├─ Exercise
+│  │  │  │  ├─ ExerciseLoader.tsx
+│  │  │  │  ├─ ExerciseRenderer.tsx
+│  │  │  │  └─ index.ts
+│  │  │  ├─ ExercisePage.tsx
+│  │  │  ├─ ExponentialExercise.tsx
+│  │  │  ├─ Layout.tsx
+│  │  │  ├─ LoginForm.tsx
+│  │  │  ├─ Logo.tsx
+│  │  │  ├─ MathExercise.tsx
+│  │  │  ├─ ProgressPage.tsx
+│  │  │  ├─ SidebarIcon.tsx
+│  │  │  ├─ SignupForm.tsx
+│  │  │  ├─ TableVariationExercise.tsx
+│  │  │  ├─ TrainingPage.tsx
+│  │  │  ├─ ui
+│  │  │  │  └─ MathText.tsx
+│  │  │  └─ ValidationResult.tsx
+│  │  ├─ compte
+│  │  │  └─ page.tsx
+│  │  ├─ conditions-utilisation
+│  │  │  └─ page.tsx
+│  │  ├─ contexts
+│  │  │  └─ AuthContext.tsx
+│  │  ├─ cours
+│  │  │  └─ page.tsx
+│  │  ├─ currentexercise
+│  │  │  └─ page.tsx
+│  │  ├─ duel
+│  │  │  └─ page.tsx
+│  │  ├─ entrainement
+│  │  │  └─ page.tsx
+│  │  ├─ exercices
+│  │  │  └─ page.tsx
+│  │  ├─ globals.css
+│  │  ├─ hooks
+│  │  │  ├─ useVariable.ts
+│  │  │  └─ useVariables.ts
+│  │  ├─ layout.tsx
+│  │  ├─ lib
+│  │  │  └─ supabase.ts
+│  │  ├─ page.tsx
+│  │  ├─ parametres
+│  │  │  └─ page.tsx
+│  │  ├─ politique-confidentialite
+│  │  │  └─ page.tsx
+│  │  ├─ progression
+│  │  │  └─ page.tsx
+│  │  ├─ renderers
+│  │  │  ├─ EquationRenderer.tsx
+│  │  │  ├─ FunctionRenderer.tsx
+│  │  │  ├─ GraphRenderer.tsx
+│  │  │  ├─ index.ts
+│  │  │  ├─ MCQRenderer.tsx
+│  │  │  ├─ QuestionRenderer.tsx
+│  │  │  ├─ SignTableRenderer.tsx
+│  │  │  ├─ TextRenderer.tsx
+│  │  │  └─ VariationTableRenderer.tsx
+│  │  ├─ types
+│  │  │  └─ exercise.ts
+│  │  └─ utils
+│  │     ├─ MathParser.ts
+│  │     └─ variableGenerator.ts
+│  ├─ DEVELOPPEMENT_FUTUR.md
+│  ├─ middleware.ts
+│  ├─ next-env.d.ts
+│  ├─ next.config.js
+│  ├─ package-lock.json
+│  ├─ package.json
+│  ├─ postcss.config.js
+│  ├─ public
+│  │  ├─ data
+│  │  │  └─ analyse_equation_de_degre_2_1_rgyfpt.json
+│  │  ├─ favicon.ico
+│  │  ├─ logo.png
+│  │  └─ logo_seul.png
+│  ├─ tailwind.config.js
+│  └─ tsconfig.json
+├─ package-lock.json
+├─ README.md
+├─ SETUP_AUTH.md
+├─ start-dev.bat
+├─ start-dev.sh
+├─ supabase
+│  └─ migrations
+│     └─ 001_initial_schema.sql
+└─ systemd
+   ├─ novlearn-backend.service
+   └─ novlearn-frontend.service
+
+```

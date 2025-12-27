@@ -1,20 +1,26 @@
 'use client';
 
+import { Exercise } from '../types/exercise';
+
 /**
  * Composant MathExercise - Carte d'exercice mathématique
  * Affiche un exercice avec formule et bouton d'entraînement
  */
-export function MathExercise() {
+interface MathExerciseProps {
+  exercise?: Exercise | null;
+}
+
+export function MathExercise({ exercise }: MathExerciseProps) {
   return (
     <div className="relative bg-white/95 backdrop-blur-sm rounded-[3rem] p-8 shadow-2xl">
       <div className="space-y-4">
         {/* Titre de l'exercice */}
         <div className="border-b-2 border-gray-200 pb-3">
           <h3 className="text-gray-700" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600, fontSize: '1.25rem' }}>
-            Exercice - Tableau de variations
+            {exercise?.title || 'Exercice - Tableau de variations'}
           </h3>
           <p className="text-gray-500 text-sm mt-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
-            Terminale - Analyse
+            {exercise?.chapter || 'Terminale - Analyse'}
           </p>
         </div>
         
