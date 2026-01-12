@@ -40,6 +40,8 @@ jobs:
         echo "PORT=8010" >> backend/.env
         echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> backend/.env
         echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> backend/.env
+        echo "SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> backend/.env
+        echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> backend/.env
         echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr" >> backend/.env
         echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
     
