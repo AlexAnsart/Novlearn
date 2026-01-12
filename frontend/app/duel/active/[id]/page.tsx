@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Layout } from '../../../components/Layout';
 import { duelsApi, Duel } from '../../../lib/api';
 import { supabase } from '../../../lib/supabase';
-import { Exercise, VariableValues } from '../../../types/exercise';
+import { Exercise, VariableValues, TextContent } from '../../../types/exercise';
 import { Trophy, Clock, Zap } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import QuestionRenderer from '../../../renderers/QuestionRenderer';
@@ -230,10 +230,11 @@ export default function ActiveDuelPage() {
             <div className="space-y-6">
               {exercise.elements.map((element) => {
                 if (element.type === 'text') {
+                  const textContent = element.content as TextContent;
                   return (
                     <div key={element.id} className="text-white text-lg">
                       <MathText
-                        content={element.content.text}
+                        content={textContent.text}
                         variables={variables}
                         autoLatex={true}
                         requireBraces={true}
