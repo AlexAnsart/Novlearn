@@ -3,12 +3,18 @@
 import { useState, useEffect } from "react";
 import { Users, Swords } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { friendsApi, duelsApi, Friend, DuelRequest } from "../lib/api";
+import { friendsApi, duelsApi, Friend, DuelRequest as ApiDuelRequest } from "../lib/api";
+
+interface LocalDuelRequest {
+  id: string;
+  from: string;
+  fromId: string;
+}
 
 export function DuelPage() {
   const router = useRouter();
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [duelRequests, setDuelRequests] = useState<DuelRequest[]>([]);
+  const [duelRequests, setDuelRequests] = useState<LocalDuelRequest[]>([]);
   const [sentDuels, setSentDuels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +31,7 @@ export function DuelPage() {
       ]);
       
       setFriends(friendsData.friends);
-      setDuelRequests(duelsData.duels.map(d => ({
+      setDuelRequests(duelsData.duels.map((d: ApiDuelRequest) => ({
         id: d.id.toString(),
         from: d.from_user_name,
         fromId: d.from_user_id
@@ -175,7 +181,7 @@ export function DuelPage() {
                       className="text-blue-200 text-sm"
                       style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
                     >
-                      {friend.exercisesCompleted} exercices
+                      {friend.email}
                     </p>
                   </div>
                 </div>
