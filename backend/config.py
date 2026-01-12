@@ -51,4 +51,5 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Add cors_origins as a property outside BaseSettings to avoid parsing issues
-settings.cors_origins = _get_cors_origins()
+# Use object.__setattr__ to bypass Pydantic's field validation
+object.__setattr__(settings, "cors_origins", _get_cors_origins())
