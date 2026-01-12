@@ -1,68 +1,86 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Users, Swords } from "lucide-react";
-
-interface Friend {
-  id: string;
-  name: string;
-  email: string;
-  memberSince: string;
-  exercisesCompleted: number;
-  level: string;
-}
-
-interface DuelRequest {
-  id: string;
-  from: string;
-  fromId: string;
-}
+import { useRouter } from "next/navigation";
+import { friendsApi, duelsApi, Friend, DuelRequest } from "../lib/api";
 
 export function DuelPage() {
-  const [friends] = useState<Friend[]>([
-    {
-      id: "1",
-      name: "MathPro2024",
-      email: "mathpro@novlearn.fr",
-      memberSince: "Août 2024",
-      exercisesCompleted: 58,
-      level: "Terminale",
-    },
-    {
-      id: "2",
-      name: "Einstein42",
-      email: "einstein42@novlearn.fr",
-      memberSince: "Septembre 2024",
-      exercisesCompleted: 35,
-      level: "Terminale",
-    },
-  ]);
-
-  const [duelRequests, setDuelRequests] = useState<DuelRequest[]>([
-    {
-      id: "1",
-      from: "CalculGenius",
-      fromId: "3",
-    },
-  ]);
-
+  const router = useRouter();
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [duelRequests, setDuelRequests] = useState<DuelRequest[]>([]);
   const [sentDuels, setSentDuels] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSendDuelRequest = (friendId: string, friendName: string) => {
-    if (!sentDuels.includes(friendId)) {
-      setSentDuels([...sentDuels, friendId]);
-      alert(`Demande de duel envoyée à ${friendName} !`);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [friendsData, duelsData] = await Promise.all([
+        friendsApi.getFriends(),
+        duelsApi.getPendingDuels()
+      ]);
+      
+      setFriends(friendsData.friends);
+      setDuelRequests(duelsData.duels.map(d => ({
+        id: d.id.toString(),
+        from: d.from_user_name,
+        fromId: d.from_user_id
+      })));
+    } catch (error: any) {
+      console.error("Error loading data:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAcceptDuel = (requestId: string, fromName: string) => {
-    setDuelRequests(duelRequests.filter((r) => r.id !== requestId));
-    alert(`Duel accepté avec ${fromName} !`);
+  const handleSendDuelRequest = async (friendId: string, friendName: string) => {
+    if (sentDuels.includes(friendId)) return;
+    
+    try {
+      await duelsApi.createDuel(friendId);
+      setSentDuels([...sentDuels, friendId]);
+      alert(`Demande de duel envoyée à ${friendName} !`);
+    } catch (error: any) {
+      console.error("Error sending duel:", error);
+      alert(error.message || "Erreur lors de l'envoi de la demande");
+    }
   };
 
-  const handleDeclineDuel = (requestId: string) => {
-    setDuelRequests(duelRequests.filter((r) => r.id !== requestId));
+  const handleAcceptDuel = async (requestId: string, fromName: string) => {
+    try {
+      const result = await duelsApi.acceptDuel(parseInt(requestId));
+      setDuelRequests(duelRequests.filter((r) => r.id !== requestId));
+      alert(`Duel accepté avec ${fromName} !`);
+      
+      // Redirect to active duel
+      router.push(`/duel/active/${result.duel.id}`);
+    } catch (error: any) {
+      console.error("Error accepting duel:", error);
+      alert(error.message || "Erreur lors de l'acceptation du duel");
+    }
   };
+
+  const handleDeclineDuel = async (requestId: string) => {
+    try {
+      await duelsApi.declineDuel(parseInt(requestId));
+      setDuelRequests(duelRequests.filter((r) => r.id !== requestId));
+    } catch (error: any) {
+      console.error("Error declining duel:", error);
+      alert(error.message || "Erreur lors du refus du duel");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">

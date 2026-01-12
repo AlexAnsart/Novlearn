@@ -1,10 +1,11 @@
 "use client";
 
-import { Award, Calendar, LogOut, Mail, User, Users } from "lucide-react";
+import { Award, Calendar, LogOut, Mail, User, Users, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import { friendsApi, Friend as ApiFriend, FriendRequest as ApiFriendRequest } from "../lib/api";
 
 interface Friend {
   id: string;
@@ -16,7 +17,7 @@ interface Friend {
 }
 
 interface FriendRequest {
-  id: string;
+  id: number;
   from: string;
   fromId: string;
 }
@@ -33,50 +34,36 @@ export function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"profile" | "friends">("profile");
 
-  const [friends, setFriends] = useState<Friend[]>([
-    {
-      id: "1",
-      name: "MathPro2024",
-      email: "mathpro@novlearn.fr",
-      memberSince: "Août 2024",
-      exercisesCompleted: 58,
-      level: "Terminale",
-    },
-    {
-      id: "2",
-      name: "Einstein42",
-      email: "einstein42@novlearn.fr",
-      memberSince: "Septembre 2024",
-      exercisesCompleted: 35,
-      level: "Terminale",
-    },
-  ]);
-
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([
-    {
-      id: "1",
-      from: "CalculGenius",
-      fromId: "3",
-    },
-  ]);
-
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
+  const [friendCode, setFriendCode] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [addFriendCode, setAddFriendCode] = useState("");
+  const [addingFriend, setAddingFriend] = useState(false);
 
-  const handleAcceptFriendRequest = (request: FriendRequest) => {
-    const newFriend: Friend = {
-      id: request.fromId,
-      name: request.from,
-      email: `${request.from.toLowerCase()}@novlearn.fr`,
-      memberSince: "Novembre 2024",
-      exercisesCompleted: 0,
-      level: "Terminale",
-    };
-    setFriends([...friends, newFriend]);
-    setFriendRequests(friendRequests.filter((r) => r.id !== request.id));
+  const handleAcceptFriendRequest = async (request: FriendRequest) => {
+    try {
+      await friendsApi.acceptFriendRequest(request.id);
+      // Refresh friends list
+      await loadFriends();
+      // Remove from pending
+      setFriendRequests(friendRequests.filter((r) => r.id !== request.id));
+    } catch (error: any) {
+      console.error("Error accepting friend request:", error);
+      alert(error.message || "Erreur lors de l'acceptation de la demande");
+    }
   };
 
-  const handleDeclineFriendRequest = (requestId: string) => {
-    setFriendRequests(friendRequests.filter((r) => r.id !== requestId));
+  const handleDeclineFriendRequest = async (requestId: number) => {
+    try {
+      await friendsApi.declineFriendRequest(requestId);
+      setFriendRequests(friendRequests.filter((r) => r.id !== requestId));
+    } catch (error: any) {
+      console.error("Error declining friend request:", error);
+      alert(error.message || "Erreur lors du refus de la demande");
+    }
   };
 
   const handleSignOut = async () => {
@@ -85,6 +72,69 @@ export function AccountPage() {
       router.push("/auth/login");
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);
+    }
+  };
+
+  const loadFriends = async () => {
+    try {
+      const { friends: friendsData } = await friendsApi.getFriends();
+      setFriends(friendsData.map(f => ({
+        id: f.id,
+        name: f.name,
+        email: f.email,
+        memberSince: "2024",
+        exercisesCompleted: 0,
+        level: "Terminale"
+      })));
+    } catch (error: any) {
+      console.error("Error loading friends:", error);
+    }
+  };
+
+  const loadFriendRequests = async () => {
+    try {
+      const { requests } = await friendsApi.getFriendRequests();
+      setFriendRequests(requests.map(r => ({
+        id: r.id,
+        from: r.from_user_name,
+        fromId: r.from_user_id
+      })));
+    } catch (error: any) {
+      console.error("Error loading friend requests:", error);
+    }
+  };
+
+  const loadFriendCode = async () => {
+    try {
+      const { code, invite_link } = await friendsApi.getFriendCode();
+      setFriendCode(code);
+      setInviteLink(invite_link);
+    } catch (error: any) {
+      console.error("Error loading friend code:", error);
+    }
+  };
+
+  const handleCopyInviteLink = () => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleAddFriend = async () => {
+    if (!addFriendCode.trim()) return;
+    
+    setAddingFriend(true);
+    try {
+      await friendsApi.addFriendByCode(addFriendCode.trim());
+      setAddFriendCode("");
+      alert("Demande d'ami envoyée !");
+    } catch (error: any) {
+      console.error("Error adding friend:", error);
+      alert(error.message || "Erreur lors de l'ajout de l'ami");
+    } finally {
+      setAddingFriend(false);
     }
   };
 
@@ -192,20 +242,43 @@ export function AccountPage() {
       return;
     }
 
-    if (user && profile) {
-      console.log(
-        "[AccountPage] useEffect: User and profile found, fetching stats"
-      );
-      fetchUserStats();
+    // If we have a user, proceed even if profile is not loaded yet
+    // This prevents infinite loading if profile fetch fails
+    if (user) {
+      if (profile) {
+        console.log(
+          "[AccountPage] useEffect: User and profile found, fetching stats"
+        );
+        fetchUserStats();
+      } else {
+        // Wait a bit for profile to load, but don't wait forever
+        const profileTimeout = setTimeout(() => {
+          console.log(
+            "[AccountPage] useEffect: Profile timeout, fetching stats anyway"
+          );
+          fetchUserStats();
+        }, 3000); // Wait 3 seconds for profile to load
+
+        return () => clearTimeout(profileTimeout);
+      }
     } else {
       console.log(
-        "[AccountPage] useEffect: Waiting for user/profile - user:",
+        "[AccountPage] useEffect: Waiting for user - user:",
         !!user,
         "profile:",
         !!profile
       );
     }
   }, [user, profile, authLoading, router, fetchUserStats]);
+
+  // Load friends data
+  useEffect(() => {
+    if (user && activeTab === "friends") {
+      loadFriends();
+      loadFriendRequests();
+      loadFriendCode();
+    }
+  }, [user, activeTab]);
 
   console.log(
     "[AccountPage] Render: authLoading=",
@@ -227,8 +300,8 @@ export function AccountPage() {
     );
   }
 
-  if (!user || !profile) {
-    console.log("[AccountPage] Render: No user or profile, returning null");
+  if (!user) {
+    console.log("[AccountPage] Render: No user, returning null");
     return null;
   }
 
@@ -429,9 +502,9 @@ export function AccountPage() {
                     fontWeight: 700,
                   }}
                 >
-                  {profile.first_name && profile.last_name
+                  {profile?.first_name && profile?.last_name
                     ? `${profile.first_name.toUpperCase()} ${profile.last_name.toUpperCase()}`
-                    : profile.first_name.toUpperCase() || "UTILISATEUR"}
+                    : profile?.first_name?.toUpperCase() || user?.email?.split('@')[0]?.toUpperCase() || "UTILISATEUR"}
                 </h3>
               </div>
 
@@ -457,7 +530,7 @@ export function AccountPage() {
                       fontWeight: 500,
                     }}
                   >
-                    {profile.email || user.email}
+                    {profile?.email || user?.email || "N/A"}
                   </p>
                 </div>
 
@@ -481,7 +554,7 @@ export function AccountPage() {
                       fontWeight: 500,
                     }}
                   >
-                    {formatDate(profile.created_at)}
+                    {profile?.created_at ? formatDate(profile.created_at) : "N/A"}
                   </p>
                 </div>
 
@@ -554,6 +627,63 @@ export function AccountPage() {
         {/* Contenu de l'onglet Mes amis */}
         {activeTab === "friends" && (
           <>
+            {/* Mon code d'ami */}
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] mb-6">
+              <h3
+                className="text-white text-xl mb-4"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+              >
+                Mon code d'ami
+              </h3>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-slate-900/40 rounded-xl p-4">
+                  <p className="text-blue-200 text-sm mb-1" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                    Code :
+                  </p>
+                  <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                    {friendCode || "Chargement..."}
+                  </p>
+                </div>
+                <button
+                  onClick={handleCopyInviteLink}
+                  disabled={!inviteLink}
+                  className="px-6 py-4 rounded-xl bg-gradient-to-b from-blue-500 to-blue-700 text-white transition-all hover:scale-105 disabled:opacity-50 flex items-center gap-2"
+                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                >
+                  {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                  {copied ? "Copié !" : "Copier le lien"}
+                </button>
+              </div>
+            </div>
+
+            {/* Ajouter un ami */}
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] mb-6">
+              <h3
+                className="text-white text-xl mb-4"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+              >
+                Ajouter un ami
+              </h3>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={addFriendCode}
+                  onChange={(e) => setAddFriendCode(e.target.value)}
+                  placeholder="Entrez le code d'ami"
+                  className="flex-1 px-4 py-3 rounded-xl bg-slate-900/40 text-white border-2 border-slate-700 focus:border-blue-500 outline-none"
+                  style={{ fontFamily: "'Fredoka', sans-serif" }}
+                />
+                <button
+                  onClick={handleAddFriend}
+                  disabled={addingFriend || !addFriendCode.trim()}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-b from-purple-500 to-purple-700 text-white transition-all hover:scale-105 disabled:opacity-50"
+                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                >
+                  {addingFriend ? "Envoi..." : "Ajouter"}
+                </button>
+              </div>
+            </div>
+
             {/* Demandes d'amis en attente */}
             {friendRequests.length > 0 && (
               <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
