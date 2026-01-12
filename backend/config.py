@@ -2,7 +2,7 @@
 Configuration settings for Novlearn backend
 """
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,15 +20,14 @@ class Settings(BaseSettings):
     supabase_service_key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
     
     # CORS Settings
-    cors_origins: list = [
+    cors_origins: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "https://novlearn.fr",
         "https://www.novlearn.fr",
     ]
     
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()
