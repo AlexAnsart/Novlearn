@@ -237,7 +237,6 @@ export default function ActiveDuelPage() {
                         content={textContent.text}
                         variables={variables}
                         autoLatex={true}
-                        requireBraces={true}
                       />
                     </div>
                   );

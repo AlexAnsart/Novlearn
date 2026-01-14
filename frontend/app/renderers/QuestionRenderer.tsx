@@ -117,7 +117,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           variables={variables}
           className="text-gray-700 text-lg"
           autoLatex={true}
-          requireBraces={true}
         />
       </div>
 

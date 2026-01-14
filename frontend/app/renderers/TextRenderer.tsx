@@ -15,7 +15,6 @@ const TextRenderer: React.FC<RendererProps<TextContent>> = ({
         variables={variables}
         className="text-white text-xl leading-relaxed"
         autoLatex={true}
-        requireBraces={true}
       />
     </div>
   );

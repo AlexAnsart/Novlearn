@@ -19,7 +19,6 @@ const FunctionRenderer: React.FC<RendererProps<FunctionContent>> = ({
           variables={variables}
           className="text-blue-900 font-medium text-lg"
           autoLatex={true}
-          requireBraces={false}
         />
       </div>
       

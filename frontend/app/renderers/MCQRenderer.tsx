@@ -101,7 +101,6 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
           variables={variables}
           className="text-gray-700 text-lg"
           autoLatex={true}
-          requireBraces={true}
         />
       </div>
 
@@ -123,7 +122,6 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
               variables={variables}
               className="text-gray-700"
               autoLatex={true}
-              requireBraces={false}
             />
           </button>
         ))}
