@@ -3,7 +3,7 @@
  */
 
 import { Variable, VariableValues } from '../types/exercise';
-import { evaluate } from './MathParser';
+import { evaluate } from './math/evaluation';
 
 /**
  * Génère des valeurs aléatoires pour les variables d'un exercice

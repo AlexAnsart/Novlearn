@@ -23,7 +23,7 @@ import {
   VariableValues,
   VariationTableContent,
 } from "../../types/exercise";
-import { substituteVariables } from "../../utils/MathParser";
+import { substituteVariables } from "../../utils/math/parsing";
 
 interface ExerciseRendererProps {
   /** L'exercice à afficher */
@@ -55,7 +55,7 @@ function calculateCorrectAnswer(
   if (questionContent.answerType === 'numeric' && questionContent.answer) {
     try {
       // Replace variables in braces format {variable} with their values
-      let answerExpr = substituteVariables(questionContent.answer, variables, { useBraces: true });
+      let answerExpr = substituteVariables(questionContent.answer, variables);
       
       // Replace ^ with ** for JavaScript exponentiation
       answerExpr = answerExpr.replace(/\^/g, '**');

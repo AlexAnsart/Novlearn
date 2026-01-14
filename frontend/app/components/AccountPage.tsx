@@ -1,11 +1,20 @@
 "use client";
 
-import { Award, Calendar, LogOut, Mail, User, Users, Copy, Check } from "lucide-react";
+import {
+  Award,
+  Calendar,
+  Check,
+  Copy,
+  LogOut,
+  Mail,
+  User,
+  Users,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { friendsApi } from "../lib/api";
 import { supabase } from "../lib/supabase";
-import { friendsApi, Friend as ApiFriend, FriendRequest as ApiFriendRequest } from "../lib/api";
 
 interface Friend {
   id: string;
@@ -44,9 +53,11 @@ export function AccountPage() {
   const [addingFriend, setAddingFriend] = useState(false);
   const [friendCodeError, setFriendCodeError] = useState<string | null>(null);
   const [friendsError, setFriendsError] = useState<string | null>(null);
-  const [friendRequestsError, setFriendRequestsError] = useState<string | null>(null);
+  const [friendRequestsError, setFriendRequestsError] = useState<string | null>(
+    null
+  );
   const [friendCodeLoading, setFriendCodeLoading] = useState(false);
-  
+
   // Refs pour gérer le montage et l'annulation des requêtes
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -89,26 +100,31 @@ export function AccountPage() {
     setFriendsError(null);
     try {
       const { friends: friendsData } = await friendsApi.getFriends();
-      
+
       if (!isMountedRef.current) return;
-      
-      setFriends(friendsData.map(f => ({
-        id: f.id,
-        name: f.name,
-        email: f.email,
-        memberSince: "2024",
-        exercisesCompleted: 0,
-        level: "Terminale"
-      })));
+
+      setFriends(
+        friendsData.map((f) => ({
+          id: f.id,
+          name: f.name,
+          email: f.email,
+          memberSince: "2024",
+          exercisesCompleted: 0,
+          level: "Terminale",
+        }))
+      );
       setFriendsError(null);
     } catch (error: any) {
       if (!isMountedRef.current) return;
-      
+
       const errorMessage = error?.message || String(error);
-      console.error('[AccountPage] loadFriends error:', errorMessage);
-      setFriendsError(errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch")
-        ? "Backend non disponible"
-        : errorMessage);
+      console.error("[AccountPage] loadFriends error:", errorMessage);
+      setFriendsError(
+        errorMessage.includes("fetch") ||
+          errorMessage.includes("Failed to fetch")
+          ? "Backend non disponible"
+          : errorMessage
+      );
       setFriends([]);
     }
   }, []);
@@ -119,23 +135,28 @@ export function AccountPage() {
     setFriendRequestsError(null);
     try {
       const { requests } = await friendsApi.getFriendRequests();
-      
+
       if (!isMountedRef.current) return;
-      
-      setFriendRequests(requests.map(r => ({
-        id: r.id,
-        from: r.from_user_name,
-        fromId: r.from_user_id
-      })));
+
+      setFriendRequests(
+        requests.map((r) => ({
+          id: r.id,
+          from: r.from_user_name,
+          fromId: r.from_user_id,
+        }))
+      );
       setFriendRequestsError(null);
     } catch (error: any) {
       if (!isMountedRef.current) return;
-      
+
       const errorMessage = error?.message || String(error);
-      console.error('[AccountPage] loadFriendRequests error:', errorMessage);
-      setFriendRequestsError(errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch")
-        ? "Backend non disponible"
-        : errorMessage);
+      console.error("[AccountPage] loadFriendRequests error:", errorMessage);
+      setFriendRequestsError(
+        errorMessage.includes("fetch") ||
+          errorMessage.includes("Failed to fetch")
+          ? "Backend non disponible"
+          : errorMessage
+      );
       setFriendRequests([]);
     }
   }, []);
@@ -147,22 +168,27 @@ export function AccountPage() {
     setFriendCodeLoading(true);
     try {
       const { code, invite_link } = await friendsApi.getFriendCode();
-      
+
       if (!isMountedRef.current) return;
-      
+
       setFriendCode(code);
       setInviteLink(invite_link);
       setFriendCodeError(null);
       setFriendCodeLoading(false);
     } catch (error: any) {
       if (!isMountedRef.current) return;
-      
+
       const errorMessage = error?.message || String(error);
-      console.error('[AccountPage] loadFriendCode error:', errorMessage);
-      
-      setFriendCodeError(errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch") || errorMessage.includes("timeout") || errorMessage.includes("Request timeout")
-        ? "Backend non disponible. Assurez-vous que le serveur backend est lancé sur http://localhost:8010"
-        : errorMessage);
+      console.error("[AccountPage] loadFriendCode error:", errorMessage);
+
+      setFriendCodeError(
+        errorMessage.includes("fetch") ||
+          errorMessage.includes("Failed to fetch") ||
+          errorMessage.includes("timeout") ||
+          errorMessage.includes("Request timeout")
+          ? "Backend non disponible. Assurez-vous que le serveur backend est lancé sur http://localhost:8010"
+          : errorMessage
+      );
       setFriendCode(null);
       setInviteLink(null);
       setFriendCodeLoading(false);
@@ -179,7 +205,7 @@ export function AccountPage() {
 
   const handleAddFriend = async () => {
     if (!addFriendCode.trim()) return;
-    
+
     setAddingFriend(true);
     try {
       await friendsApi.addFriendByCode(addFriendCode.trim());
@@ -199,7 +225,7 @@ export function AccountPage() {
     // Créer un AbortController pour cette requête
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-    
+
     if (isMountedRef.current) {
       setLoading(true);
     }
@@ -210,8 +236,8 @@ export function AccountPage() {
       // Timeout de sécurité : si la requête prend plus de 15 secondes, on arrête le loading
       timeoutId = setTimeout(() => {
         if (abortController.signal.aborted || !isMountedRef.current) return;
-        
-        console.warn('[AccountPage] fetchUserStats TIMEOUT after 15s');
+
+        console.warn("[AccountPage] fetchUserStats TIMEOUT after 15s");
         if (isMountedRef.current) {
           setLoading(false);
           setStats({ exercises_completed: 0, level: "Terminale" });
@@ -233,9 +259,12 @@ export function AccountPage() {
 
       // Vérifier si annulé après la première requête
       if (abortController.signal.aborted || !isMountedRef.current) return;
-      
+
       if (attemptsError) {
-        console.error('[AccountPage] Error fetching attempts:', attemptsError.message);
+        console.error(
+          "[AccountPage] Error fetching attempts:",
+          attemptsError.message
+        );
       }
 
       // Récupérer la progression pour déterminer le niveau
@@ -248,7 +277,10 @@ export function AccountPage() {
       if (abortController.signal.aborted || !isMountedRef.current) return;
 
       if (progressError) {
-        console.error('[AccountPage] Error fetching progress:', progressError.message);
+        console.error(
+          "[AccountPage] Error fetching progress:",
+          progressError.message
+        );
       }
 
       // Vérifier une dernière fois avant de mettre à jour l'état
@@ -267,7 +299,7 @@ export function AccountPage() {
       // Ignorer les erreurs si la requête a été annulée
       if (abortController.signal.aborted || !isMountedRef.current) return;
 
-      console.error('[AccountPage] fetchUserStats exception:', error);
+      console.error("[AccountPage] fetchUserStats exception:", error);
       if (isMountedRef.current) {
         setStats({ exercises_completed: 0, level: "Terminale" });
       }
@@ -310,9 +342,12 @@ export function AccountPage() {
     // Cleanup function
     return () => {
       isMountedRef.current = false;
-      
+
       // Annuler les requêtes en cours
-      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+      if (
+        abortControllerRef.current &&
+        !abortControllerRef.current.signal.aborted
+      ) {
         abortControllerRef.current.abort();
       }
     };
@@ -544,7 +579,9 @@ export function AccountPage() {
                 >
                   {profile?.first_name && profile?.last_name
                     ? `${profile.first_name.toUpperCase()} ${profile.last_name.toUpperCase()}`
-                    : profile?.first_name?.toUpperCase() || user?.email?.split('@')[0]?.toUpperCase() || "UTILISATEUR"}
+                    : profile?.first_name?.toUpperCase() ||
+                      user?.email?.split("@")[0]?.toUpperCase() ||
+                      "UTILISATEUR"}
                 </h3>
               </div>
 
@@ -594,7 +631,9 @@ export function AccountPage() {
                       fontWeight: 500,
                     }}
                   >
-                    {profile?.created_at ? formatDate(profile.created_at) : "N/A"}
+                    {profile?.created_at
+                      ? formatDate(profile.created_at)
+                      : "N/A"}
                   </p>
                 </div>
 
@@ -677,19 +716,31 @@ export function AccountPage() {
               </h3>
               <div className="flex items-center gap-3">
                 <div className="flex-1 bg-slate-900/40 rounded-xl p-4">
-                  <p className="text-blue-200 text-sm mb-1" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                  <p
+                    className="text-blue-200 text-sm mb-1"
+                    style={{ fontFamily: "'Fredoka', sans-serif" }}
+                  >
                     Code :
                   </p>
                   {friendCodeError ? (
-                    <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                    <p
+                      className="text-red-400 text-sm"
+                      style={{ fontFamily: "'Fredoka', sans-serif" }}
+                    >
                       {friendCodeError}
                     </p>
                   ) : friendCodeLoading || !friendCode ? (
-                    <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                    <p
+                      className="text-white text-2xl font-bold"
+                      style={{ fontFamily: "'Fredoka', sans-serif" }}
+                    >
                       Chargement...
                     </p>
                   ) : (
-                    <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                    <p
+                      className="text-white text-2xl font-bold"
+                      style={{ fontFamily: "'Fredoka', sans-serif" }}
+                    >
                       {friendCode}
                     </p>
                   )}
@@ -698,9 +749,16 @@ export function AccountPage() {
                   onClick={handleCopyInviteLink}
                   disabled={!inviteLink}
                   className="px-6 py-4 rounded-xl bg-gradient-to-b from-blue-500 to-blue-700 text-white transition-all hover:scale-105 disabled:opacity-50 flex items-center gap-2"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 700,
+                  }}
                 >
-                  {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                  {copied ? (
+                    <Check className="w-5 h-5" />
+                  ) : (
+                    <Copy className="w-5 h-5" />
+                  )}
                   {copied ? "Copié !" : "Copier le lien"}
                 </button>
               </div>
@@ -727,7 +785,10 @@ export function AccountPage() {
                   onClick={handleAddFriend}
                   disabled={addingFriend || !addFriendCode.trim()}
                   className="px-6 py-3 rounded-xl bg-gradient-to-b from-purple-500 to-purple-700 text-white transition-all hover:scale-105 disabled:opacity-50"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 700,
+                  }}
                 >
                   {addingFriend ? "Envoi..." : "Ajouter"}
                 </button>
@@ -748,7 +809,10 @@ export function AccountPage() {
                 </h3>
                 {friendRequestsError && (
                   <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 rounded-xl">
-                    <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                    <p
+                      className="text-red-400 text-sm"
+                      style={{ fontFamily: "'Fredoka', sans-serif" }}
+                    >
                       {friendRequestsError}
                     </p>
                   </div>
@@ -811,7 +875,10 @@ export function AccountPage() {
               </h3>
               {friendsError && (
                 <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 rounded-xl">
-                  <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                  <p
+                    className="text-red-400 text-sm"
+                    style={{ fontFamily: "'Fredoka', sans-serif" }}
+                  >
                     {friendsError}
                   </p>
                 </div>

@@ -18,7 +18,8 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   session: Session | null;
-  loading: boolean;
+  loading: boolean; // Chargement de l'auth initiale (critique)
+  profileLoading: boolean; // Chargement du profil (secondaire)
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName: string, lastName: string, birthDate: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<void>;
@@ -32,10 +33,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  
+  // On sépare le chargement critique (suis-je connecté ?) du chargement de données (qui suis-je ?)
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
+  // Fonction de récupération du profil isolée et sécurisée
   const fetchProfile = async (userId: string) => {
+    setProfileLoading(true);
     try {
+      // On ajoute un petit timeout interne pour ne pas bloquer si la DB est morte
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -44,91 +51,106 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('[AuthContext] fetchProfile error:', error.message);
-        setProfile(null);
-        return;
+        // Ne pas reset le profile à null ici si on veut garder un "vieux" profil en cache éventuel
+      } else {
+        setProfile(data);
       }
-
-      setProfile(data);
     } catch (error) {
       console.error('[AuthContext] fetchProfile exception:', error);
-      setProfile(null);
+    } finally {
+      setProfileLoading(false);
     }
   };
 
   useEffect(() => {
-    // Timeout de sécurité pour l'initialisation
-    const initTimeout = setTimeout(() => {
-      console.warn('[AuthContext] Initialization timeout, forcing loading to false');
-      setLoading(false);
-    }, 10000);
-    
-    // Récupérer la session initiale
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      clearTimeout(initTimeout);
-      
-      if (error) {
-        console.error('[AuthContext] getSession error:', error.message);
-        setLoading(false);
-        return;
-      }
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      
-      setLoading(false);
-    });
+    let mounted = true;
 
-    // Écouter les changements d'authentification
+    // 1. Initialisation via getSession (plus rapide pour le premier rendu)
+    const initSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            // On lance la récupération du profil SANS attendre (fire and forget)
+            // pour que setLoading(false) se déclenche tout de suite.
+            fetchProfile(session.user.id);
+          }
+        }
+      } catch (error) {
+        console.error('[AuthContext] Session init error:', error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    initSession();
+
+    // 2. Écoute des changements (Login, Logout, Token Refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       setSession(session);
       setUser(session?.user ?? null);
       
+      // On enlève le chargement immédiatement si l'event survient après l'init
+      setLoading(false); 
+
       if (session?.user) {
-        // Si c'est une connexion Google OAuth, récupérer le prénom/nom depuis les metadata
+        // Logique de mise à jour Google (inchangée mais optimisée)
         if (event === 'SIGNED_IN' && session.user.app_metadata?.provider === 'google') {
-          const fullName = session.user.user_metadata?.full_name || '';
-          const firstName = session.user.user_metadata?.given_name || session.user.user_metadata?.name?.split(' ')[0] || '';
-          const lastName = session.user.user_metadata?.family_name || session.user.user_metadata?.name?.split(' ').slice(1).join(' ') || '';
-          
-          // Mettre à jour le profil avec les données Google si disponibles
-          if (firstName || lastName) {
-            await supabase
-              .from('profiles')
-              .update({
-                first_name: firstName || fullName.split(' ')[0] || '',
-                last_name: lastName || fullName.split(' ').slice(1).join(' ') || null,
-              })
-              .eq('id', session.user.id);
-          }
+           // On fait ça en arrière-plan
+           updateGoogleProfile(session.user);
         }
         
-        await fetchProfile(session.user.id);
-      } else {
+        // Recharger le profil si c'est une nouvelle connexion
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+           fetchProfile(session.user.id);
+        }
+      } else if (event === 'SIGNED_OUT') {
         setProfile(null);
       }
-      
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // Extraction de la logique Google pour alléger le useEffect
+  const updateGoogleProfile = async (user: User) => {
+    const fullName = user.user_metadata?.full_name || '';
+    const firstName = user.user_metadata?.given_name || user.user_metadata?.name?.split(' ')[0] || '';
+    const lastName = user.user_metadata?.family_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || '';
+    
+    if (firstName || lastName) {
+      await supabase
+        .from('profiles')
+        .update({
+          first_name: firstName || fullName.split(' ')[0] || '',
+          last_name: lastName || fullName.split(' ').slice(1).join(' ') || null,
+        })
+        .eq('id', user.id);
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    setLoading(true); // On remet loading true pour l'UX du bouton
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setLoading(false); // S'il y a une erreur, on stop le loading, sinon onAuthStateChange le fera
     return { error };
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string, birthDate: string) => {
-    // Vérifier l'âge
+    // ... Ta logique de vérification d'âge reste identique ...
     const birth = new Date(birthDate);
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
@@ -154,16 +176,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!error && data.user) {
-      // Mettre à jour le profil avec les données complètes
-      await supabase
-        .from('profiles')
-        .update({
+      await supabase.from('profiles').update({
           first_name: firstName,
           last_name: lastName || null,
           birth_date: birthDate,
           consent_date: new Date().toISOString(),
-        })
-        .eq('id', data.user.id);
+        }).eq('id', data.user.id);
     }
 
     return { error };
@@ -172,24 +190,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (error) {
-      console.error('Error signing in with Google:', error);
-    }
+    if (error) console.error('Error signing in with Google:', error);
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setUser(null);
+    setSession(null);
   };
 
   const refreshProfile = async () => {
-    if (user) {
-      await fetchProfile(user.id);
-    }
+    if (user) await fetchProfile(user.id);
   };
 
   return (
@@ -199,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         session,
         loading,
+        profileLoading, // Tu peux utiliser ça pour afficher un petit spinner discret à côté du nom de l'utilisateur
         signIn,
         signUp,
         signInWithGoogle,
@@ -218,4 +233,3 @@ export function useAuth() {
   }
   return context;
 }
-

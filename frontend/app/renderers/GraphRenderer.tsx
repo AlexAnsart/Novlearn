@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { GraphContent, RendererProps } from '../types/exercise';
-import { substituteVariables, evaluateAt } from '../utils/MathParser';
+import { substituteVariables } from '../utils/math/parsing';
+import { evaluateAt } from '../utils/math/evaluation';
 
 const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
   content,
   variables,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const expression = substituteVariables(content.expression, variables, { useBraces: false });
+  const expression = substituteVariables(content.expression, variables);
 
   useEffect(() => {
     const canvas = canvasRef.current;

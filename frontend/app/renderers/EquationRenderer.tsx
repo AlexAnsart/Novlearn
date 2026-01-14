@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { EquationContent, RendererProps, VariableValues } from '../types/exercise';
 import MathText from '../components/ui/MathText';
-import { substituteVariables } from '../utils/MathParser';
+import { substituteVariables } from '../utils/math/parsing';
 
 interface EquationRendererProps extends RendererProps<EquationContent> {
   /** Callback lors de la soumission */
