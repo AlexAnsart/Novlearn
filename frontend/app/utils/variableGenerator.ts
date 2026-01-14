@@ -3,30 +3,87 @@
  */
 
 import { Variable, VariableValues } from '../types/exercise';
+import { evaluate } from './MathParser';
 
 /**
  * Génère des valeurs aléatoires pour les variables d'un exercice
+ * Gère aussi les variables calculées (computed)
  */
 export function generateVariables(variables: Variable[]): VariableValues {
   const values: VariableValues = {};
 
+  // First pass: generate random values for non-computed variables
   for (const variable of variables) {
+    if (variable.type === 'computed') {
+      continue; // Skip computed variables for now
+    }
+
     switch (variable.type) {
       case 'integer':
-        values[variable.name] = randomInteger(variable.min, variable.max);
+        if (variable.min !== undefined && variable.max !== undefined) {
+          values[variable.name] = randomInteger(variable.min, variable.max);
+        }
         break;
 
       case 'decimal':
-        values[variable.name] = randomDecimal(
-          variable.min,
-          variable.max,
-          variable.decimals
-        );
+        if (
+          variable.min !== undefined &&
+          variable.max !== undefined &&
+          variable.decimals !== undefined
+        ) {
+          values[variable.name] = randomDecimal(
+            variable.min,
+            variable.max,
+            variable.decimals
+          );
+        }
         break;
 
       case 'choice':
-        values[variable.name] = randomChoice(variable.choices);
+        if (variable.choices && variable.choices.length > 0) {
+          values[variable.name] = randomChoice(variable.choices);
+        }
         break;
+    }
+  }
+
+  // Second pass: calculate computed variables
+  // We may need multiple passes if computed variables depend on each other
+  let computedCount = 0;
+  const maxIterations = 10; // Safety limit
+  
+  while (computedCount < variables.filter(v => v.type === 'computed').length && computedCount < maxIterations) {
+    let foundNew = false;
+    
+    for (const variable of variables) {
+      if (variable.type === 'computed' && variable.expression && !(variable.name in values)) {
+        try {
+          // Convert current values to numeric for evaluation
+          const numericValues: Record<string, number> = {};
+          for (const [name, value] of Object.entries(values)) {
+            const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+            if (!isNaN(numValue)) {
+              numericValues[name] = numValue;
+            }
+          }
+          
+          // Evaluate the expression
+          const result = evaluate(variable.expression, numericValues);
+          
+          if (!isNaN(result) && isFinite(result)) {
+            values[variable.name] = result;
+            foundNew = true;
+            computedCount++;
+          }
+        } catch (e) {
+          console.error(`Error computing variable ${variable.name}:`, e);
+        }
+      }
+    }
+    
+    if (!foundNew) {
+      // No new computed variables could be calculated, break to avoid infinite loop
+      break;
     }
   }
 

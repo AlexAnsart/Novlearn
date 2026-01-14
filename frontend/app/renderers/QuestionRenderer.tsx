@@ -15,12 +15,27 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   onSubmit,
   correctAnswer,
 }) => {
+  console.log("[QuestionRenderer] Rendering:", {
+    content,
+    variables,
+    correctAnswer,
+    hasQuestion: !!content?.question,
+    answerType: content?.answerType,
+  });
+  
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error' | 'warning' | 'info';
     message: string;
   } | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Reset state when variables change (new values generated)
+  React.useEffect(() => {
+    setAnswer('');
+    setFeedback(null);
+    setIsSubmitted(false);
+  }, [variables]);
 
   const handleSubmit = useCallback(() => {
     if (!answer.trim()) {

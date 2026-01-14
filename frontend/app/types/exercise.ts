@@ -3,11 +3,12 @@
 export interface Variable {
   id: number;
   name: string;
-  type: 'integer' | 'decimal' | 'choice';
-  min: number;
-  max: number;
-  decimals: number;
-  choices: string[];
+  type: 'integer' | 'decimal' | 'choice' | 'computed';
+  min?: number;
+  max?: number;
+  decimals?: number;
+  choices?: string[];
+  expression?: string; // For computed variables
 }
 
 export interface TextContent {
@@ -57,6 +58,10 @@ export interface DiscreteGraphContent {
 
 export interface EquationContent {
   latex: string;
+  answerType?: 'numeric' | 'text' | 'expression' | 'set';
+  correctAnswer?: string;
+  requireAnswer?: boolean;
+  tolerance?: number;
 }
 
 export interface QuestionContent {

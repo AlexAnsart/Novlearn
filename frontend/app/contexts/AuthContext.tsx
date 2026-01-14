@@ -35,7 +35,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    console.log('[AuthContext] fetchProfile: Starting for userId', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -44,43 +43,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('[AuthContext] fetchProfile: Error:', error);
-        console.error('[AuthContext] fetchProfile: Error details:', JSON.stringify(error, null, 2));
+        console.error('[AuthContext] fetchProfile error:', error.message);
         setProfile(null);
         return;
       }
 
-      console.log('[AuthContext] fetchProfile: Success, profile data:', data ? 'found' : 'null');
       setProfile(data);
     } catch (error) {
-      console.error('[AuthContext] fetchProfile: Exception:', error);
+      console.error('[AuthContext] fetchProfile exception:', error);
       setProfile(null);
     }
   };
 
   useEffect(() => {
-    console.log('[AuthContext] useEffect: Initializing auth');
+    // Timeout de sécurité pour l'initialisation
+    const initTimeout = setTimeout(() => {
+      console.warn('[AuthContext] Initialization timeout, forcing loading to false');
+      setLoading(false);
+    }, 10000);
+    
     // Récupérer la session initiale
     supabase.auth.getSession().then(({ data: { session }, error }) => {
+      clearTimeout(initTimeout);
+      
       if (error) {
-        console.error('[AuthContext] getSession error:', error);
+        console.error('[AuthContext] getSession error:', error.message);
         setLoading(false);
         return;
       }
       
-      console.log('[AuthContext] getSession: Session', session ? 'found' : 'not found');
       setSession(session);
       setUser(session?.user ?? null);
+      
       if (session?.user) {
-        console.log('[AuthContext] getSession: User found, fetching profile');
-        fetchProfile(session.user.id).finally(() => {
-          console.log('[AuthContext] getSession: Profile fetch completed');
-        });
-      } else {
-        console.log('[AuthContext] getSession: No user in session');
+        fetchProfile(session.user.id);
       }
+      
       setLoading(false);
-      console.log('[AuthContext] getSession: Loading set to false');
     });
 
     // Écouter les changements d'authentification

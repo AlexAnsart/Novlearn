@@ -1,10 +1,11 @@
 "use client";
 
 import { BookOpen, Sparkles } from "lucide-react";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { ExerciseLoader } from "../components/Exercise/ExerciseLoader"; // Vérifie que ce chemin est bon chez toi
+import { ExerciseLoader } from "../components/Exercise/ExerciseLoader";
 import { Layout } from "../components/Layout";
+import { Exercise } from "../types/exercise";
 
 // Composant qui lit l'URL
 function ExercisePageContent() {
@@ -16,6 +17,20 @@ function ExercisePageContent() {
   // 2. On extrait l'ID (ex: "14"). 
   // S'il n'y en a pas, on laisse undefined (le Loader chargera le premier dispo).
   const exerciseId = searchParams.get('id') || undefined;
+
+  // Stabiliser les callbacks pour éviter les re-renders
+  const handleLoad = useCallback((exercise: Exercise) => {
+    // Exercise loaded successfully
+  }, []);
+
+  const handleError = useCallback((err: Error) => {
+    console.error('[ExercisePage] Load error:', err.message);
+    setError(err.message);
+  }, []);
+
+  const handleElementSubmit = useCallback((elementId: number, answer: unknown, isCorrect: boolean) => {
+    // Element submitted
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col px-4 md:px-8 py-6 max-w-[1400px] mx-auto w-full">
@@ -47,16 +62,9 @@ function ExercisePageContent() {
           {/* 3. On passe l'ID dynamique au Loader */}
           <ExerciseLoader
             exerciseId={exerciseId}
-            onLoad={(exercise) => {
-              console.log("Exercice chargé:", exercise.title);
-            }}
-            onError={(err) => {
-              console.error("Erreur de chargement:", err);
-              setError(err.message);
-            }}
-            onElementSubmit={(elementId, answer, isCorrect) => {
-              console.log("Réponse soumise:", { elementId, isCorrect });
-            }}
+            onLoad={handleLoad}
+            onError={handleError}
+            onElementSubmit={handleElementSubmit}
           />
 
           {error && (

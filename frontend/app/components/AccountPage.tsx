@@ -2,7 +2,7 @@
 
 import { Award, Calendar, LogOut, Mail, User, Users, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { friendsApi, Friend as ApiFriend, FriendRequest as ApiFriendRequest } from "../lib/api";
@@ -42,6 +42,14 @@ export function AccountPage() {
   const [copied, setCopied] = useState(false);
   const [addFriendCode, setAddFriendCode] = useState("");
   const [addingFriend, setAddingFriend] = useState(false);
+  const [friendCodeError, setFriendCodeError] = useState<string | null>(null);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [friendRequestsError, setFriendRequestsError] = useState<string | null>(null);
+  const [friendCodeLoading, setFriendCodeLoading] = useState(false);
+  
+  // Refs pour gérer le montage et l'annulation des requêtes
+  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleAcceptFriendRequest = async (request: FriendRequest) => {
     try {
@@ -75,9 +83,15 @@ export function AccountPage() {
     }
   };
 
-  const loadFriends = async () => {
+  const loadFriends = useCallback(async () => {
+    if (!isMountedRef.current) return;
+
+    setFriendsError(null);
     try {
       const { friends: friendsData } = await friendsApi.getFriends();
+      
+      if (!isMountedRef.current) return;
+      
       setFriends(friendsData.map(f => ({
         id: f.id,
         name: f.name,
@@ -86,33 +100,74 @@ export function AccountPage() {
         exercisesCompleted: 0,
         level: "Terminale"
       })));
+      setFriendsError(null);
     } catch (error: any) {
-      console.error("Error loading friends:", error);
+      if (!isMountedRef.current) return;
+      
+      const errorMessage = error?.message || String(error);
+      console.error('[AccountPage] loadFriends error:', errorMessage);
+      setFriendsError(errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch")
+        ? "Backend non disponible"
+        : errorMessage);
+      setFriends([]);
     }
-  };
+  }, []);
 
-  const loadFriendRequests = async () => {
+  const loadFriendRequests = useCallback(async () => {
+    if (!isMountedRef.current) return;
+
+    setFriendRequestsError(null);
     try {
       const { requests } = await friendsApi.getFriendRequests();
+      
+      if (!isMountedRef.current) return;
+      
       setFriendRequests(requests.map(r => ({
         id: r.id,
         from: r.from_user_name,
         fromId: r.from_user_id
       })));
+      setFriendRequestsError(null);
     } catch (error: any) {
-      console.error("Error loading friend requests:", error);
+      if (!isMountedRef.current) return;
+      
+      const errorMessage = error?.message || String(error);
+      console.error('[AccountPage] loadFriendRequests error:', errorMessage);
+      setFriendRequestsError(errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch")
+        ? "Backend non disponible"
+        : errorMessage);
+      setFriendRequests([]);
     }
-  };
+  }, []);
 
-  const loadFriendCode = async () => {
+  const loadFriendCode = useCallback(async () => {
+    if (!isMountedRef.current) return;
+
+    setFriendCodeError(null);
+    setFriendCodeLoading(true);
     try {
       const { code, invite_link } = await friendsApi.getFriendCode();
+      
+      if (!isMountedRef.current) return;
+      
       setFriendCode(code);
       setInviteLink(invite_link);
+      setFriendCodeError(null);
+      setFriendCodeLoading(false);
     } catch (error: any) {
-      console.error("Error loading friend code:", error);
+      if (!isMountedRef.current) return;
+      
+      const errorMessage = error?.message || String(error);
+      console.error('[AccountPage] loadFriendCode error:', errorMessage);
+      
+      setFriendCodeError(errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch") || errorMessage.includes("timeout") || errorMessage.includes("Request timeout")
+        ? "Backend non disponible. Assurez-vous que le serveur backend est lancé sur http://localhost:8010"
+        : errorMessage);
+      setFriendCode(null);
+      setInviteLink(null);
+      setFriendCodeLoading(false);
     }
-  };
+  }, []);
 
   const handleCopyInviteLink = () => {
     if (inviteLink) {
@@ -139,29 +194,34 @@ export function AccountPage() {
   };
 
   const fetchUserStats = useCallback(async () => {
-    if (!user) {
-      console.log("[AccountPage] fetchUserStats: No user, skipping");
-      return;
-    }
+    if (!isMountedRef.current || !user) return;
 
-    console.log("[AccountPage] fetchUserStats: Starting for user", user.id);
-    setLoading(true);
+    // Créer un AbortController pour cette requête
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
+    if (isMountedRef.current) {
+      setLoading(true);
+    }
 
     let timeoutId: NodeJS.Timeout | null = null;
 
     try {
-      // Timeout de sécurité : si la requête prend plus de 10 secondes, on arrête le loading
+      // Timeout de sécurité : si la requête prend plus de 15 secondes, on arrête le loading
       timeoutId = setTimeout(() => {
-        console.error(
-          "[AccountPage] fetchUserStats: Timeout after 10s, setting loading to false"
-        );
-        setLoading(false);
-        setStats({ exercises_completed: 0, level: "Terminale" });
-      }, 10000);
+        if (abortController.signal.aborted || !isMountedRef.current) return;
+        
+        console.warn('[AccountPage] fetchUserStats TIMEOUT after 15s');
+        if (isMountedRef.current) {
+          setLoading(false);
+          setStats({ exercises_completed: 0, level: "Terminale" });
+        }
+      }, 15000);
+
+      // Vérifier si annulé avant de commencer les requêtes
+      if (abortController.signal.aborted || !isMountedRef.current) return;
+
       // Récupérer le nombre total d'exercices réalisés
-      console.log(
-        "[AccountPage] fetchUserStats: Fetching exercise attempts..."
-      );
       const {
         data: attempts,
         error: attemptsError,
@@ -171,128 +231,111 @@ export function AccountPage() {
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id);
 
+      // Vérifier si annulé après la première requête
+      if (abortController.signal.aborted || !isMountedRef.current) return;
+      
       if (attemptsError) {
-        console.error(
-          "[AccountPage] fetchUserStats: Error fetching attempts:",
-          attemptsError
-        );
-      } else {
-        console.log("[AccountPage] fetchUserStats: Attempts count:", count);
+        console.error('[AccountPage] Error fetching attempts:', attemptsError.message);
       }
 
       // Récupérer la progression pour déterminer le niveau
-      console.log("[AccountPage] fetchUserStats: Fetching user progress...");
       const { data: progress, error: progressError } = await supabase
         .from("user_progress")
         .select("*")
         .eq("user_id", user.id);
 
+      // Vérifier si annulé après la deuxième requête
+      if (abortController.signal.aborted || !isMountedRef.current) return;
+
       if (progressError) {
-        console.error(
-          "[AccountPage] fetchUserStats: Error fetching progress:",
-          progressError
-        );
-      } else {
-        console.log("[AccountPage] fetchUserStats: Progress data:", progress);
+        console.error('[AccountPage] Error fetching progress:', progressError.message);
       }
 
+      // Vérifier une dernière fois avant de mettre à jour l'état
+      if (abortController.signal.aborted || !isMountedRef.current) return;
+
       if (attemptsError || progressError) {
-        console.error(
-          "[AccountPage] fetchUserStats: Errors occurred, using defaults"
-        );
         setStats({ exercises_completed: 0, level: "Terminale" });
       } else {
         const exercisesCompleted = count || 0;
-        console.log(
-          "[AccountPage] fetchUserStats: Setting stats - exercises:",
-          exercisesCompleted
-        );
         setStats({
           exercises_completed: exercisesCompleted,
           level: "Terminale",
         });
       }
     } catch (error) {
-      console.error("[AccountPage] fetchUserStats: Exception caught:", error);
-      setStats({ exercises_completed: 0, level: "Terminale" });
+      // Ignorer les erreurs si la requête a été annulée
+      if (abortController.signal.aborted || !isMountedRef.current) return;
+
+      console.error('[AccountPage] fetchUserStats exception:', error);
+      if (isMountedRef.current) {
+        setStats({ exercises_completed: 0, level: "Terminale" });
+      }
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      console.log(
-        "[AccountPage] fetchUserStats: Finished, setting loading to false"
-      );
-      setLoading(false);
+      if (isMountedRef.current && !abortController.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
   useEffect(() => {
-    console.log(
-      "[AccountPage] useEffect: authLoading=",
-      authLoading,
-      "user=",
-      !!user,
-      "profile=",
-      !!profile
-    );
+    isMountedRef.current = true;
 
     if (!authLoading && !user) {
-      console.log("[AccountPage] useEffect: No user, redirecting to login");
       router.push("/auth/login");
       return;
     }
 
     // If we have a user, proceed even if profile is not loaded yet
-    // This prevents infinite loading if profile fetch fails
     if (user) {
       if (profile) {
-        console.log(
-          "[AccountPage] useEffect: User and profile found, fetching stats"
-        );
         fetchUserStats();
       } else {
         // Wait a bit for profile to load, but don't wait forever
         const profileTimeout = setTimeout(() => {
-          console.log(
-            "[AccountPage] useEffect: Profile timeout, fetching stats anyway"
-          );
-          fetchUserStats();
-        }, 3000); // Wait 3 seconds for profile to load
+          if (isMountedRef.current) {
+            fetchUserStats();
+          }
+        }, 3000);
 
-        return () => clearTimeout(profileTimeout);
+        return () => {
+          clearTimeout(profileTimeout);
+        };
       }
-    } else {
-      console.log(
-        "[AccountPage] useEffect: Waiting for user - user:",
-        !!user,
-        "profile:",
-        !!profile
-      );
     }
+
+    // Cleanup function
+    return () => {
+      isMountedRef.current = false;
+      
+      // Annuler les requêtes en cours
+      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [user, profile, authLoading, router, fetchUserStats]);
 
   // Load friends data
   useEffect(() => {
-    if (user && activeTab === "friends") {
+    if (user && activeTab === "friends" && isMountedRef.current) {
       loadFriends();
       loadFriendRequests();
       loadFriendCode();
     }
-  }, [user, activeTab]);
 
-  console.log(
-    "[AccountPage] Render: authLoading=",
-    authLoading,
-    "loading=",
-    loading,
-    "user=",
-    !!user,
-    "profile=",
-    !!profile
-  );
+    // Cleanup function
+    return () => {
+      // Les requêtes sont déjà gérées par isMountedRef dans les fonctions
+      // Pas besoin d'annuler ici car elles vérifient isMountedRef avant de mettre à jour l'état
+    };
+  }, [user, activeTab, loadFriends, loadFriendRequests, loadFriendCode]);
+
+  // Removed verbose render logging - only log errors now
 
   if (authLoading || loading) {
-    console.log("[AccountPage] Render: Showing loading spinner");
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -301,11 +344,8 @@ export function AccountPage() {
   }
 
   if (!user) {
-    console.log("[AccountPage] Render: No user, returning null");
     return null;
   }
-
-  console.log("[AccountPage] Render: Rendering account page content");
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -640,9 +680,19 @@ export function AccountPage() {
                   <p className="text-blue-200 text-sm mb-1" style={{ fontFamily: "'Fredoka', sans-serif" }}>
                     Code :
                   </p>
-                  <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-                    {friendCode || "Chargement..."}
-                  </p>
+                  {friendCodeError ? (
+                    <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                      {friendCodeError}
+                    </p>
+                  ) : friendCodeLoading || !friendCode ? (
+                    <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                      Chargement...
+                    </p>
+                  ) : (
+                    <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                      {friendCode}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={handleCopyInviteLink}
@@ -685,7 +735,7 @@ export function AccountPage() {
             </div>
 
             {/* Demandes d'amis en attente */}
-            {friendRequests.length > 0 && (
+            {(friendRequests.length > 0 || friendRequestsError) && (
               <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
                 <h3
                   className="text-white text-xl mb-4"
@@ -696,6 +746,13 @@ export function AccountPage() {
                 >
                   Demandes d'amis ({friendRequests.length})
                 </h3>
+                {friendRequestsError && (
+                  <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 rounded-xl">
+                    <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                      {friendRequestsError}
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-3">
                   {friendRequests.map((request) => (
                     <div
@@ -752,6 +809,13 @@ export function AccountPage() {
               >
                 Amis ({friends.length})
               </h3>
+              {friendsError && (
+                <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 rounded-xl">
+                  <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                    {friendsError}
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {friends.map((friend) => (
                   <div

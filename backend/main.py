@@ -110,28 +110,37 @@ async def api_health_check():
 async def get_friend_code(user: dict = Depends(verify_token)):
     """Get or generate friend code for current user"""
     try:
+        logger.info(f"get_friend_code called for user: {user.get('user_id')}")
         supabase = get_supabase_client()
         user_id = user["user_id"]
         
         # Check if user already has a code
+        logger.info(f"Checking for existing friend code for user: {user_id}")
         result = supabase.table("friend_codes").select("*").eq("user_id", user_id).execute()
+        logger.info(f"Friend codes query result: {len(result.data) if result.data else 0} codes found")
         
         if result.data and len(result.data) > 0:
             code = result.data[0]["code"]
+            logger.info(f"Using existing code: {code}")
         else:
             # Generate new code (should be handled by trigger, but fallback)
             code = generate_unique_code()
-            supabase.table("friend_codes").insert({
+            logger.info(f"Generating new code: {code}")
+            insert_result = supabase.table("friend_codes").insert({
                 "user_id": user_id,
                 "code": code
             }).execute()
+            logger.info(f"Code inserted: {insert_result.data is not None if insert_result.data else False}")
         
         invite_link = f"https://novlearn.fr/invite/{code}"
+        logger.info(f"Returning code and invite link for user: {user_id}")
         
         return FriendCodeResponse(code=code, invite_link=invite_link)
     
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting friend code: {str(e)}")
+        logger.error(f"Error getting friend code: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -634,4 +643,8 @@ def generate_unique_code(length: int = 8) -> str:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=settings.host, port=settings.port, reload=settings.debug)
+    # Use import string for reload to work properly
+    if settings.debug:
+        uvicorn.run("main:app", host=settings.host, port=settings.port, reload=True)
+    else:
+        uvicorn.run(app, host=settings.host, port=settings.port, reload=False)

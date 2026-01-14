@@ -23,6 +23,7 @@ import {
   VariableValues,
   VariationTableContent,
 } from "../../types/exercise";
+import { substituteVariables } from "../../utils/MathParser";
 
 interface ExerciseRendererProps {
   /** L'exercice à afficher */
@@ -44,6 +45,40 @@ interface ElementRendererProps {
 }
 
 /**
+ * Calculate the correct answer for a question element
+ * Replaces variables in the answer formula and evaluates the expression
+ */
+function calculateCorrectAnswer(
+  questionContent: QuestionContent,
+  variables: VariableValues
+): number | string | undefined {
+  if (questionContent.answerType === 'numeric' && questionContent.answer) {
+    try {
+      // Replace variables in braces format {variable} with their values
+      let answerExpr = substituteVariables(questionContent.answer, variables, { useBraces: true });
+      
+      // Replace ^ with ** for JavaScript exponentiation
+      answerExpr = answerExpr.replace(/\^/g, '**');
+      
+      // Use Function constructor instead of eval for better security
+      // This safely evaluates mathematical expressions
+      const fn = new Function(`return ${answerExpr}`);
+      const result = fn();
+      
+      if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+        return result;
+      }
+    } catch (e) {
+      console.error('Error calculating correct answer:', e, {
+        answer: questionContent.answer,
+        variables,
+      });
+    }
+  }
+  return undefined;
+}
+
+/**
  * Composant qui rend un élément d'exercice selon son type
  */
 const ElementRenderer: React.FC<ElementRendererProps> = ({
@@ -51,7 +86,17 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
   variables,
   onSubmit,
 }) => {
-  switch (element.type) {
+  // Normalize element type (handle case variations)
+  const normalizedType = element.type?.toLowerCase()?.trim();
+  
+  console.log("[ElementRenderer] Processing element:", {
+    id: element.id,
+    originalType: element.type,
+    normalizedType,
+    hasContent: !!element.content,
+  });
+  
+  switch (normalizedType) {
     case "text":
       return (
         <TextRenderer
@@ -69,10 +114,12 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
       );
 
     case "equation":
+      const equationContent = element.content as EquationContent;
       return (
         <EquationRenderer
-          content={element.content as EquationContent}
+          content={equationContent}
           variables={variables}
+          onSubmit={(answer, isCorrect) => onSubmit?.(answer, isCorrect)}
         />
       );
 
@@ -101,10 +148,22 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
       );
 
     case "question":
+      const questionContent = element.content as QuestionContent;
+      const correctAnswer = calculateCorrectAnswer(questionContent, variables);
+      
+      console.log("[ElementRenderer] Rendering question element:", {
+        elementId: element.id,
+        elementType: element.type,
+        questionContent,
+        correctAnswer,
+        variables,
+      });
+      
       return (
         <QuestionRenderer
-          content={element.content as QuestionContent}
+          content={questionContent}
           variables={variables}
+          correctAnswer={correctAnswer}
           onSubmit={(answer, isCorrect) => onSubmit?.(answer, isCorrect)}
         />
       );
@@ -119,12 +178,38 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
       );
 
     default:
+      console.warn("[ElementRenderer] Unsupported element type:", {
+        id: element.id,
+        type: element.type,
+        normalizedType,
+        content: element.content,
+      });
+      
+      // If it looks like it might be a question but type is wrong, try to render as question
+      if (element.content && typeof element.content === 'object' && 'question' in element.content) {
+        console.log("[ElementRenderer] Attempting to render as question despite type mismatch");
+        const questionContent = element.content as QuestionContent;
+        const correctAnswer = calculateCorrectAnswer(questionContent, variables);
+        
+        return (
+          <QuestionRenderer
+            content={questionContent}
+            variables={variables}
+            correctAnswer={correctAnswer}
+            onSubmit={(answer, isCorrect) => onSubmit?.(answer, isCorrect)}
+          />
+        );
+      }
+      
       return (
         <div
           className="p-5 bg-white/95 rounded-2xl shadow-md border border-gray-100 text-gray-500"
           style={{ fontFamily: "'Fredoka', sans-serif" }}
         >
-          Type d'élément non supporté : {element.type}
+          <p>Type d'élément non supporté : {element.type}</p>
+          <pre className="mt-2 text-xs overflow-auto">
+            {JSON.stringify(element.content, null, 2)}
+          </pre>
         </div>
       );
   }
@@ -138,7 +223,10 @@ export const ExerciseRenderer: React.FC<ExerciseRendererProps> = ({
   onElementSubmit,
   preGeneratedVariables,
 }) => {
-  const { values: generatedValues } = useVariables(exercise.variables);
+  // Only generate variables if preGeneratedVariables is not provided
+  const { values: generatedValues } = useVariables(
+    preGeneratedVariables ? [] : exercise.variables
+  );
 
   const variables = useMemo(
     () => preGeneratedVariables || generatedValues,
@@ -152,22 +240,43 @@ export const ExerciseRenderer: React.FC<ExerciseRendererProps> = ({
     elements: exercise.elements,
   });
 
+  console.log("[ExerciseRenderer] Elements to render:", {
+    elementsCount: exercise.elements.length,
+    elements: exercise.elements.map(el => ({
+      id: el.id,
+      type: el.type,
+      hasContent: !!el.content,
+    })),
+  });
+
   return (
     <div className="space-y-5">
       {/* Elements */}
-      {exercise.elements.map((element) => {
-        console.log("[ExerciseRenderer] Rendering element:", element);
-        return (
-          <ElementRenderer
-            key={element.id}
-            element={element}
-            variables={variables}
-            onSubmit={(answer, isCorrect) =>
-              onElementSubmit?.(element.id, answer, isCorrect)
-            }
-          />
-        );
-      })}
+      {exercise.elements.length === 0 ? (
+        <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-xl">
+          <p className="text-yellow-800" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+            ⚠️ Cet exercice n'a aucun élément à afficher.
+          </p>
+        </div>
+      ) : (
+        exercise.elements.map((element) => {
+          console.log("[ExerciseRenderer] Rendering element:", {
+            id: element.id,
+            type: element.type,
+            content: element.content,
+          });
+          return (
+            <ElementRenderer
+              key={element.id}
+              element={element}
+              variables={variables}
+              onSubmit={(answer, isCorrect) =>
+                onElementSubmit?.(element.id, answer, isCorrect)
+              }
+            />
+          );
+        })
+      )}
     </div>
   );
 };

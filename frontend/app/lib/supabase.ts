@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+// Check credentials but only log errors
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[Supabase] ERROR: Supabase URL or Anon Key is missing!');
   console.error('[Supabase] URL:', supabaseUrl ? 'present' : 'MISSING');
@@ -19,4 +20,3 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
   },
 });
-

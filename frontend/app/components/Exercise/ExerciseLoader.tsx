@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { Exercise, VariableValues, Variable, ExerciseElement } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import ExerciseRenderer from "./ExerciseRenderer";
@@ -11,6 +11,14 @@ interface ExerciseLoaderProps {
   onError?: (error: Error) => void;
 }
 
+// Helper function for structured logging - only log important events
+const log = (action: string, data?: any) => {
+  // Only log errors and important state changes
+  if (action.includes("ERROR") || action.includes("TIMEOUT") || action.includes("error") || action.includes("aborted")) {
+    console.log(`[ExerciseLoader] ${action}`, data || '');
+  }
+};
+
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   exerciseId,
   onLoad,
@@ -21,12 +29,53 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   const [variables, setVariables] = useState<VariableValues>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Charge l'exercice depuis Supabase
   useEffect(() => {
+    // Ne rien faire si déjà en cours de chargement
+    if (loading && requestIdRef.current) {
+      return;
+    }
+
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    requestIdRef.current = requestId;
+    isMountedRef.current = true;
+
+    // Créer un AbortController pour cette requête
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     const loadExercise = async () => {
-      setLoading(true);
-      setError(null);
+      // Vérifier si la requête a été annulée avant de commencer
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      const startTime = Date.now();
+      
+      if (isMountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
+
+      // Timeout de sécurité : si la requête prend plus de 20 secondes, on arrête le loading
+      timeoutRef.current = setTimeout(() => {
+        if (abortController.signal.aborted || !isMountedRef.current) {
+          return;
+        }
+        const elapsed = Date.now() - startTime;
+        log("TIMEOUT DETECTED", { exerciseId, elapsedMs: elapsed });
+        if (isMountedRef.current) {
+          setLoading(false);
+          const timeoutError = new Error("La connexion à la base de données a pris trop de temps. Vérifiez votre connexion internet et réessayez.");
+          setError(timeoutError.message);
+          onError?.(timeoutError);
+        }
+      }, 20000);
 
       try {
         let query = supabase.from("exercises").select("*");
@@ -34,23 +83,74 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         if (exerciseId) {
           query = query.eq("id", exerciseId);
         } else {
-          // Si pas d'ID, on prend le premier dispo
           query = query.limit(1);
         }
 
-        // Utilisation de maybeSingle pour ne pas crasher si 0 résultat
-        const { data, error: dbError } = await query.maybeSingle();
+        const queryStartTime = Date.now();
+
+        // Vérifier si annulé avant d'exécuter la requête
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        // Créer une promesse avec timeout pour détecter les requêtes bloquées
+        const queryPromise = query.maybeSingle();
+        
+        // Timeout pour la requête Supabase elle-même (10 secondes)
+        const queryTimeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) => {
+          setTimeout(() => {
+            resolve({
+              data: null,
+              error: {
+                message: "La connexion à la base de données a pris trop de temps. Vérifiez votre connexion internet.",
+                code: "TIMEOUT"
+              }
+            });
+          }, 10000);
+        });
+
+        // Utilisation de maybeSingle avec timeout
+        const result = await Promise.race([queryPromise, queryTimeoutPromise]);
+        const { data, error: dbError } = result;
+
+        // Vérifier si annulé après la requête OU si ce n'est plus la requête active
+        if (abortController.signal.aborted || !isMountedRef.current || requestIdRef.current !== requestId) {
+          log("Request aborted after query, ignoring result", { 
+            exerciseId,
+            isAborted: abortController.signal.aborted,
+            requestIdMismatch: requestIdRef.current !== requestId
+          });
+          return;
+        }
+
+        const queryDuration = Date.now() - queryStartTime;
 
         if (dbError) {
-          console.error("ERREUR SUPABASE:", dbError); // Regarde ta console F12 !
+          log("Supabase query ERROR", { 
+            error: dbError.message,
+            code: dbError.code,
+            queryDurationMs: queryDuration
+          });
+          
+          // Si c'est un timeout, créer une erreur plus claire
+          if (dbError.code === "TIMEOUT" || dbError.message?.includes("timeout") || dbError.message?.includes("trop de temps")) {
+            const timeoutError = new Error("La connexion à la base de données a pris trop de temps. Vérifiez votre connexion internet et réessayez.");
+            throw timeoutError;
+          }
+          
           throw dbError;
         }
 
         if (!data) {
-          throw new Error("Aucun exercice trouvé dans la base de données. Avez-vous publié un exercice ?");
+          const noDataError = new Error("Aucun exercice trouvé dans la base de données. Avez-vous publié un exercice ?");
+          log("No data returned ERROR", { exerciseId });
+          throw noDataError;
         }
 
-        console.log("Données reçues de Supabase:", data); // Debug
+        // Vérifier une dernière fois avant de mettre à jour l'état
+        if (abortController.signal.aborted || !isMountedRef.current) {
+          return;
+        }
 
         // Reconstruction de l'objet Exercise
         const content = data.content || {};
@@ -67,22 +167,57 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           elements: content.elements || [],
         } as unknown as Exercise;
 
-        setExercise(fullExercise);
-        setVariables(generateVariables(fullExercise.variables));
-        onLoad?.(fullExercise);
+        if (isMountedRef.current && !abortController.signal.aborted) {
+          setExercise(fullExercise);
+          setVariables(generateVariables(fullExercise.variables));
+          onLoad?.(fullExercise);
+        }
 
       } catch (err) {
-        console.error("Erreur complète:", err);
-        const msg = err instanceof Error ? err.message : "Erreur inconnue";
-        setError(msg);
-        onError?.(err instanceof Error ? err : new Error(msg));
+        // Ignorer les erreurs si la requête a été annulée
+        if (abortController.signal.aborted || !isMountedRef.current) {
+          return;
+        }
+
+        const elapsed = Date.now() - startTime;
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        log("loadExercise ERROR", { 
+          error: errorMessage,
+          elapsedMs: elapsed
+        });
+        
+        if (isMountedRef.current && !abortController.signal.aborted) {
+          setError(errorMessage);
+          onError?.(err instanceof Error ? err : new Error(errorMessage));
+        }
       } finally {
-        setLoading(false);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        if (isMountedRef.current && !abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     loadExercise();
-  }, [exerciseId]); // Dépendance uniquement sur l'ID
+
+    // Cleanup function
+    return () => {
+      isMountedRef.current = false;
+      
+      // Annuler la requête en cours
+      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+        abortControllerRef.current.abort();
+      }
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [exerciseId]); // Retirer onLoad et onError des dépendances pour éviter les re-renders
 
   const handleRegenerate = useCallback(() => {
     if (exercise) {
@@ -100,12 +235,27 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   }
 
   if (error) {
+    const isTimeoutError = error.includes("trop de temps") || error.includes("timeout") || error.includes("connexion");
+    
     return (
       <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center">
         <h3 className="text-red-800 font-bold text-lg mb-2">Erreur de chargement</h3>
         <p className="text-red-600 mb-4">{error}</p>
+        {isTimeoutError && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 text-sm">
+              💡 <strong>Conseil :</strong> Vérifiez votre connexion internet. Si le problème persiste, la base de données peut être temporairement indisponible.
+            </p>
+          </div>
+        )}
         <button 
-          onClick={() => window.location.reload()}
+          onClick={() => {
+            // Réinitialiser l'état et réessayer
+            setError(null);
+            setLoading(true);
+            // Le useEffect se relancera automatiquement car exerciseId n'a pas changé
+            window.location.reload();
+          }}
           className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
         >
           Réessayer

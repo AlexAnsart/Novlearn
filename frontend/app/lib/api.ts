@@ -13,16 +13,27 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
  * Get authorization header with Supabase token
  */
 async function getAuthHeaders(): Promise<HeadersInit> {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error('Not authenticated');
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('[api.ts] Session error:', error.message);
+      throw new Error('Not authenticated');
+    }
+    
+    if (!session?.access_token) {
+      console.error('[api.ts] No session or access token');
+      throw new Error('Not authenticated');
+    }
+    
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    };
+  } catch (error) {
+    console.error('[api.ts] getAuthHeaders error:', error);
+    throw error;
   }
-  
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`,
-  };
 }
 
 /**
@@ -32,22 +43,52 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const headers = await getAuthHeaders();
-  
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...options.headers,
-    },
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+  try {
+    const headers = await getAuthHeaders();
+    const url = `${API_URL}${endpoint}`;
+    
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          ...headers,
+          ...options.headers,
+        },
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error(`[api.ts] Timeout on ${endpoint}`);
+        throw new Error("Request timeout: Le serveur ne répond pas. Vérifiez que le backend est lancé sur http://localhost:8010");
+      }
+      throw fetchError;
+    }
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error(`[api.ts] ${endpoint} error:`, error);
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Provide more helpful error messages
+    if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError") || errorMessage.includes("Network request failed")) {
+      console.error(`[api.ts] Network error on ${endpoint}`);
+      throw new Error("Impossible de se connecter au backend. Vérifiez que le serveur est lancé sur http://localhost:8010");
+    }
+    
+    throw error;
   }
-  
-  return response.json();
 }
 
 // ============================================
