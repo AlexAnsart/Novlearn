@@ -207,43 +207,52 @@ async def get_friends(user: dict = Depends(verify_token)):
         
         # Get friendships where user is either user1 or user2
         friends_data = []
+        friend_ids = []
         
-        # Query as user1
+        # Query as user1 - get user2_ids
         result1 = supabase.table("friends")\
-            .select("*, user2:user2_id(id, email, profiles(first_name, last_name))")\
+            .select("user2_id")\
             .eq("user1_id", user_id)\
             .eq("status", "accepted")\
             .execute()
         
         for friend in result1.data or []:
-            if friend.get("user2"):
-                user_data = friend["user2"]
-                profile = user_data.get("profiles", [{}])[0] if user_data.get("profiles") else {}
-                friends_data.append({
-                    "id": user_data.get("id"),
-                    "email": user_data.get("email"),
-                    "first_name": profile.get("first_name", ""),
-                    "last_name": profile.get("last_name", ""),
-                    "name": f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip() or user_data.get("email", "").split("@")[0]
-                })
+            friend_ids.append(friend["user2_id"])
         
-        # Query as user2
+        # Query as user2 - get user1_ids
         result2 = supabase.table("friends")\
-            .select("*, user1:user1_id(id, email, profiles(first_name, last_name))")\
+            .select("user1_id")\
             .eq("user2_id", user_id)\
             .eq("status", "accepted")\
             .execute()
         
         for friend in result2.data or []:
-            if friend.get("user1"):
-                user_data = friend["user1"]
-                profile = user_data.get("profiles", [{}])[0] if user_data.get("profiles") else {}
+            friend_ids.append(friend["user1_id"])
+        
+        # Get profiles for all friend IDs
+        if friend_ids:
+            profiles_result = supabase.table("profiles")\
+                .select("id, first_name, last_name, email")\
+                .in_("id", friend_ids)\
+                .execute()
+            
+            # Create a map of user_id -> profile
+            profiles_map = {p["id"]: p for p in (profiles_result.data or [])}
+            
+            # Build friends data
+            for friend_id in friend_ids:
+                profile = profiles_map.get(friend_id, {})
+                email = profile.get("email", "")
+                first_name = profile.get("first_name", "")
+                last_name = profile.get("last_name", "")
+                name = f"{first_name} {last_name}".strip() or email.split("@")[0] if email else ""
+                
                 friends_data.append({
-                    "id": user_data.get("id"),
-                    "email": user_data.get("email"),
-                    "first_name": profile.get("first_name", ""),
-                    "last_name": profile.get("last_name", ""),
-                    "name": f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip() or user_data.get("email", "").split("@")[0]
+                    "id": friend_id,
+                    "email": email,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "name": name
                 })
         
         return {"friends": friends_data}
@@ -262,20 +271,41 @@ async def get_friend_requests(user: dict = Depends(verify_token)):
         
         # Get requests where user is the recipient
         result = supabase.table("friend_requests")\
-            .select("*, from_user:from_user_id(id, email, profiles(first_name, last_name))")\
+            .select("id, from_user_id, created_at")\
             .eq("to_user_id", user_id)\
             .eq("status", "pending")\
             .execute()
         
         requests_data = []
+        from_user_ids = []
+        
+        # Collect request IDs and from_user_ids
         for req in result.data or []:
-            if req.get("from_user"):
-                user_data = req["from_user"]
-                profile = user_data.get("profiles", [{}])[0] if user_data.get("profiles") else {}
+            from_user_ids.append(req["from_user_id"])
+        
+        # Get profiles for all from_user_ids
+        if from_user_ids:
+            profiles_result = supabase.table("profiles")\
+                .select("id, first_name, last_name, email")\
+                .in_("id", from_user_ids)\
+                .execute()
+            
+            # Create a map of user_id -> profile
+            profiles_map = {p["id"]: p for p in (profiles_result.data or [])}
+            
+            # Build requests data
+            for req in result.data or []:
+                from_user_id = req["from_user_id"]
+                profile = profiles_map.get(from_user_id, {})
+                email = profile.get("email", "")
+                first_name = profile.get("first_name", "")
+                last_name = profile.get("last_name", "")
+                from_user_name = f"{first_name} {last_name}".strip() or email.split("@")[0] if email else ""
+                
                 requests_data.append({
                     "id": req.get("id"),
-                    "from_user_id": user_data.get("id"),
-                    "from_user_name": f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip() or user_data.get("email", "").split("@")[0],
+                    "from_user_id": from_user_id,
+                    "from_user_name": from_user_name,
                     "created_at": req.get("created_at")
                 })
         
@@ -488,23 +518,61 @@ async def get_pending_duels(user: dict = Depends(verify_token)):
         
         # Get duels where user is player2 and status is waiting
         result = supabase.table("duels")\
-            .select("*, player1:player1_id(id, email, profiles(first_name, last_name)), exercise:exercise_id(title)")\
+            .select("id, player1_id, exercise_id, created_at")\
             .eq("player2_id", user_id)\
             .eq("status", "waiting")\
             .execute()
         
         duels_data = []
+        player1_ids = []
+        exercise_ids = []
+        
+        # Collect IDs
         for duel in result.data or []:
-            if duel.get("player1"):
-                user_data = duel["player1"]
-                profile = user_data.get("profiles", [{}])[0] if user_data.get("profiles") else {}
-                duels_data.append({
-                    "id": duel.get("id"),
-                    "from_user_id": user_data.get("id"),
-                    "from_user_name": f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip() or user_data.get("email", "").split("@")[0],
-                    "exercise_title": duel.get("exercise", {}).get("title", "Exercice"),
-                    "created_at": duel.get("created_at")
-                })
+            if duel.get("player1_id"):
+                player1_ids.append(duel["player1_id"])
+            if duel.get("exercise_id"):
+                exercise_ids.append(duel["exercise_id"])
+        
+        # Get profiles for player1_ids
+        profiles_map = {}
+        if player1_ids:
+            profiles_result = supabase.table("profiles")\
+                .select("id, first_name, last_name, email")\
+                .in_("id", player1_ids)\
+                .execute()
+            profiles_map = {p["id"]: p for p in (profiles_result.data or [])}
+        
+        # Get exercises
+        exercises_map = {}
+        if exercise_ids:
+            exercises_result = supabase.table("exercises")\
+                .select("id, title")\
+                .in_("id", exercise_ids)\
+                .execute()
+            exercises_map = {e["id"]: e for e in (exercises_result.data or [])}
+        
+        # Build duels data
+        for duel in result.data or []:
+            player1_id = duel.get("player1_id")
+            exercise_id = duel.get("exercise_id")
+            
+            profile = profiles_map.get(player1_id, {})
+            email = profile.get("email", "")
+            first_name = profile.get("first_name", "")
+            last_name = profile.get("last_name", "")
+            from_user_name = f"{first_name} {last_name}".strip() or email.split("@")[0] if email else ""
+            
+            exercise = exercises_map.get(exercise_id, {})
+            exercise_title = exercise.get("title", "Exercice")
+            
+            duels_data.append({
+                "id": duel.get("id"),
+                "from_user_id": player1_id,
+                "from_user_name": from_user_name,
+                "exercise_title": exercise_title,
+                "created_at": duel.get("created_at")
+            })
         
         return {"duels": duels_data}
     
@@ -542,7 +610,7 @@ async def get_duel(duel_id: int, user: dict = Depends(verify_token)):
         user_id = user["user_id"]
         
         result = supabase.table("duels")\
-            .select("*, exercise:exercise_id(id, title, chapter, difficulty, content), player1:player1_id(id, email, profiles(first_name, last_name)), player2:player2_id(id, email, profiles(first_name, last_name))")\
+            .select("*")\
             .eq("id", duel_id)\
             .execute()
         
@@ -554,6 +622,47 @@ async def get_duel(duel_id: int, user: dict = Depends(verify_token)):
         # Check if user is part of the duel
         if duel["player1_id"] != user_id and duel["player2_id"] != user_id:
             raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à voir ce duel")
+        
+        # Get exercise if exercise_id exists
+        if duel.get("exercise_id"):
+            exercise_result = supabase.table("exercises")\
+                .select("id, title, chapter, difficulty, content")\
+                .eq("id", duel["exercise_id"])\
+                .execute()
+            if exercise_result.data:
+                duel["exercise"] = exercise_result.data[0]
+        
+        # Get player1 profile
+        if duel.get("player1_id"):
+            player1_profile = supabase.table("profiles")\
+                .select("id, first_name, last_name, email")\
+                .eq("id", duel["player1_id"])\
+                .execute()
+            if player1_profile.data:
+                duel["player1"] = {
+                    "id": player1_profile.data[0]["id"],
+                    "email": player1_profile.data[0].get("email", ""),
+                    "profiles": [{
+                        "first_name": player1_profile.data[0].get("first_name", ""),
+                        "last_name": player1_profile.data[0].get("last_name", "")
+                    }]
+                }
+        
+        # Get player2 profile
+        if duel.get("player2_id"):
+            player2_profile = supabase.table("profiles")\
+                .select("id, first_name, last_name, email")\
+                .eq("id", duel["player2_id"])\
+                .execute()
+            if player2_profile.data:
+                duel["player2"] = {
+                    "id": player2_profile.data[0]["id"],
+                    "email": player2_profile.data[0].get("email", ""),
+                    "profiles": [{
+                        "first_name": player2_profile.data[0].get("first_name", ""),
+                        "last_name": player2_profile.data[0].get("last_name", "")
+                    }]
+                }
         
         return {"duel": duel}
     
