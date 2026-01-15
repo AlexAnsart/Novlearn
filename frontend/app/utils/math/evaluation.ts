@@ -29,15 +29,19 @@ export const evaluate = (expression: string, variables: VariableValues = {}): nu
   let safeExpr = expression.toString();
 
   // 1. Remplacer les variables @variable
-  // On trie par longueur pour remplacer @alpha avant @a
   const sortedKeys = Object.keys(variables).sort((a, b) => b.length - a.length);
   
   for (const key of sortedKeys) {
     const value = variables[key];
     // Remplace @key par (value) pour sécuriser les nombres négatifs
-    safeExpr = safeExpr.replace(new RegExp(`@${key}\\b`, 'g'), `(${value})`);
-    // Support aussi pour {key} si jamais
+    // Gère @key et {key}
+    safeExpr = safeExpr.replace(new RegExp(`@${key}(?![a-zA-Z0-9])`, 'g'), `(${value})`);
     safeExpr = safeExpr.replace(new RegExp(`\\{${key}\\}`, 'g'), `(${value})`);
+  }
+  
+  // Gère aussi le cas où la variable est juste "x" (sans @) dans l'expression
+  if (variables.x !== undefined) {
+     safeExpr = safeExpr.replace(/\bx\b/g, `(${variables.x})`);
   }
 
   // 2. Préparer pour JS
@@ -55,6 +59,24 @@ export const evaluate = (expression: string, variables: VariableValues = {}): nu
 };
 
 /**
+ * Alias pour évaluer une fonction f(x) en un point donné
+ * (Pour compatibilité avec GraphRenderer et autres)
+ */
+export const evaluateAt = (expression: string, x: number): number => {
+  return evaluate(expression, { x });
+};
+
+/**
+ * Convertit une valeur en format LaTeX pour l'affichage (virgule décimale)
+ */
+export const toLatex = (value: string | number | undefined | null): string => {
+  if (value === undefined || value === null) return '';
+  const str = String(value);
+  // Remplace le point par une virgule pour le standard mathématique français
+  return str.replace('.', ',');
+};
+
+/**
  * Vérifie si la réponse utilisateur est correcte
  */
 export const checkAnswer = (
@@ -65,6 +87,7 @@ export const checkAnswer = (
 ): boolean => {
   if (format === 'number') {
     // Évaluation numérique avec tolérance
+    // On remplace la virgule par un point pour le parsing JS
     const userVal = parseFloat(userInput.replace(',', '.'));
     const expectedVal = evaluate(correctAnswer, variables);
     
