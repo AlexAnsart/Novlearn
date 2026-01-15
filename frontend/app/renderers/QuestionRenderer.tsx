@@ -1,32 +1,22 @@
 'use client';
 
-import { CheckCircle2, HelpCircle, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
+import { CheckCircle2, XCircle, HelpCircle } from 'lucide-react';
 import { MathText } from '../components/ui';
-import { VariableValues } from '../types/exercise';
+import { VariableValues, QuestionContent } from '../types/exercise';
 import { checkAnswer } from '../utils/math/evaluation';
 
-interface QuestionContent {
-  question: string;
-  correctAnswer: string;
-  answerFormat: 'number' | 'text';
-  points?: number;
-  hint?: string;
-  explanation?: string;
-}
-
+// Interface harmonisée avec les autres Renderers (plus d'elementId requis ici)
 interface QuestionRendererProps {
-  elementId: number;
   content: QuestionContent;
   variables: VariableValues;
-  onElementSubmit?: (id: number, answer: string, isCorrect: boolean) => void;
+  onSubmit?: (answer: string, isCorrect: boolean) => void;
 }
 
 const QuestionRenderer: React.FC<QuestionRendererProps> = ({
-  elementId,
   content,
   variables,
-  onElementSubmit
+  onSubmit
 }) => {
   const [value, setValue] = useState('');
   const [status, setStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
@@ -36,19 +26,19 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     e.preventDefault();
     if (!value.trim()) return;
 
-    // Vérification de la réponse via le moteur d'évaluation
+    // Utilisation des NOUVELLES propriétés (answerFormat et correctAnswer)
     const isCorrect = checkAnswer(value, content.correctAnswer, variables, content.answerFormat);
     
     setStatus(isCorrect ? 'correct' : 'incorrect');
     
-    if (onElementSubmit) {
-      onElementSubmit(elementId, value, isCorrect);
+    // On renvoie juste le résultat, le parent ajoutera l'ID
+    if (onSubmit) {
+      onSubmit(value, isCorrect);
     }
   };
 
   return (
     <div className="my-6 p-6 bg-white rounded-xl shadow-sm border border-slate-200">
-      {/* Énoncé de la question */}
       <div className="flex gap-3 mb-4">
         <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full font-bold text-sm">
           ?
@@ -67,7 +57,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
         )}
       </div>
 
-      {/* Formulaire de réponse */}
       <form onSubmit={handleSubmit} className="space-y-4 ml-11">
         <div className="flex gap-3 items-start max-w-md">
           <input
@@ -76,14 +65,14 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
-              if (status !== 'idle') setStatus('idle'); // Reset status on change
+              if (status !== 'idle') setStatus('idle');
             }}
             placeholder="Votre réponse..."
-            className={`flex-grow px-4 py-2 rounded-lg border focus:ring-2 focus:ring-offset-1 outline-none transition-all
+            className={`flex-grow px-4 py-2 rounded-lg border outline-none transition-all
               ${status === 'correct' ? 'border-green-500 bg-green-50 text-green-700' : 
                 status === 'incorrect' ? 'border-red-500 bg-red-50 text-red-700' : 
-                'border-slate-300 focus:border-indigo-500 focus:ring-indigo-200'}`}
-            disabled={status === 'correct'} // Désactiver si trouvé
+                'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:ring-offset-1'}`}
+            disabled={status === 'correct'}
           />
           
           <button
@@ -95,7 +84,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           </button>
         </div>
 
-        {/* Feedback */}
         {status === 'correct' && (
           <div className="flex items-center gap-2 text-green-600 animate-in fade-in slide-in-from-left-2">
             <CheckCircle2 className="w-5 h-5" />
@@ -107,7 +95,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           <div className="space-y-2 animate-in fade-in slide-in-from-left-2">
             <div className="flex items-center gap-2 text-red-600">
               <XCircle className="w-5 h-5" />
-              <span className="font-medium">Mauvaise réponse, essayez encore.</span>
+              <span className="font-medium">Mauvaise réponse.</span>
             </div>
             
             {content.hint && !showHint && (
@@ -123,7 +111,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           </div>
         )}
 
-        {/* Indice */}
         {showHint && content.hint && (
           <div className="p-3 bg-indigo-50 text-indigo-800 text-sm rounded-lg border border-indigo-100 flex gap-2">
             <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
