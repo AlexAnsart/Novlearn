@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle2, XCircle, HelpCircle, Lightbulb, AlertCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, HelpCircle, Lightbulb, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { MathText } from '../components/ui';
 import { VariableValues, QuestionContent } from '../types/exercise';
 import { checkAnswer } from '../utils/math/evaluation';
@@ -18,10 +18,13 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   onSubmit
 }) => {
   const [value, setValue] = useState('');
-  const [attempts, setAttempts] = useState(0); // Compteur d'essais
-  const [isFinished, setIsFinished] = useState(false); // Est-ce fini (réussi ou perdu)
+  const [attempts, setAttempts] = useState(0);
+  const [isFinished, setIsFinished] = useState(false);
   const [status, setStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+  
+  // États pour l'affichage progressif
   const [showHint, setShowHint] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,26 +33,23 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     const currentAttempt = attempts + 1;
     setAttempts(currentAttempt);
 
-    // Vérification
     const isCorrect = checkAnswer(value, content.correctAnswer, variables, content.answerFormat);
     
     if (isCorrect) {
-      // CAS : BONNE RÉPONSE
+      // SUCCÈS
       setStatus('correct');
-      setIsFinished(true); // On verrouille
+      setIsFinished(true);
       if (onSubmit) onSubmit(value, true);
     } else {
-      // CAS : MAUVAISE RÉPONSE
+      // ÉCHEC
       setStatus('incorrect');
       
       if (currentAttempt >= 2) {
-        // C'est perdu après 2 essais
-        setIsFinished(true); // On verrouille
+        // PERDU (2ème essai raté)
+        setIsFinished(true);
         if (onSubmit) onSubmit(value, false);
-      } else {
-        // Premier échec : On laisse la main, pas de submit final encore
-        // L'utilisateur pourra voir le bouton indice
       }
+      // Sinon, on laisse une chance (feedback intermédiaire géré dans le render)
     }
   };
 
@@ -60,7 +60,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
       'bg-white border-slate-200'
     }`}>
       
-      {/* En-tête Question */}
+      {/* --- EN-TÊTE --- */}
       <div className="flex gap-3 mb-4">
         <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm
           ${isFinished && status === 'correct' ? 'bg-green-100 text-green-700' : 
@@ -84,7 +84,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-4 ml-11">
         
-        {/* Champ de saisie */}
+        {/* --- INPUT & BOUTON --- */}
         <div className="flex gap-3 items-start max-w-md">
           <input
             type="text"
@@ -92,7 +92,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
-              // Si on réécrit après une erreur (et que ce n'est pas fini), on remet le status idle
               if (!isFinished && status === 'incorrect') setStatus('idle');
             }}
             placeholder={isFinished ? (status === 'correct' ? "Réponse validée" : "Terminé") : "Votre réponse..."}
@@ -112,11 +111,11 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 ? 'bg-slate-300 cursor-not-allowed opacity-50' 
                 : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'}`}
           >
-            {isFinished ? 'Validé' : attempts > 0 ? 'Réessayer' : 'Valider'}
+            {isFinished ? 'Terminé' : attempts > 0 ? 'Réessayer' : 'Valider'}
           </button>
         </div>
 
-        {/* FEEDBACKS INTERMÉDIAIRES (Avant la fin) */}
+        {/* --- FEEDBACK 1er ESSAI RATÉ --- */}
         {!isFinished && status === 'incorrect' && (
           <div className="animate-in fade-in slide-in-from-left-2 space-y-3">
             <div className="flex items-center gap-2 text-red-600">
@@ -124,7 +123,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
               <span className="font-medium">Ce n'est pas ça. Il vous reste un essai !</span>
             </div>
 
-            {/* Bouton Indice (visible seulement si on a raté une fois) */}
             {content.hint && (
                !showHint ? (
                   <button
@@ -148,8 +146,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           </div>
         )}
 
-        {/* ÉTATS FINAUX (Réussi ou 2 erreurs) */}
-        
+        {/* --- ÉTAT FINAL : GAGNÉ --- */}
         {isFinished && status === 'correct' && (
           <div className="flex items-center gap-2 text-green-600 animate-in fade-in slide-in-from-left-2">
             <CheckCircle2 className="w-5 h-5" />
@@ -157,30 +154,53 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           </div>
         )}
 
+        {/* --- ÉTAT FINAL : PERDU (Affichage Correction) --- */}
         {isFinished && status === 'incorrect' && (
-          <div className="flex items-center gap-2 text-red-600 animate-in fade-in slide-in-from-left-2">
-            <XCircle className="w-5 h-5" />
-            <span className="font-bold">Mince, c'est raté pour cette fois.</span>
+          <div className="space-y-3 animate-in fade-in slide-in-from-left-2">
+            
+            {/* 1. Message d'échec */}
+            <div className="flex items-center gap-2 text-red-600">
+              <XCircle className="w-5 h-5" />
+              <span className="font-bold">Mince, c'est raté.</span>
+            </div>
+
+            {/* 2. La Correction (Le Résultat) */}
+            <div className="p-3 bg-slate-100 rounded-lg border border-slate-200 text-slate-700 flex items-center gap-2">
+              <span className="font-bold text-sm uppercase text-slate-500">Réponse :</span>
+              <span className="font-bold text-lg text-slate-800">
+                <MathText content={content.correctAnswer} variables={variables} displayMode={false} />
+              </span>
+            </div>
           </div>
         )}
 
-        {/* CORRECTION FINALE (S'affiche toujours à la fin, que ce soit juste ou faux, s'il y a une explication) */}
+        {/* --- BOUTON EXPLICATION (Commun Gagné/Perdu) --- */}
         {isFinished && content.explanation && (
-          <div className={`mt-4 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2
-            ${status === 'correct' ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}>
-            <div className="flex items-start gap-3">
-              <div className={`mt-1 p-1 rounded-full ${status === 'correct' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                <Lightbulb className="w-4 h-4" />
-              </div>
-              <div className="space-y-1">
-                <p className={`text-xs font-bold uppercase tracking-wider ${status === 'correct' ? 'text-green-600' : 'text-red-600'}`}>
-                  {status === 'correct' ? 'Explication' : 'Correction'}
-                </p>
-                <div className="text-slate-800 text-sm leading-relaxed">
-                  <MathText content={content.explanation} variables={variables} />
+          <div className="pt-2 animate-in fade-in slide-in-from-top-1">
+            <button
+              type="button"
+              onClick={() => setShowExplanation(!showExplanation)}
+              className={`flex items-center gap-2 text-sm font-medium transition-colors
+                ${status === 'correct' ? 'text-green-700 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'}`}
+            >
+              {showExplanation ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {showExplanation ? "Masquer l'explication" : "Explication de la correction"}
+            </button>
+
+            {/* Contenu de l'explication (Accordion) */}
+            {showExplanation && (
+              <div className={`mt-3 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2
+                ${status === 'correct' ? 'bg-green-50/50 border-green-100' : 'bg-blue-50/50 border-blue-100'}`}>
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 p-1 rounded-full ${status === 'correct' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                    <Lightbulb className="w-4 h-4" />
+                  </div>
+                  <div className="text-slate-800 text-sm leading-relaxed">
+                    <MathText content={content.explanation} variables={variables} />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
