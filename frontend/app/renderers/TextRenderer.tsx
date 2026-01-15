@@ -1,20 +1,21 @@
-import React from "react";
-import MathText from "../components/ui/MathText";
-import { RendererProps, TextContent } from "../types/exercise";
+'use client';
 
-const TextRenderer: React.FC<RendererProps<TextContent>> = ({
-  content,
-  variables,
-}) => {
-  console.log("[TextRenderer] Rendering:", { content, variables });
+import React from 'react';
+import { MathText } from '../components/ui';
+import { VariableValues } from '../types/exercise';
 
+interface TextRendererProps {
+  content: { text: string };
+  variables: VariableValues;
+}
+
+const TextRenderer: React.FC<TextRendererProps> = ({ content, variables }) => {
   return (
-    <div className="p-6 bg-slate-900/40 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-lg">
-      <MathText
-        content={content.text}
-        variables={variables}
-        className="text-white text-xl leading-relaxed"
-        autoLatex={true}
+    <div className="mb-6 text-slate-800 leading-relaxed">
+      <MathText 
+        content={content.text} 
+        variables={variables} 
+        className="text-lg"
       />
     </div>
   );

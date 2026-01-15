@@ -1,93 +1,148 @@
-import { VariableValues } from '../../types/exercise';
-import { formatValue, cleanMathExpression } from './formatting';
+import { VariableValues } from "../../types/exercise";
 
-/**
- * Substitue les variables dans le texte et applique le nettoyage mathématique.
- * Supporte la syntaxe {variable} et gère intelligemment les signes.
- */
-export const substituteVariables = (text: string, variables: VariableValues = {}): string => {
-  if (!text) return '';
-  if (Object.keys(variables).length === 0) return text;
+// ==========================================
+// 1. FORMATAGE DES NOMBRES
+// ==========================================
 
-  // On protège temporairement les @ pour éviter les conflits si on en utilise
-  let result = text.replace(/@/g, '##ESCAPED_AT##');
+export const formatValue = (
+  value: number | string | null | undefined
+): string => {
+  if (value === null || value === undefined) return "";
+  const numValue =
+    typeof value === "number" ? value : parseFloat(value as string);
 
-  // Trier les clés par longueur décroissante pour éviter qu'une variable "a" remplace le début de "ab"
+  if (isNaN(numValue)) return String(value);
+
+  return Number.isInteger(numValue)
+    ? numValue.toString()
+    : parseFloat(numValue.toFixed(4)).toString();
+};
+
+// ==========================================
+// 2. NETTOYAGE MATHÉMATIQUE (Style 'src')
+// ==========================================
+
+export const cleanMathExpression = (expression: string): string => {
+  let cleaned = expression;
+
+  // 1. Gérer le coefficient 0 (0x, 0\pi...) -> "0"
+  cleaned = cleaned.replace(/(?<![\d.])0\s*[a-zA-Z\\][a-zA-Z0-9^_{}\\]*/g, "0");
+
+  // 2. Gérer le coefficient 1 (1x -> x, 1\pi -> \pi)
+  cleaned = cleaned.replace(/(?<![\d.])1\s*([a-zA-Z\\])/g, "$1");
+
+  // 3. NETTOYAGE DES ZÉROS
+  cleaned = cleaned.replace(/[+-]\s*0(?![0-9.])/g, "");
+  cleaned = cleaned.replace(/^\s*0\s*([+-])/, "$1");
+
+  // 4. GESTION DES SIGNES
+  cleaned = cleaned.replace(/\+\s*-/g, "-");
+  cleaned = cleaned.replace(/-\s*-/g, "+");
+  cleaned = cleaned.replace(/\+\s*\+/g, "+");
+  cleaned = cleaned.replace(/\+ -/g, "-");
+  cleaned = cleaned.replace(/\+-/g, "-");
+  cleaned = cleaned.replace(/--/g, "+");
+
+  // 5. NETTOYAGE DÉBUT DE LIGNE
+  cleaned = cleaned.replace(/^\s*\+/, "");
+
+  // 6. Parenthèses inutiles
+  cleaned = cleaned.replace(/\((\d+\.?\d*)\)/g, "$1");
+
+  if (expression.trim() !== "" && cleaned.trim() === "") {
+    return "0";
+  }
+
+  return cleaned.replace(/\s+/g, " ").trim();
+};
+
+// ==========================================
+// 3. SUBSTITUTION DES VARIABLES (@variable)
+// ==========================================
+
+export const substituteVariables = (
+  text: string,
+  variables: VariableValues = {}
+): string => {
+  if (!text) return "";
+  if (Object.keys(variables).length === 0) return text.replace(/@@/g, "@");
+
+  let result = text.replace(/@@/g, "##ESCAPED_AT##");
+
+  // Tri par longueur décroissante (important pour remplacer @alpha avant @a)
   const sortedKeys = Object.keys(variables).sort((a, b) => b.length - a.length);
 
-  sortedKeys.forEach(key => {
+  sortedKeys.forEach((key) => {
     const value = variables[key];
-    const numValue = typeof value === 'number' ? value : parseFloat(value as string);
-    
-    // Regex : Cherche {key} avec un potentiel signe devant
-    // Capture group 1: signe (+ ou - ou vide)
-    // Capture group 2: espaces
-    const regex = new RegExp(`([+\\-]?)(\\s*)\\{${key}\\}`, 'g');
-    
+    const numValue =
+      typeof value === "number" ? value : parseFloat(value as string);
+    const formattedValue = formatValue(value);
+
+    // CORRECTION ICI : J'ai retiré le "_" du lookahead négatif (?![...])
+    // Avant : (?![a-zA-Z0-9_]) => Bloquait sur @a_
+    // Après : (?![a-zA-Z0-9])  => Autorise @a_ mais bloque @ab
+    const regex = new RegExp(`([+\\-]?)(\\s*)@${key}(?![a-zA-Z0-9])`, "g");
+
     result = result.replace(regex, (match, sign, space) => {
-      // Si ce n'est pas un nombre, on remplace simplement
-      if (isNaN(numValue)) return (sign || '') + (space || '') + formatValue(value);
+      if (isNaN(numValue)) {
+        return (sign || "") + (space || "") + formattedValue;
+      }
 
       const formattedAbs = formatValue(Math.abs(numValue));
 
       // Gestion intelligente des signes
-      if (sign === '+') {
-        // "+ {a}" avec a < 0  -> "- a"
+      if (sign === "+") {
         if (numValue < 0) return `${space}- ${formattedAbs}`;
         return `${space}+ ${formattedAbs}`;
-      } 
-      else if (sign === '-') {
-        // "- {a}" avec a < 0 -> "+ a"
+      } else if (sign === "-") {
         if (numValue < 0) return `${space}+ ${formattedAbs}`;
         return `${space}- ${formattedAbs}`;
       }
-      
-      // Pas de signe devant, mais le nombre est négatif
+
       if (numValue < 0) return `${space}-${formattedAbs}`;
-      
-      return (sign || '') + (space || '') + formatValue(value);
+
+      return (sign || "") + (space || "") + formattedValue;
     });
   });
 
-  // Restauration et nettoyage final
-  result = result.replace(/##ESCAPED_AT##/g, '@');
+  result = result.replace(/##ESCAPED_AT##/g, "@");
   return cleanMathExpression(result);
 };
 
-// Interface pour les segments de texte parsés
+// ==========================================
+// 4. PARSING TEXTE / MATHS
+// ==========================================
+
 export interface TextSegment {
-  type: 'text' | 'math' | 'display-math';
+  type: "text" | "math" | "display-math";
   content: string;
 }
 
-/**
- * Découpe le texte en segments (texte brut, math inline $, math display $$)
- */
 export function parseMathText(text: string): TextSegment[] {
   const segments: TextSegment[] = [];
   const regex = /(\$\$[\s\S]+?\$\$|\$[^$]+?\$)/g;
-  
+
   let lastIndex = 0;
   let match;
 
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       segments.push({
-        type: 'text',
-        content: text.slice(lastIndex, match.index)
+        type: "text",
+        content: text.slice(lastIndex, match.index),
       });
     }
 
     const mathContent = match[0];
-    if (mathContent.startsWith('$$')) {
+    if (mathContent.startsWith("$$")) {
       segments.push({
-        type: 'display-math',
-        content: mathContent.slice(2, -2)
+        type: "display-math",
+        content: mathContent.slice(2, -2),
       });
     } else {
       segments.push({
-        type: 'math',
-        content: mathContent.slice(1, -1)
+        type: "math",
+        content: mathContent.slice(1, -1),
       });
     }
     lastIndex = regex.lastIndex;
@@ -95,8 +150,8 @@ export function parseMathText(text: string): TextSegment[] {
 
   if (lastIndex < text.length) {
     segments.push({
-      type: 'text',
-      content: text.slice(lastIndex)
+      type: "text",
+      content: text.slice(lastIndex),
     });
   }
 

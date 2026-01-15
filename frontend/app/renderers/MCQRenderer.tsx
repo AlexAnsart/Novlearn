@@ -1,11 +1,11 @@
+'use client';
+
 import React, { useState, useCallback } from 'react';
 import { MCQContent, RendererProps } from '../types/exercise';
-import MathText from '../components/ui/MathText';
+import { MathText } from '../components/ui';
 
 interface MCQRendererProps extends RendererProps<MCQContent> {
-  /** Callback lors de la validation */
   onSubmit?: (selectedIndex: number, isCorrect: boolean) => void;
-  /** Permettre plusieurs tentatives */
   allowRetry?: boolean;
 }
 
@@ -17,162 +17,79 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isValidated, setIsValidated] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
 
-  const handleSelect = useCallback((index: number) => {
-    if (!isValidated) {
-      setSelectedIndex(index);
-    }
-  }, [isValidated]);
-
-  const handleValidate = useCallback(() => {
-    if (selectedIndex === null) {
-      setFeedback({
-        type: 'error',
-        message: 'Veuillez sélectionner une réponse.',
-      });
-      return;
-    }
-
+  const handleValidate = () => {
+    if (selectedIndex === null) return;
     const isCorrect = content.options[selectedIndex].correct;
     setIsValidated(true);
-    setFeedback({
-      type: isCorrect ? 'success' : 'error',
-      message: isCorrect
-        ? '✓ Bravo ! Bonne réponse !'
-        : '✗ Incorrect. La bonne réponse est indiquée en vert.',
-    });
     onSubmit?.(selectedIndex, isCorrect);
-  }, [selectedIndex, content.options, onSubmit]);
-
-  const handleRetry = useCallback(() => {
-    setSelectedIndex(null);
-    setIsValidated(false);
-    setFeedback(null);
-  }, []);
-
-  const getOptionClasses = (index: number): string => {
-    const base = `w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3`;
-
-    if (!isValidated) {
-      if (selectedIndex === index) {
-        return `${base} border-blue-500 bg-blue-50`;
-      }
-      return `${base} border-gray-200 hover:border-gray-300 hover:translate-x-1 cursor-pointer`;
-    }
-
-    // Après validation
-    if (content.options[index].correct) {
-      return `${base} border-green-500 bg-green-50`;
-    }
-    if (selectedIndex === index && !content.options[index].correct) {
-      return `${base} border-red-500 bg-red-50`;
-    }
-    return `${base} border-gray-200 opacity-50`;
   };
 
-  const getLetterClasses = (index: number): string => {
-    const base = 'inline-flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm';
-
+  const getOptionStyle = (index: number, isCorrectOption: boolean) => {
+    const base = "w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-3 ";
+    
     if (!isValidated) {
-      return selectedIndex === index
-        ? `${base} bg-blue-500 text-white`
-        : `${base} bg-gray-200 text-gray-600`;
+      return selectedIndex === index 
+        ? base + "border-blue-500 bg-blue-50" 
+        : base + "border-gray-200 hover:border-gray-300 hover:bg-gray-50";
     }
 
-    if (content.options[index].correct) {
-      return `${base} bg-green-500 text-white`;
-    }
-    if (selectedIndex === index) {
-      return `${base} bg-red-500 text-white`;
-    }
-    return `${base} bg-gray-200 text-gray-400`;
+    if (isCorrectOption) return base + "border-green-500 bg-green-50";
+    if (selectedIndex === index) return base + "border-red-500 bg-red-50";
+    return base + "border-gray-200 opacity-50";
   };
 
   return (
-    <div className="p-5 bg-white/95 rounded-2xl shadow-md border border-gray-100">
-      {/* Question */}
-      <div className="mb-5">
-        <MathText
-          content={content.question}
-          variables={variables}
-          className="text-gray-700 text-lg"
-          autoLatex={true}
+    <div className="p-5 bg-white rounded-2xl shadow-sm border border-gray-200">
+      <div className="mb-6">
+        <MathText 
+          content={content.question} 
+          variables={variables} 
+          className="text-lg font-medium text-slate-800"
         />
       </div>
 
-      {/* Options */}
-      <div className="space-y-3 mb-5">
+      <div className="space-y-3 mb-6">
         {content.options.map((option, index) => (
           <button
             key={index}
-            onClick={() => handleSelect(index)}
+            onClick={() => !isValidated && setSelectedIndex(index)}
+            className={getOptionStyle(index, option.correct)}
             disabled={isValidated}
-            className={getOptionClasses(index)}
-            style={{ fontFamily: "'Fredoka', sans-serif" }}
           >
-            <span className={getLetterClasses(index)}>
+            <span className={`
+              flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
+              ${!isValidated && selectedIndex === index ? 'bg-blue-500 text-white' : 
+                isValidated && option.correct ? 'bg-green-500 text-white' :
+                isValidated && selectedIndex === index ? 'bg-red-500 text-white' :
+                'bg-gray-200 text-gray-600'}
+            `}>
               {String.fromCharCode(65 + index)}
             </span>
-            <MathText
-              content={option.text}
-              variables={variables}
-              className="text-gray-700"
-              autoLatex={true}
-            />
+            <div className="flex-grow">
+              <MathText content={option.text} variables={variables} />
+            </div>
           </button>
         ))}
       </div>
 
-      {/* Buttons */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3">
         <button
           onClick={handleValidate}
-          disabled={isValidated && !allowRetry}
-          className="px-6 py-3 rounded-xl font-semibold text-white
-                     bg-gradient-to-b from-green-500 to-green-700
-                     shadow-[0_4px_0_#15803d,0_6px_12px_rgba(34,197,94,0.3)]
-                     hover:translate-y-[-2px] hover:shadow-[0_6px_0_#15803d,0_8px_16px_rgba(34,197,94,0.4)]
-                     active:translate-y-[2px] active:shadow-[0_2px_0_#15803d,0_4px_8px_rgba(34,197,94,0.3)]
-                     disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-                     transition-all duration-200"
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
+          disabled={isValidated || selectedIndex === null}
+          className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           Valider
         </button>
-        
         {isValidated && allowRetry && (
           <button
-            onClick={handleRetry}
-            className="px-6 py-3 rounded-xl font-semibold text-white
-                       bg-gradient-to-b from-purple-500 to-purple-700
-                       shadow-[0_4px_0_#6b21a8,0_6px_12px_rgba(147,51,234,0.3)]
-                       hover:translate-y-[-2px] hover:shadow-[0_6px_0_#6b21a8,0_8px_16px_rgba(147,51,234,0.4)]
-                       active:translate-y-[2px] active:shadow-[0_2px_0_#6b21a8,0_4px_8px_rgba(147,51,234,0.3)]
-                       transition-all duration-200"
-            style={{ fontFamily: "'Fredoka', sans-serif" }}
+            onClick={() => { setIsValidated(false); setSelectedIndex(null); }}
+            className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
           >
             Réessayer
           </button>
         )}
       </div>
-
-      {/* Feedback */}
-      {feedback && (
-        <div 
-          className={`mt-4 p-4 rounded-xl ${
-            feedback.type === 'success'
-              ? 'bg-green-100 text-green-800 border border-green-300'
-              : 'bg-red-100 text-red-800 border border-red-300'
-          }`}
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
-        >
-          {feedback.message}
-        </div>
-      )}
     </div>
   );
 };

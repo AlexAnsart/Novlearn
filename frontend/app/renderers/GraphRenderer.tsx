@@ -1,19 +1,21 @@
+'use client';
+
 import React, { useEffect, useRef } from 'react';
 import { GraphContent, RendererProps } from '../types/exercise';
 import { substituteVariables } from '../utils/math/parsing';
-import { evaluateAt } from '../utils/math/evaluation';
+import { evaluate } from '../utils/math/evaluation';
 
 const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
   content,
   variables,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const expression = substituteVariables(content.expression, variables);
+  // Nettoyage de l'expression pour l'affichage (f(x) = ...)
+  const displayExpression = substituteVariables(content.expression, variables);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -21,28 +23,26 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     const width = canvas.width;
     const height = canvas.height;
 
+    // Échelles
     const scaleX = width / (xMax - xMin);
     const scaleY = height / (yMax - yMin);
-
     const toCanvasX = (x: number) => (x - xMin) * scaleX;
     const toCanvasY = (y: number) => height - (y - yMin) * scaleY;
 
-    // Clear avec fond blanc
+    // Fond
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
     // Grille
     if (showGrid) {
-      ctx.strokeStyle = '#e5e7eb';
+      ctx.strokeStyle = '#f3f4f6'; // Gris très clair
       ctx.lineWidth = 1;
-
       for (let x = Math.ceil(xMin); x <= xMax; x++) {
         ctx.beginPath();
         ctx.moveTo(toCanvasX(x), 0);
         ctx.lineTo(toCanvasX(x), height);
         ctx.stroke();
       }
-
       for (let y = Math.ceil(yMin); y <= yMax; y++) {
         ctx.beginPath();
         ctx.moveTo(0, toCanvasY(y));
@@ -53,87 +53,51 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
 
     // Axes
     if (showAxes) {
-      ctx.strokeStyle = '#374151';
+      ctx.strokeStyle = '#374151'; // Gris foncé
       ctx.lineWidth = 2;
-
+      
       // Axe X
-      if (yMin <= 0 && yMax >= 0) {
+      const yZero = toCanvasY(0);
+      if (yZero >= 0 && yZero <= height) {
         ctx.beginPath();
-        ctx.moveTo(0, toCanvasY(0));
-        ctx.lineTo(width, toCanvasY(0));
-        ctx.stroke();
-
-        // Flèche X
-        ctx.beginPath();
-        ctx.moveTo(width - 10, toCanvasY(0) - 5);
-        ctx.lineTo(width, toCanvasY(0));
-        ctx.lineTo(width - 10, toCanvasY(0) + 5);
+        ctx.moveTo(0, yZero);
+        ctx.lineTo(width, yZero);
         ctx.stroke();
       }
 
       // Axe Y
-      if (xMin <= 0 && xMax >= 0) {
+      const xZero = toCanvasX(0);
+      if (xZero >= 0 && xZero <= width) {
         ctx.beginPath();
-        ctx.moveTo(toCanvasX(0), height);
-        ctx.lineTo(toCanvasX(0), 0);
+        ctx.moveTo(xZero, height);
+        ctx.lineTo(xZero, 0);
         ctx.stroke();
-
-        // Flèche Y
-        ctx.beginPath();
-        ctx.moveTo(toCanvasX(0) - 5, 10);
-        ctx.lineTo(toCanvasX(0), 0);
-        ctx.lineTo(toCanvasX(0) + 5, 10);
-        ctx.stroke();
-      }
-
-      // Labels
-      ctx.fillStyle = '#6b7280';
-      ctx.font = "500 12px 'Fredoka', sans-serif";
-      ctx.textAlign = 'center';
-
-      for (let x = Math.ceil(xMin); x <= xMax; x++) {
-        if (x !== 0) {
-          const cy = yMin <= 0 && yMax >= 0 ? toCanvasY(0) + 16 : height - 5;
-          ctx.fillText(x.toString(), toCanvasX(x), cy);
-        }
-      }
-
-      ctx.textAlign = 'right';
-      for (let y = Math.ceil(yMin); y <= yMax; y++) {
-        if (y !== 0) {
-          const cx = xMin <= 0 && xMax >= 0 ? toCanvasX(0) - 8 : 20;
-          ctx.fillText(y.toString(), cx, toCanvasY(y) + 4);
-        }
-      }
-
-      // Origine
-      if (xMin <= 0 && xMax >= 0 && yMin <= 0 && yMax >= 0) {
-        ctx.fillText('O', toCanvasX(0) - 8, toCanvasY(0) + 16);
       }
     }
 
     // Courbe
-    ctx.strokeStyle = '#3b82f6';
+    ctx.strokeStyle = '#3b82f6'; // Bleu
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
 
     let started = false;
-    let prevY: number | null = null;
-
     for (let px = 0; px <= width; px++) {
       const x = xMin + px / scaleX;
-      const y = evaluateAt(expression, x);
+      // Évaluation : On passe l'expression brute (avec @a) et x comme variable locale
+      // On combine les variables globales et la variable locale x
+      const y = evaluate(content.expression, { ...variables, x });
 
       const isValid = !isNaN(y) && isFinite(y);
-      const inBounds = y >= yMin - 5 && y <= yMax + 5;
-      const hasDiscontinuity = prevY !== null && Math.abs(y - prevY) > (yMax - yMin) / 2;
+      // Éviter de dessiner les asymptotes verticales (sauts brutaux)
+      // et ne pas dessiner hors limites extrêmes pour éviter les bugs graphiques
+      const inBounds = y >= yMin - (yMax-yMin) && y <= yMax + (yMax-yMin);
 
-      if (isValid && inBounds && !hasDiscontinuity) {
+      if (isValid && inBounds) {
         const canvasX = toCanvasX(x);
         const canvasY = toCanvasY(y);
-
+        
         if (!started) {
           ctx.moveTo(canvasX, canvasY);
           started = true;
@@ -141,34 +105,25 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
           ctx.lineTo(canvasX, canvasY);
         }
       } else {
-        started = false;
+        started = false; // Rupture de la ligne (ex: asymptote)
       }
-
-      prevY = isValid ? y : null;
     }
     ctx.stroke();
 
-  }, [content, expression, variables]);
+  }, [content, variables]);
 
   return (
-    <div className="p-5 bg-white/95 rounded-2xl shadow-md border border-gray-100">
-      {/* Canvas */}
-      <div className="flex justify-center">
+    <div className="p-5 bg-white rounded-2xl shadow-md border border-gray-100">
+      <div className="flex justify-center overflow-hidden rounded-xl border border-gray-200">
         <canvas
           ref={canvasRef}
           width={500}
           height={400}
-          className="rounded-xl border-2 border-gray-200 shadow-inner"
-          style={{ maxWidth: '100%', height: 'auto' }}
+          className="bg-white w-full max-w-[500px]"
         />
       </div>
-
-      {/* Expression */}
-      <div 
-        className="text-center text-gray-500 text-sm mt-3"
-        style={{ fontFamily: "'Fredoka', sans-serif" }}
-      >
-        f(x) = {expression}
+      <div className="text-center text-gray-500 text-sm mt-3 font-medium">
+        f(x) = {displayExpression}
       </div>
     </div>
   );
