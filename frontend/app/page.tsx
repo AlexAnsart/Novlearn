@@ -1,52 +1,32 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Layout } from './components/Layout';
-import { ActionButton } from './components/ActionButton';
-import { MathExercise } from './components/MathExercise';
-import { useAuth } from './contexts/AuthContext';
-import { supabase } from './lib/supabase'; // Important : Import de Supabase
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { ActionButton } from "./components/ActionButton";
+import { Layout } from "./components/Layout";
+import { MathExercise } from "./components/MathExercise";
+import { useAuth } from "./contexts/AuthContext";
+// Plus besoin d'importer Supabase ici !
 
 export default function Home() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  
-  // On stocke l'ID de l'exercice pour savoir où rediriger
-  const [exerciseId, setExerciseId] = useState<number | null>(null);
+
+  // Plus besoin de state pour l'exerciceId
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/auth/login');
+      router.push("/auth/login");
     }
   }, [user, loading, router]);
 
-  // Récupérer un exercice valide pour le bouton "S'entraîner"
-  useEffect(() => {
-    const fetchExerciseId = async () => {
-      // On prend le dernier exercice créé
-      const { data } = await supabase
-        .from('exercises')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
-
-      if (data) {
-        setExerciseId(data.id);
-      }
-    };
-
-    if (user) fetchExerciseId();
-  }, [user]);
+  // On a supprimé le useEffect qui allait chercher un ID fixe
 
   const handleStartTraining = () => {
-    if (exerciseId) {
-      // Si on a trouvé un exercice, on charge celui-là précisément
-      router.push(`/exercices?id=${exerciseId}`);
-    } else {
-      // Sinon on va sur la page par défaut (qui essaiera d'en trouver un)
-      router.push('/exercices');
-    }
+    // On redirige simplement vers la page d'entraînement.
+    // Sans ID dans l'URL, le ExerciseLoader déclenchera son mode "Aléatoire".
+    // Note: Assurez-vous que la route est bien '/entrainement' (celle qu'on a corrigée)
+    router.push("/exercices");
   };
 
   return (
@@ -58,18 +38,24 @@ export default function Home() {
             onClick={handleStartTraining}
             className="cursor-pointer transform transition-transform hover:scale-105"
           >
-            {/* Note: Pour l'instant on affiche la carte statique sur l'accueil
-                car tu n'as pas demandé de charger le contenu ici, juste que ça marche. */}
             <MathExercise />
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-8 flex-wrap">
-            <ActionButton variant="primary" icon="⚔️" onClick={() => router.push('/duel')}>
+            <ActionButton
+              variant="primary"
+              icon="⚔️"
+              onClick={() => router.push("/duel")}
+            >
               1VS1
             </ActionButton>
 
-            <ActionButton variant="secondary" icon="📚" onClick={() => router.push('/cours')}>
+            <ActionButton
+              variant="secondary"
+              icon="📚"
+              onClick={() => router.push("/cours")}
+            >
               Réviser le cours
             </ActionButton>
           </div>

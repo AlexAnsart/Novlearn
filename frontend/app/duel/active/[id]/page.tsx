@@ -329,7 +329,6 @@ export default function ActiveDuelPage() {
                   return (
                     <QuestionRenderer
                       key={element.id}
-                      // On fusionne le contenu existant avec la réponse correcte attendue par le nouveau format
                       content={{
                         ...questionContent,
                         correctAnswer: String(correctAnswer), // On s'assure que c'est une string
