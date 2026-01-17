@@ -4,7 +4,8 @@ import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import ExerciseRenderer from "./ExerciseRenderer";
 import { supabase } from "../../lib/supabase";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
+import { FeedbackModal } from "../ui/FeedbackModal";
 
 interface ExerciseLoaderProps {
   exerciseId?: string;
@@ -19,7 +20,6 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   onElementSubmit,
   onError,
 }) => {
-  // Hooks de navigation pour nettoyer l'URL au "Suivant"
   const router = useRouter();
   const pathname = usePathname();
 
@@ -34,19 +34,20 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   const [refreshTrigger, setRefreshTrigger] = useState(0); 
   
   // États de progression
-  const [solvedElements, setSolvedElements] = useState<Set<number>>(new Set());
+  const [completedElements, setCompletedElements] = useState<Set<number>>(new Set());
   const [isExerciseFinished, setIsExerciseFinished] = useState(false);
+  const [hasErrors, setHasErrors] = useState(false); 
 
-  // Refs pour gérer les timers et requêtes
+  // État de la modale de feedback
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Calcul du nombre de questions interactives pour savoir quand l'exercice est fini
   const totalQuestions = useMemo(() => {
     if (!exercise) return 0;
     return exercise.elements.filter(el => 
       ['question', 'mcq', 'equation'].includes(el.type) && 
-      // On exclut les équations qui ne demandent pas de réponse explicite
       (el.type !== 'equation' || (el.content as any).requireAnswer)
     ).length;
   }, [exercise]);
@@ -55,14 +56,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   // LOGIQUE DE CHARGEMENT
   // =========================================================
   useEffect(() => {
-    // 1. Nettoyage préventif
     if (abortControllerRef.current) abortControllerRef.current.abort();
-    if (slowTimerRef.current) {
-      clearTimeout(slowTimerRef.current);
-      slowTimerRef.current = null;
-    }
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
 
-    // 2. Initialisation
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -71,13 +67,11 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       setError(null);
       setIsTakingLong(false);
       setIsExerciseFinished(false);
-      setSolvedElements(new Set());
+      setCompletedElements(new Set());
+      setHasErrors(false);
 
-      // Timer de patience (3s)
       slowTimerRef.current = setTimeout(() => {
-        if (!abortController.signal.aborted) {
-          setIsTakingLong(true);
-        }
+        if (!abortController.signal.aborted) setIsTakingLong(true);
       }, 3000);
 
       try {
@@ -85,52 +79,40 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         let dbError = null;
 
         if (exerciseId) {
-          // CAS 1 : Chargement par ID spécifique (URL ?id=...)
           const result = await supabase
             .from("exercises")
             .select("*")
             .eq("id", exerciseId)
             .maybeSingle();
-            
           data = result.data;
           dbError = result.error;
         } else {
-          // CAS 2 : Chargement aléatoire
-          // A. Compter le nombre total d'exercises
           const { count, error: countError } = await supabase
             .from("exercises")
             .select("*", { count: "exact", head: true });
 
           if (countError) throw countError;
-
           const total = count || 0;
-          if (total === 0) throw new Error("La base d'exercices est vide.");
-
-          // B. Tirer un index au hasard
-          const randomOffset = Math.floor(Math.random() * total);
-
-          // C. Récupérer l'exercice à cet index
-          const result = await supabase
-            .from("exercises")
-            .select("*")
-            .range(randomOffset, randomOffset)
-            .maybeSingle();
-
-          data = result.data;
-          dbError = result.error;
+          
+          if (total > 0) {
+            const randomOffset = Math.floor(Math.random() * total);
+            const result = await supabase
+              .from("exercises")
+              .select("*")
+              .range(randomOffset, randomOffset)
+              .maybeSingle();
+            data = result.data;
+            dbError = result.error;
+          } else {
+            throw new Error("La base d'exercices est vide.");
+          }
         }
 
-        // Nettoyage du timer
-        if (slowTimerRef.current) {
-          clearTimeout(slowTimerRef.current);
-          slowTimerRef.current = null;
-        }
-
+        if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
         if (abortController.signal.aborted) return;
         if (dbError) throw dbError;
         if (!data) throw new Error("Exercice introuvable.");
 
-        // Reconstruction de l'objet Exercise
         const content = data.content || {};
         const fullExercise = {
           ...content, 
@@ -145,7 +127,6 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
         setExercise(fullExercise);
         setVariables(generateVariables(fullExercise.variables));
-        
         if (onLoad) onLoad(fullExercise);
 
       } catch (err) {
@@ -158,10 +139,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         if (!abortController.signal.aborted) {
           setLoading(false);
           setIsTakingLong(false);
-          if (slowTimerRef.current) {
-            clearTimeout(slowTimerRef.current);
-            slowTimerRef.current = null;
-          }
+          if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
         }
       }
     };
@@ -172,35 +150,32 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
       abortController.abort();
     };
-  }, [exerciseId, refreshTrigger]); // refreshTrigger permet de forcer le rechargement
+  }, [exerciseId, refreshTrigger]);
 
   // =========================================================
   // GESTIONNAIRES D'INTERACTION
   // =========================================================
 
-  // Validation d'une réponse
   const handleElementSubmit = useCallback((elementId: number, answer: unknown, isCorrect: boolean) => {
     if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
 
-    if (isCorrect) {
-      setSolvedElements(prev => {
-        const next = new Set(prev).add(elementId);
-        // Si toutes les questions sont résolues, l'exercice est fini
-        if (exercise && next.size >= totalQuestions && totalQuestions > 0) {
-          setIsExerciseFinished(true);
-        }
-        return next;
-      });
+    if (!isCorrect) {
+      setHasErrors(true);
     }
+
+    setCompletedElements(prev => {
+      const next = new Set(prev).add(elementId);
+      if (exercise && next.size >= totalQuestions && totalQuestions > 0) {
+        setIsExerciseFinished(true);
+      }
+      return next;
+    });
   }, [exercise, totalQuestions, onElementSubmit]);
 
-  // Passage à l'exercice suivant
   const handleNextExercise = () => {
     if (exerciseId) {
-      // Si on était sur une URL ?id=..., on l'enlève pour passer en mode aléatoire
       router.push(pathname);
     } else {
-      // Sinon on relance simplement le chargement
       setRefreshTrigger(prev => prev + 1);
     }
   };
@@ -216,7 +191,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         <p className="text-gray-600 font-medium">Chargement de l'exercice...</p>
         {isTakingLong && (
           <p className="text-sm text-gray-400 mt-2 animate-pulse text-center max-w-md">
-            La base de données s'éveille, cela peut prendre encore quelques secondes...
+            Patience, nous préparons vos variables...
           </p>
         )}
       </div>
@@ -245,7 +220,16 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      {/* En-tête de l'exercice */}
+      
+      {/* 1. COMPOSANT MODALE (AJOUTÉ) */}
+      <FeedbackModal 
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        exerciseId={exercise.id}
+        exerciseTitle={exercise.title}
+      />
+
+      {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 mb-1">{exercise.title}</h2>
@@ -265,16 +249,33 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           </div>
         </div>
         
-        {/* Badge de succès */}
-        {isExerciseFinished && (
-          <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 animate-in zoom-in">
-            <CheckCircle2 className="w-5 h-5" />
-            <span className="font-bold text-sm">Exercice validé !</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* 2. BOUTON SIGNALEMENT ERREUR (AJOUTÉ) */}
+          <button
+            onClick={() => setIsFeedbackOpen(true)}
+            title="Signaler une erreur"
+            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Flag className="w-5 h-5" />
+          </button>
+
+          {/* Badge de statut */}
+          {isExerciseFinished && (
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border animate-in zoom-in
+              ${hasErrors 
+                ? 'text-orange-600 bg-orange-50 border-orange-100' // Terminé avec fautes
+                : 'text-green-600 bg-green-50 border-green-100'   // Perfect
+              }`}>
+              {hasErrors ? <Flag className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+              <span className="font-bold text-sm">
+                {hasErrors ? 'Exercice terminé' : 'Exercice validé !'}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Corps de l'exercice */}
+      {/* Corps */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-100 relative">
         <ExerciseRenderer
           exercise={exercise}
@@ -282,9 +283,19 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           onElementSubmit={handleElementSubmit}
         />
 
-        {/* Bouton Suivant (Apparaît à la fin) */}
+        {/* Zone de fin (Boutons Suivant et Feedback) */}
         {isExerciseFinished && (
-          <div className="mt-8 flex justify-end animate-in slide-in-from-bottom-4 fade-in duration-500">
+          <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-6 border-slate-100">
+            
+            {/* 3. BOUTON DONNER AVIS (AJOUTÉ) */}
+            <button
+              onClick={() => setIsFeedbackOpen(true)}
+              className="text-slate-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Donner mon avis sur cet exercice
+            </button>
+
             <button
               onClick={handleNextExercise}
               className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all"
