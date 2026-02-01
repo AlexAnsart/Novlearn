@@ -63,6 +63,12 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     }
   };
 
+  const formatForDisplay = (latex: string) => {
+    if (!latex) return '';
+    // Si la chaine contient déjà des $, on touche pas. Sinon, on entoure.
+    return latex.includes('$') ? latex : `$${latex}$`;
+  };
+
   return (
     <div className={`my-6 p-6 rounded-xl shadow-sm border transition-all duration-500 ${
       isFinished && status === 'correct' ? 'bg-green-50/30 border-green-200' :
@@ -180,7 +186,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 Réponse attendue :
               </span>
               <span className="font-bold text-xl text-slate-800">
-                <MathText content={content.correctAnswer} variables={variables} displayMode={false} />
+                <MathText content={formatForDisplay(content.correctAnswer)} variables={variables} displayMode={false} />
               </span>
             </div>
 
