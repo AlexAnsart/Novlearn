@@ -1,167 +1,232 @@
-import React, { useState, useCallback } from 'react';
-import { QuestionContent, RendererProps } from '../types/exercise';
-import MathText from '../components/ui/MathText';
+'use client';
 
-interface QuestionRendererProps extends RendererProps<QuestionContent> {
-  /** Callback lors de la soumission */
+import React, { useState } from 'react';
+import { 
+  CheckCircle2, 
+  XCircle, 
+  HelpCircle, 
+  Lightbulb, 
+  AlertCircle, 
+  ChevronDown, 
+  ChevronUp 
+} from 'lucide-react';
+import { MathText } from '../components/ui';
+import { VariableValues, QuestionContent } from '../types/exercise';
+import { checkAnswer } from '../utils/math/evaluation';
+import { MathInput } from '../components/ui/MathInput'; 
+
+interface QuestionRendererProps {
+  content: QuestionContent;
+  variables: VariableValues;
   onSubmit?: (answer: string, isCorrect: boolean) => void;
-  /** Réponse correcte calculée */
-  correctAnswer?: number | string;
 }
 
 const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   content,
   variables,
-  onSubmit,
-  correctAnswer,
+  onSubmit
 }) => {
-  console.log("[QuestionRenderer] Rendering:", {
-    content,
-    variables,
-    correctAnswer,
-    hasQuestion: !!content?.question,
-    answerType: content?.answerType,
-  });
+  const [value, setValue] = useState('');
+  const [attempts, setAttempts] = useState(0);
+  const [isFinished, setIsFinished] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   
-  const [answer, setAnswer] = useState('');
-  const [feedback, setFeedback] = useState<{
-    type: 'success' | 'error' | 'warning' | 'info';
-    message: string;
-  } | null>(null);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  // États d'affichage
+  const [showHint, setShowHint] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
 
-  // Reset state when variables change (new values generated)
-  React.useEffect(() => {
-    setAnswer('');
-    setFeedback(null);
-    setIsSubmitted(false);
-  }, [variables]);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!value.trim() || isFinished) return;
 
-  const handleSubmit = useCallback(() => {
-    if (!answer.trim()) {
-      setFeedback({
-        type: 'warning',
-        message: 'Veuillez entrer une réponse.',
-      });
-      return;
-    }
+    const currentAttempt = attempts + 1;
+    setAttempts(currentAttempt);
 
-    if (content.answerType === 'numeric') {
-      const userAnswer = parseFloat(answer.replace(',', '.'));
-      if (isNaN(userAnswer)) {
-        setFeedback({
-          type: 'warning',
-          message: 'Veuillez entrer une valeur numérique valide.',
-        });
-        return;
-      }
-
-      if (correctAnswer !== undefined) {
-        const correct =
-          typeof correctAnswer === 'number'
-            ? correctAnswer
-            : parseFloat(String(correctAnswer));
-        const isCorrect = Math.abs(userAnswer - correct) <= content.tolerance;
-
-        setFeedback({
-          type: isCorrect ? 'success' : 'error',
-          message: isCorrect
-            ? '✓ Bravo ! Bonne réponse !'
-            : `✗ Incorrect. La réponse était ${correct}.`,
-        });
-        setIsSubmitted(true);
-        onSubmit?.(answer, isCorrect);
-      } else {
-        setFeedback({
-          type: 'info',
-          message: `Réponse enregistrée : ${userAnswer}`,
-        });
-        onSubmit?.(answer, true);
-      }
+    const isCorrect = checkAnswer(value, content.correctAnswer, variables, content.answerFormat);
+    
+    if (isCorrect) {
+      // --- SUCCÈS ---
+      setStatus('correct');
+      setIsFinished(true);
+      setShowExplanation(true); 
+      if (onSubmit) onSubmit(value, true);
     } else {
-      setFeedback({
-        type: 'info',
-        message: 'Réponse enregistrée.',
-      });
-      onSubmit?.(answer, true);
-    }
-  }, [answer, content, correctAnswer, onSubmit]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isSubmitted) {
-      handleSubmit();
+      // --- ÉCHEC ---
+      setStatus('incorrect');
+      
+      if (currentAttempt >= 2) {
+        // PERDU DÉFINITIF
+        setIsFinished(true);
+        if (onSubmit) onSubmit(value, false);
+      }
+      // Sinon on laisse continuer
     }
   };
 
-  const getFeedbackStyles = () => {
-    switch (feedback?.type) {
-      case 'success':
-        return 'bg-green-100 text-green-800 border border-green-300';
-      case 'error':
-        return 'bg-red-100 text-red-800 border border-red-300';
-      case 'warning':
-        return 'bg-amber-100 text-amber-800 border border-amber-300';
-      case 'info':
-        return 'bg-blue-100 text-blue-800 border border-blue-300';
-      default:
-        return '';
-    }
+  const formatForDisplay = (latex: string) => {
+    if (!latex) return '';
+    // Si la chaine contient déjà des $, on touche pas. Sinon, on entoure.
+    return latex.includes('$') ? latex : `$${latex}$`;
   };
 
   return (
-    <div className="p-5 bg-white/95 rounded-2xl shadow-md border border-gray-100">
-      {/* Question */}
-      <div className="mb-4">
-        <MathText
-          content={content.question}
-          variables={variables}
-          className="text-gray-700 text-lg"
-          autoLatex={true}
-          requireBraces={true}
-        />
-      </div>
-
-      {/* Input */}
-      <div className="flex gap-3 items-center flex-wrap">
-        <input
-          type="text"
-          inputMode={content.answerType === 'numeric' ? 'decimal' : 'text'}
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isSubmitted}
-          className="flex-1 min-w-[200px] px-4 py-3 rounded-xl border-2 border-gray-200 
-                     focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-all duration-200"
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
-          placeholder="Votre réponse..."
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={isSubmitted}
-          className="px-6 py-3 rounded-xl font-semibold text-white
-                     bg-gradient-to-b from-blue-500 to-blue-700
-                     shadow-[0_4px_0_#1d4ed8,0_6px_12px_rgba(37,99,235,0.3)]
-                     hover:translate-y-[-2px] hover:shadow-[0_6px_0_#1d4ed8,0_8px_16px_rgba(37,99,235,0.4)]
-                     active:translate-y-[2px] active:shadow-[0_2px_0_#1d4ed8,0_4px_8px_rgba(37,99,235,0.3)]
-                     disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-                     transition-all duration-200"
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
-        >
-          Vérifier
-        </button>
-      </div>
-
-      {/* Feedback */}
-      {feedback && (
-        <div 
-          className={`mt-4 p-4 rounded-xl ${getFeedbackStyles()}`}
-          style={{ fontFamily: "'Fredoka', sans-serif" }}
-        >
-          {feedback.message}
+    <div className={`my-6 p-6 rounded-xl shadow-sm border transition-all duration-500 ${
+      isFinished && status === 'correct' ? 'bg-green-50/30 border-green-200' :
+      isFinished && status === 'incorrect' ? 'bg-red-50/30 border-red-200' :
+      'bg-white border-slate-200'
+    }`}>
+      
+      {/* --- EN-TÊTE QUESTION --- */}
+      <div className="flex gap-3 mb-6">
+        <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm transition-colors
+          ${isFinished && status === 'correct' ? 'bg-green-100 text-green-700' : 
+            isFinished && status === 'incorrect' ? 'bg-red-100 text-red-700' : 
+            'bg-indigo-100 text-indigo-600'}`}>
+          {isFinished ? (status === 'correct' ? '✓' : '✗') : '?'}
         </div>
-      )}
+        <div className="flex-grow pt-1">
+          <MathText 
+            content={content.question} 
+            variables={variables} 
+            className="font-medium text-lg text-slate-800"
+          />
+        </div>
+        {content.points && (
+          <div className="text-xs font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md h-fit border border-slate-100">
+            {content.points} pt{content.points > 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5 ml-0 md:ml-11">
+        
+        {/* --- ZONE DE SAISIE (AVEC MATHINPUT) --- */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-start max-w-2xl">
+          
+          <div className="flex-grow">
+            <MathInput
+              value={value}
+              onChange={(val) => {
+                setValue(val);
+                // Si l'utilisateur modifie sa réponse après une erreur, on enlève le rouge
+                if (!isFinished && status === 'incorrect') setStatus('idle');
+              }}
+              placeholder={isFinished ? (status === 'correct' ? "Réponse validée" : "Terminé") : "Votre réponse..."}
+              disabled={isFinished}
+              className="w-full"
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={!value || isFinished}
+            className={`px-6 py-2.5 text-white font-medium rounded-lg transition-all shadow-md active:scale-95 flex-shrink-0 h-fit
+              ${isFinished 
+                ? 'bg-slate-400 cursor-not-allowed opacity-50 shadow-none' 
+                : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'}`}
+          >
+            {isFinished ? 'Validé' : attempts > 0 ? 'Réessayer' : 'Valider'}
+          </button>
+        </div>
+
+        {/* --- FEEDBACK INTERMÉDIAIRE (1er essai raté) --- */}
+        {!isFinished && status === 'incorrect' && (
+          <div className="animate-in fade-in slide-in-from-left-2 space-y-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
+            <div className="flex items-center gap-2 text-orange-700">
+              <AlertCircle className="w-5 h-5" />
+              <span className="font-medium">Ce n'est pas tout à fait ça. Il vous reste un essai !</span>
+            </div>
+
+            {content.hint && (
+               !showHint ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowHint(true)}
+                    className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium hover:underline pl-7"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    Besoin d'un indice ?
+                  </button>
+               ) : (
+                  <div className="ml-7 p-3 bg-white text-slate-700 text-sm rounded-lg border border-orange-200 flex gap-2 animate-in fade-in shadow-sm">
+                    <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-indigo-500" />
+                    <div>
+                      <span className="font-bold block text-xs uppercase mb-1 text-indigo-500">Indice :</span>
+                      <MathText content={content.hint} variables={variables} />
+                    </div>
+                  </div>
+               )
+            )}
+          </div>
+        )}
+
+        {/* --- ZONE DE RÉSULTAT FINAL (Unified) --- */}
+        {isFinished && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            
+            {/* 1. La Phrase de statut */}
+            <div className={`flex items-center gap-2 text-lg font-bold
+              ${status === 'correct' ? 'text-green-600' : 'text-red-600'}`}>
+              {status === 'correct' ? (
+                <>
+                  <CheckCircle2 className="w-6 h-6" />
+                  <span>Excellent ! Bonne réponse.</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-6 h-6" />
+                  <span>Mince, c'est raté pour cette fois.</span>
+                </>
+              )}
+            </div>
+
+            {/* 2. La Réponse "Officielle" */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shadow-sm">
+              <span className="font-bold text-sm uppercase text-slate-500 tracking-wider">
+                Réponse attendue :
+              </span>
+              <span className="font-bold text-xl text-slate-800">
+                <MathText content={formatForDisplay(content.correctAnswer)} variables={variables} displayMode={false} />
+              </span>
+            </div>
+
+            {/* 3. L'Explication */}
+            {content.explanation && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowExplanation(!showExplanation)}
+                  className="group flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+                >
+                  <div className={`p-1 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors`}>
+                    {showExplanation ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
+                  {showExplanation ? "Masquer l'explication" : "Voir l'explication de la correction"}
+                </button>
+
+                {showExplanation && (
+                  <div className="mt-3 p-5 rounded-xl bg-blue-50/50 border border-blue-100 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 p-1.5 bg-blue-100 text-blue-600 rounded-lg">
+                        <Lightbulb className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">
+                          Détails du raisonnement
+                        </p>
+                        <div className="text-slate-800 text-base leading-relaxed">
+                          <MathText content={content.explanation} variables={variables} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+      </form>
     </div>
   );
 };

@@ -8,7 +8,7 @@ export interface Variable {
   max?: number;
   decimals?: number;
   choices?: string[];
-  expression?: string; // For computed variables
+  expression?: string;
 }
 
 export interface TextContent {
@@ -45,7 +45,8 @@ export interface GraphContent {
 
 export interface SignPoint {
   x: string;
-  sign: '+' | '-' | '0';
+  // AJOUT DE '||' ICI pour corriger l'erreur TS(2367)
+  sign: '+' | '-' | '0' | '||';
 }
 
 export interface SignTableContent {
@@ -66,9 +67,11 @@ export interface EquationContent {
 
 export interface QuestionContent {
   question: string;
-  answerType: 'numeric' | 'text' | 'expression';
-  answer: string;
-  tolerance: number;
+  answerFormat: 'number' | 'text'; 
+  correctAnswer: string;
+  points?: number;
+  hint?: string;
+  explanation?: string;
 }
 
 export interface MCQOption {
@@ -91,7 +94,8 @@ export interface SequenceContent {
   termsCount: number;
 }
 
-export type ElementContent =
+// Union de tous les types de contenu possibles
+export type ElementContent = 
   | TextContent
   | FunctionContent
   | VariationTableContent
@@ -103,23 +107,18 @@ export type ElementContent =
   | MCQContent
   | SequenceContent;
 
-export type ElementType =
-  | 'text'
-  | 'function'
-  | 'variation_table'
-  | 'graph'
-  | 'sign_table'
-  | 'discrete_graph'
-  | 'equation'
-  | 'question'
-  | 'mcq'
-  | 'sequence';
-
-export interface ExerciseElement<T extends ElementContent = ElementContent> {
-  id: number;
-  type: ElementType;
-  content: T;
-}
+// Union Discriminée pour typage strict
+export type ExerciseElement = 
+  | { id: number; type: 'text'; content: TextContent }
+  | { id: number; type: 'function'; content: FunctionContent }
+  | { id: number; type: 'variation_table'; content: VariationTableContent }
+  | { id: number; type: 'graph'; content: GraphContent }
+  | { id: number; type: 'sign_table'; content: SignTableContent }
+  | { id: number; type: 'discrete_graph'; content: DiscreteGraphContent }
+  | { id: number; type: 'equation'; content: EquationContent }
+  | { id: number; type: 'question'; content: QuestionContent }
+  | { id: number; type: 'mcq'; content: MCQContent }
+  | { id: number; type: 'sequence'; content: SequenceContent };
 
 export interface Exercise {
   id: number;
@@ -131,11 +130,9 @@ export interface Exercise {
   elements: ExerciseElement[];
 }
 
-// Type pour les valeurs de variables générées
 export type VariableValues = Record<string, number | string>;
 
-// Props de base pour tous les renderers
-export interface RendererProps<T extends ElementContent = ElementContent> {
+export interface RendererProps<T = ElementContent> {
   content: T;
   variables: VariableValues;
 }

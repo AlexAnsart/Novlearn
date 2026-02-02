@@ -1,8 +1,11 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
-import { Exercise, VariableValues, Variable, ExerciseElement } from "../../types/exercise";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import ExerciseRenderer from "./ExerciseRenderer";
 import { supabase } from "../../lib/supabase";
+import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
+import { FeedbackModal } from "../ui/FeedbackModal";
 
 interface ExerciseLoaderProps {
   exerciseId?: string;
@@ -11,151 +14,106 @@ interface ExerciseLoaderProps {
   onError?: (error: Error) => void;
 }
 
-// Helper function for structured logging - only log important events
-const log = (action: string, data?: any) => {
-  // Only log errors and important state changes
-  if (action.includes("ERROR") || action.includes("TIMEOUT") || action.includes("error") || action.includes("aborted")) {
-    console.log(`[ExerciseLoader] ${action}`, data || '');
-  }
-};
-
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   exerciseId,
   onLoad,
   onElementSubmit,
   onError,
 }) => {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // États de données
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [variables, setVariables] = useState<VariableValues>({});
+  
+  // États de cycle de vie
   const [loading, setLoading] = useState(true);
+  const [isTakingLong, setIsTakingLong] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const requestIdRef = useRef<string | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isMountedRef = useRef(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); 
+  
+  // États de progression
+  const [completedElements, setCompletedElements] = useState<Set<number>>(new Set());
+  const [isExerciseFinished, setIsExerciseFinished] = useState(false);
+  const [hasErrors, setHasErrors] = useState(false); 
+
+  // État de la modale de feedback
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
+  const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Charge l'exercice depuis Supabase
+  const totalQuestions = useMemo(() => {
+    if (!exercise) return 0;
+    return exercise.elements.filter(el => 
+      ['question', 'mcq', 'equation'].includes(el.type) && 
+      (el.type !== 'equation' || (el.content as any).requireAnswer)
+    ).length;
+  }, [exercise]);
+
+  // =========================================================
+  // LOGIQUE DE CHARGEMENT
+  // =========================================================
   useEffect(() => {
-    // Ne rien faire si déjà en cours de chargement
-    if (loading && requestIdRef.current) {
-      return;
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
 
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    requestIdRef.current = requestId;
-    isMountedRef.current = true;
-
-    // Créer un AbortController pour cette requête
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
     const loadExercise = async () => {
-      // Vérifier si la requête a été annulée avant de commencer
-      if (abortController.signal.aborted) {
-        return;
-      }
+      setLoading(true);
+      setError(null);
+      setIsTakingLong(false);
+      setIsExerciseFinished(false);
+      setCompletedElements(new Set());
+      setHasErrors(false);
 
-      const startTime = Date.now();
-      
-      if (isMountedRef.current) {
-        setLoading(true);
-        setError(null);
-      }
-
-      // Timeout de sécurité : si la requête prend plus de 20 secondes, on arrête le loading
-      timeoutRef.current = setTimeout(() => {
-        if (abortController.signal.aborted || !isMountedRef.current) {
-          return;
-        }
-        const elapsed = Date.now() - startTime;
-        log("TIMEOUT DETECTED", { exerciseId, elapsedMs: elapsed });
-        if (isMountedRef.current) {
-          setLoading(false);
-          const timeoutError = new Error("La connexion à la base de données a pris trop de temps. Vérifiez votre connexion internet et réessayez.");
-          setError(timeoutError.message);
-          onError?.(timeoutError);
-        }
-      }, 20000);
+      slowTimerRef.current = setTimeout(() => {
+        if (!abortController.signal.aborted) setIsTakingLong(true);
+      }, 3000);
 
       try {
-        let query = supabase.from("exercises").select("*");
+        let data = null;
+        let dbError = null;
 
         if (exerciseId) {
-          query = query.eq("id", exerciseId);
+          const result = await supabase
+            .from("exercises")
+            .select("*")
+            .eq("id", exerciseId)
+            .maybeSingle();
+          data = result.data;
+          dbError = result.error;
         } else {
-          query = query.limit(1);
-        }
+          const { count, error: countError } = await supabase
+            .from("exercises")
+            .select("*", { count: "exact", head: true });
 
-        const queryStartTime = Date.now();
-
-        // Vérifier si annulé avant d'exécuter la requête
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        // Créer une promesse avec timeout pour détecter les requêtes bloquées
-        const queryPromise = query.maybeSingle();
-        
-        // Timeout pour la requête Supabase elle-même (10 secondes)
-        const queryTimeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) => {
-          setTimeout(() => {
-            resolve({
-              data: null,
-              error: {
-                message: "La connexion à la base de données a pris trop de temps. Vérifiez votre connexion internet.",
-                code: "TIMEOUT"
-              }
-            });
-          }, 10000);
-        });
-
-        // Utilisation de maybeSingle avec timeout
-        const result = await Promise.race([queryPromise, queryTimeoutPromise]);
-        const { data, error: dbError } = result;
-
-        // Vérifier si annulé après la requête OU si ce n'est plus la requête active
-        if (abortController.signal.aborted || !isMountedRef.current || requestIdRef.current !== requestId) {
-          log("Request aborted after query, ignoring result", { 
-            exerciseId,
-            isAborted: abortController.signal.aborted,
-            requestIdMismatch: requestIdRef.current !== requestId
-          });
-          return;
-        }
-
-        const queryDuration = Date.now() - queryStartTime;
-
-        if (dbError) {
-          log("Supabase query ERROR", { 
-            error: dbError.message,
-            code: dbError.code,
-            queryDurationMs: queryDuration
-          });
+          if (countError) throw countError;
+          const total = count || 0;
           
-          // Si c'est un timeout, créer une erreur plus claire
-          if (dbError.code === "TIMEOUT" || dbError.message?.includes("timeout") || dbError.message?.includes("trop de temps")) {
-            const timeoutError = new Error("La connexion à la base de données a pris trop de temps. Vérifiez votre connexion internet et réessayez.");
-            throw timeoutError;
+          if (total > 0) {
+            const randomOffset = Math.floor(Math.random() * total);
+            const result = await supabase
+              .from("exercises")
+              .select("*")
+              .range(randomOffset, randomOffset)
+              .maybeSingle();
+            data = result.data;
+            dbError = result.error;
+          } else {
+            throw new Error("La base d'exercices est vide.");
           }
-          
-          throw dbError;
         }
 
-        if (!data) {
-          const noDataError = new Error("Aucun exercice trouvé dans la base de données. Avez-vous publié un exercice ?");
-          log("No data returned ERROR", { exerciseId });
-          throw noDataError;
-        }
+        if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+        if (abortController.signal.aborted) return;
+        if (dbError) throw dbError;
+        if (!data) throw new Error("Exercice introuvable.");
 
-        // Vérifier une dernière fois avant de mettre à jour l'état
-        if (abortController.signal.aborted || !isMountedRef.current) {
-          return;
-        }
-
-        // Reconstruction de l'objet Exercise
         const content = data.content || {};
-        
-        // On s'assure que tout est défini pour éviter les crashs
         const fullExercise = {
           ...content, 
           id: data.id,
@@ -167,96 +125,90 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           elements: content.elements || [],
         } as unknown as Exercise;
 
-        if (isMountedRef.current && !abortController.signal.aborted) {
-          setExercise(fullExercise);
-          setVariables(generateVariables(fullExercise.variables));
-          onLoad?.(fullExercise);
-        }
+        setExercise(fullExercise);
+        setVariables(generateVariables(fullExercise.variables));
+        if (onLoad) onLoad(fullExercise);
 
       } catch (err) {
-        // Ignorer les erreurs si la requête a été annulée
-        if (abortController.signal.aborted || !isMountedRef.current) {
-          return;
-        }
-
-        const elapsed = Date.now() - startTime;
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        log("loadExercise ERROR", { 
-          error: errorMessage,
-          elapsedMs: elapsed
-        });
-        
-        if (isMountedRef.current && !abortController.signal.aborted) {
-          setError(errorMessage);
-          onError?.(err instanceof Error ? err : new Error(errorMessage));
-        }
+        if (abortController.signal.aborted) return;
+        console.error("[ExerciseLoader] Erreur:", err);
+        const msg = err instanceof Error ? err.message : "Erreur de chargement";
+        setError(msg);
+        if (onError) onError(err instanceof Error ? err : new Error(msg));
       } finally {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        if (isMountedRef.current && !abortController.signal.aborted) {
+        if (!abortController.signal.aborted) {
           setLoading(false);
+          setIsTakingLong(false);
+          if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
         }
       }
     };
 
     loadExercise();
 
-    // Cleanup function
     return () => {
-      isMountedRef.current = false;
-      
-      // Annuler la requête en cours
-      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
-        abortControllerRef.current.abort();
-      }
-      
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+      abortController.abort();
     };
-  }, [exerciseId]); // Retirer onLoad et onError des dépendances pour éviter les re-renders
+  }, [exerciseId, refreshTrigger]);
 
-  const handleRegenerate = useCallback(() => {
-    if (exercise) {
-      setVariables(generateVariables(exercise.variables));
+  // =========================================================
+  // GESTIONNAIRES D'INTERACTION
+  // =========================================================
+
+  const handleElementSubmit = useCallback((elementId: number, answer: unknown, isCorrect: boolean) => {
+    if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
+
+    if (!isCorrect) {
+      setHasErrors(true);
     }
-  }, [exercise]);
+
+    setCompletedElements(prev => {
+      const next = new Set(prev).add(elementId);
+      if (exercise && next.size >= totalQuestions && totalQuestions > 0) {
+        setIsExerciseFinished(true);
+      }
+      return next;
+    });
+  }, [exercise, totalQuestions, onElementSubmit]);
+
+  const handleNextExercise = () => {
+    if (exerciseId) {
+      router.push(pathname);
+    } else {
+      setRefreshTrigger(prev => prev + 1);
+    }
+  };
+
+  // =========================================================
+  // RENDER
+  // =========================================================
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12">
-        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-gray-500">Chargement de l'exercice...</p>
+      <div className="flex flex-col items-center justify-center p-12 min-h-[300px]">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-gray-600 font-medium">Chargement de l'exercice...</p>
+        {isTakingLong && (
+          <p className="text-sm text-gray-400 mt-2 animate-pulse text-center max-w-md">
+            Patience, nous préparons vos variables...
+          </p>
+        )}
       </div>
     );
   }
 
   if (error) {
-    const isTimeoutError = error.includes("trop de temps") || error.includes("timeout") || error.includes("connexion");
-    
     return (
-      <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-center">
-        <h3 className="text-red-800 font-bold text-lg mb-2">Erreur de chargement</h3>
+      <div className="p-8 flex flex-col items-center justify-center text-center bg-red-50 border border-red-100 rounded-xl min-h-[300px]">
+        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+          <span className="text-2xl">⚠️</span>
+        </div>
+        <h3 className="text-red-800 font-bold mb-2">Oups !</h3>
         <p className="text-red-600 mb-4">{error}</p>
-        {isTimeoutError && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 text-sm">
-              💡 <strong>Conseil :</strong> Vérifiez votre connexion internet. Si le problème persiste, la base de données peut être temporairement indisponible.
-            </p>
-          </div>
-        )}
         <button 
-          onClick={() => {
-            // Réinitialiser l'état et réessayer
-            setError(null);
-            setLoading(true);
-            // Le useEffect se relancera automatiquement car exerciseId n'a pas changé
-            window.location.reload();
-          }}
-          className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
+          onClick={() => setRefreshTrigger(p => p + 1)}
+          className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50"
         >
           Réessayer
         </button>
@@ -267,30 +219,92 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   if (!exercise) return null;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+      
+      {/* 1. COMPOSANT MODALE (AJOUTÉ) */}
+      <FeedbackModal 
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        exerciseId={exercise.id}
+        exerciseTitle={exercise.title}
+      />
+
+      {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 mb-1">{exercise.title}</h2>
           <div className="flex gap-2 text-sm text-gray-500">
-            <span className="bg-gray-100 px-2 py-0.5 rounded">{exercise.chapter}</span>
-            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium">{exercise.difficulty}</span>
+            {exercise.chapter && (
+              <span className="bg-gray-100 px-2 py-0.5 rounded text-xs uppercase tracking-wide font-semibold">
+                {exercise.chapter}
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${
+              exercise.difficulty === 'Difficile' ? 'bg-red-50 text-red-700' :
+              exercise.difficulty === 'Moyen' ? 'bg-yellow-50 text-yellow-700' :
+              'bg-green-50 text-green-700'
+            }`}>
+              {exercise.difficulty}
+            </span>
           </div>
         </div>
-        <button
-          onClick={handleRegenerate}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          Nouvelles valeurs
-        </button>
+        
+        <div className="flex items-center gap-2">
+          {/* 2. BOUTON SIGNALEMENT ERREUR (AJOUTÉ) */}
+          <button
+            onClick={() => setIsFeedbackOpen(true)}
+            title="Signaler une erreur"
+            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Flag className="w-5 h-5" />
+          </button>
+
+          {/* Badge de statut */}
+          {isExerciseFinished && (
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border animate-in zoom-in
+              ${hasErrors 
+                ? 'text-orange-600 bg-orange-50 border-orange-100' // Terminé avec fautes
+                : 'text-green-600 bg-green-50 border-green-100'   // Perfect
+              }`}>
+              {hasErrors ? <Flag className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+              <span className="font-bold text-sm">
+                {hasErrors ? 'Exercice terminé' : 'Exercice validé !'}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      {/* Corps */}
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-100 relative">
         <ExerciseRenderer
           exercise={exercise}
           preGeneratedVariables={variables}
-          onElementSubmit={onElementSubmit}
+          onElementSubmit={handleElementSubmit}
         />
+
+        {/* Zone de fin (Boutons Suivant et Feedback) */}
+        {isExerciseFinished && (
+          <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-6 border-slate-100">
+            
+            {/* 3. BOUTON DONNER AVIS (AJOUTÉ) */}
+            <button
+              onClick={() => setIsFeedbackOpen(true)}
+              className="text-slate-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Donner mon avis sur cet exercice
+            </button>
+
+            <button
+              onClick={handleNextExercise}
+              className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all"
+            >
+              Exercice Suivant
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

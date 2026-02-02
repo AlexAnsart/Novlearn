@@ -1,34 +1,11 @@
-/**
- * Composant MathText - Rendu de texte avec formules mathématiques
- * Utilise KaTeX via CDN (inclure dans votre HTML)
- */
-
 'use client';
 
 import React, { useEffect, useRef } from 'react';
 import { VariableValues } from '../../types/exercise';
-import { substituteVariables, toLatex, parseMathText } from '../../utils/MathParser';
-
-// Interface pour KaTeX
-interface KaTeXStatic {
-  render: (
-    latex: string,
-    element: HTMLElement,
-    options?: {
-      displayMode?: boolean;
-      throwOnError?: boolean;
-      errorColor?: string;
-    }
-  ) => void;
-}
-
-// Fonction pour obtenir KaTeX de manière sûre
-function getKaTeX(): KaTeXStatic | null {
-  if (typeof window !== 'undefined' && 'katex' in window) {
-    return (window as unknown as { katex: KaTeXStatic }).katex;
-  }
-  return null;
-}
+// Imports depuis vos nouveaux utilitaires math
+import { substituteVariables, parseMathText } from '../../utils/math/parsing';
+import { toLatex } from '../../utils/math/evaluation'; 
+import { getKaTeX } from './katexUtils';
 
 interface MathTextProps {
   /** Le contenu à afficher (peut contenir $...$ pour les maths) */
@@ -41,31 +18,19 @@ interface MathTextProps {
   displayMode?: boolean;
   /** Convertir automatiquement en LaTeX (pour les expressions simples) */
   autoLatex?: boolean;
-  /** Exiger les accolades {a} pour la substitution (sinon substitue aussi 'a' directement) */
-  requireBraces?: boolean;
 }
 
-/**
- * Composant pour afficher du texte avec des formules mathématiques
- * Utilise la syntaxe $...$ pour inline et $$...$$ pour display
- * 
- * @example
- * <MathText content="La fonction $f(x) = {a}x^2$" variables={{ a: 3 }} />
- */
-export const MathText: React.FC<MathTextProps> = ({
+const MathText: React.FC<MathTextProps> = ({
   content,
   variables = {},
   className = '',
   displayMode = false,
   autoLatex = false,
-  requireBraces = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Substitue les variables
-  const substitutedContent = substituteVariables(content, variables, { 
-    useBraces: requireBraces 
-  });
+  // Substitue les variables (utilise maintenant formatting.ts via parsing.ts)
+  const substitutedContent = substituteVariables(content, variables);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -82,7 +47,7 @@ export const MathText: React.FC<MathTextProps> = ({
       const container = containerRef.current;
       if (!container) return;
 
-      // Si displayMode et pas de délimiteurs, traiter tout comme du math
+      // Si displayMode forcé et pas de délimiteurs, traiter tout comme du math
       if (displayMode && !content.includes('$')) {
         const latex = autoLatex ? toLatex(substitutedContent) : substitutedContent;
         try {
@@ -97,7 +62,7 @@ export const MathText: React.FC<MathTextProps> = ({
         return;
       }
 
-      // Parser le texte pour trouver les segments math
+      // Parser le texte pour trouver les segments math vs texte
       const segments = parseMathText(substitutedContent);
       
       container.innerHTML = '';
@@ -109,6 +74,9 @@ export const MathText: React.FC<MathTextProps> = ({
           container.appendChild(textNode);
         } else {
           const mathSpan = document.createElement('span');
+          // Ajout de classes pour le ciblage CSS éventuel
+          mathSpan.className = segment.type === 'display-math' ? 'katex-display-block' : 'katex-inline';
+          
           const latex = autoLatex ? toLatex(segment.content) : segment.content;
           try {
             katex.render(latex, mathSpan, {
@@ -133,48 +101,6 @@ export const MathText: React.FC<MathTextProps> = ({
       style={{ fontFamily: "'Fredoka', sans-serif" }}
     />
   );
-};
-
-/**
- * Composant simple pour afficher une formule LaTeX
- */
-interface LatexProps {
-  /** Expression LaTeX */
-  children: string;
-  /** Variables à substituer */
-  variables?: VariableValues;
-  /** Mode display (bloc centré) */
-  display?: boolean;
-  /** Classes CSS */
-  className?: string;
-}
-
-export const Latex: React.FC<LatexProps> = ({
-  children,
-  variables = {},
-  display = false,
-  className = '',
-}) => {
-  const ref = useRef<HTMLSpanElement>(null);
-  const substituted = substituteVariables(children, variables);
-
-  useEffect(() => {
-    const katex = getKaTeX();
-    if (!ref.current || !katex) return;
-
-    try {
-      katex.render(substituted, ref.current, {
-        displayMode: display,
-        throwOnError: false,
-      });
-    } catch {
-      if (ref.current) {
-        ref.current.textContent = substituted;
-      }
-    }
-  }, [substituted, display]);
-
-  return <span ref={ref} className={className} />;
 };
 
 export default MathText;
