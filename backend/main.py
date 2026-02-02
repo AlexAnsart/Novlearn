@@ -13,6 +13,7 @@ import random
 
 from config import settings
 from auth import verify_token, get_supabase_client
+from recommandation import recommander_exercice
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -100,6 +101,34 @@ async def api_health_check():
             "service": "Novlearn API"
         }
     )
+
+
+# ============================================
+# RECOMMENDATION
+# ============================================
+
+@app.get("/api/recommend-exercise")
+async def recommend_exercise(
+    user: dict = Depends(verify_token),
+    chapter: Optional[str] = None,
+):
+    """
+    Recommande un exercice pour l'utilisateur connecté.
+    chapter (query, optionnel) : limiter au chapitre (streak et exos de ce chapitre).
+    Retourne exercise_id, competence_id, difficulty_level, difficulty ou 404.
+    """
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        result = recommander_exercice(supabase, user_id, chapter=chapter)
+        if not result:
+            raise HTTPException(status_code=404, detail="Aucun exercice recommandé")
+        return JSONResponse(content=result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("recommend_exercise error: %s", e)
+        raise HTTPException(status_code=500, detail="Erreur lors de la recommandation")
 
 
 # ============================================

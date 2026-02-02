@@ -132,6 +132,33 @@ async function apiRequest<T>(
 }
 
 // ============================================
+// RECOMMENDATION API
+// ============================================
+
+export interface RecommendExerciseResponse {
+  exercise_id: number;
+  competence_id: string | null;
+  difficulty_level: number;
+  difficulty: string;
+}
+
+/**
+ * Recommande un exercice pour l'utilisateur connecté.
+ * chapter (optionnel) : limiter au chapitre (streak et exos de ce chapitre).
+ * Retourne null si non connecté, 404 ou erreur (fallback = exercice aléatoire côté Loader).
+ */
+export async function getRecommendedExercise(chapter?: string | null): Promise<RecommendExerciseResponse | null> {
+  try {
+    const endpoint = chapter
+      ? `/api/recommend-exercise?chapter=${encodeURIComponent(chapter)}`
+      : '/api/recommend-exercise';
+    return await apiRequest<RecommendExerciseResponse>(endpoint);
+  } catch {
+    return null;
+  }
+}
+
+// ============================================
 // FRIENDS API
 // ============================================
 

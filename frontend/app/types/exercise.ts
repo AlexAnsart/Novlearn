@@ -125,6 +125,8 @@ export interface Exercise {
   title: string;
   chapter: string;
   difficulty: 'Facile' | 'Moyen' | 'Difficile';
+  /** Single competence this exercise trains (for score tracking). */
+  competence_id?: string | null;
   competences: string[];
   variables: Variable[];
   elements: ExerciseElement[];

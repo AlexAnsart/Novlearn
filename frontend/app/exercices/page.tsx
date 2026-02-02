@@ -1,22 +1,45 @@
 "use client";
 
-import { BookOpen, Sparkles } from "lucide-react";
-import { useState, Suspense, useCallback } from "react";
+import { BookOpen, Sparkles, Loader2 } from "lucide-react";
+import { useState, Suspense, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { ExerciseLoader } from "../components/Exercise/ExerciseLoader";
 import { Layout } from "../components/Layout";
 import { Exercise } from "../types/exercise";
+import { getRecommendedExercise } from "../lib/api";
 
 // Composant qui lit l'URL
 function ExercisePageContent() {
   const [error, setError] = useState<string | null>(null);
-  
-  // 1. On récupère les paramètres de l'URL
+  const [recommendedId, setRecommendedId] = useState<string | undefined>(undefined);
+  const [recommendLoading, setRecommendLoading] = useState(false);
+
   const searchParams = useSearchParams();
-  
-  // 2. On extrait l'ID (ex: "14"). 
-  // S'il n'y en a pas, on laisse undefined (le Loader chargera le premier dispo).
-  const exerciseId = searchParams.get('id') || undefined;
+  const idFromUrl = searchParams.get("id") || undefined;
+  const chapterFromUrl = searchParams.get("chapter") || undefined;
+
+  // Sans id dans l'URL : on demande une recommandation (optionnellement par chapitre)
+  useEffect(() => {
+    if (idFromUrl) {
+      setRecommendedId(undefined);
+      return;
+    }
+    let cancelled = false;
+    setRecommendLoading(true);
+    getRecommendedExercise(chapterFromUrl || null)
+      .then((res) => {
+        if (cancelled) return;
+        setRecommendedId(res ? String(res.exercise_id) : undefined);
+      })
+      .finally(() => {
+        if (!cancelled) setRecommendLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idFromUrl, chapterFromUrl]);
+
+  const exerciseId = idFromUrl ?? recommendedId;
 
   // Stabiliser les callbacks pour éviter les re-renders
   const handleLoad = useCallback((exercise: Exercise) => {
@@ -58,14 +81,21 @@ function ExercisePageContent() {
       {/* Zone d'exercice */}
       <div className="flex-1">
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] p-6 md:p-8">
-          
-          {/* 3. On passe l'ID dynamique au Loader */}
+          {!idFromUrl && recommendLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-blue-200">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+                Recommandation en cours…
+              </span>
+            </div>
+          ) : (
           <ExerciseLoader
             exerciseId={exerciseId}
             onLoad={handleLoad}
             onError={handleError}
             onElementSubmit={handleElementSubmit}
           />
+          )}
 
           {error && (
             <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
@@ -82,9 +112,9 @@ function ExercisePageContent() {
         <div className="flex items-start gap-2">
           <Sparkles className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
           <p className="text-blue-200 text-xs leading-relaxed" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
-            {exerciseId 
-              ? `Exercice #${exerciseId} chargé depuis la base de données` 
-              : "Mode découverte (Exercice automatique)"}
+            {exerciseId
+              ? `Exercice #${exerciseId} chargé depuis la base de données`
+              : "Mode découverte (exercice aléatoire)"}
           </p>
         </div>
       </div>

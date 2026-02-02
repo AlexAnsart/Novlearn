@@ -4,8 +4,50 @@ import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import ExerciseRenderer from "./ExerciseRenderer";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
+import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
+import { getCompetenceById } from "../../settings/competenceSettings";
 import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
 import { FeedbackModal } from "../ui/FeedbackModal";
+
+async function updateCompetenceScore(
+  userId: string,
+  competenceId: string,
+  difficulty: string,
+  isCorrect: boolean
+): Promise<void> {
+  try {
+    const competenceConfig = getCompetenceById(competenceId);
+    const maxPoints = competenceConfig?.max_points ?? 10;
+
+    const { data: scoreRow } = await supabase
+      .from("user_competence_scores")
+      .select("points, streak")
+      .eq("user_id", userId)
+      .eq("competence_id", competenceId)
+      .maybeSingle();
+    const currentPoints = scoreRow?.points ?? 0;
+    const currentStreak = scoreRow?.streak ?? 0;
+
+    const newStreak = isCorrect ? currentStreak + 1 : 0;
+    const newPoints = isCorrect
+      ? computeNewScore(currentPoints, maxPoints, difficultyToLevel(difficulty), currentStreak)
+      : currentPoints;
+
+    await supabase.from("user_competence_scores").upsert(
+      {
+        user_id: userId,
+        competence_id: competenceId,
+        points: newPoints,
+        streak: newStreak,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,competence_id" }
+    );
+  } catch (e) {
+    console.error("[ExerciseLoader] updateCompetenceScore:", e);
+  }
+}
 
 interface ExerciseLoaderProps {
   exerciseId?: string;
@@ -22,6 +64,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
 
   // États de données
   const [exercise, setExercise] = useState<Exercise | null>(null);
@@ -115,11 +158,12 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
         const content = data.content || {};
         const fullExercise = {
-          ...content, 
+          ...content,
           id: data.id,
           title: data.title,
           chapter: data.chapter,
           difficulty: data.difficulty,
+          competence_id: data.competence_id ?? null,
           competences: data.competences || [],
           variables: content.variables || [],
           elements: content.elements || [],
@@ -159,6 +203,24 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   const handleElementSubmit = useCallback((elementId: number, answer: unknown, isCorrect: boolean) => {
     if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
 
+    if (user && exercise) {
+      supabase
+        .from("exercise_attempts")
+        .insert({
+          user_id: user.id,
+          exercise_id: exercise.id,
+          is_correct: isCorrect,
+          time_spent: null,
+        })
+        .then(({ error }) => {
+          if (error) console.error("[ExerciseLoader] exercise_attempts insert:", error.message);
+        });
+
+      if (exercise.competence_id) {
+        updateCompetenceScore(user.id, exercise.competence_id, exercise.difficulty, isCorrect);
+      }
+    }
+
     if (!isCorrect) {
       setHasErrors(true);
     }
@@ -170,7 +232,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       }
       return next;
     });
-  }, [exercise, totalQuestions, onElementSubmit]);
+  }, [exercise, totalQuestions, onElementSubmit, user]);
 
   const handleNextExercise = () => {
     if (exerciseId) {

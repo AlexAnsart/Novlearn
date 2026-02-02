@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from "react";
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts";
-import { X, ZoomIn, ZoomOut } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, ResponsiveContainer } from "recharts";
+import { X, MessageSquare, Award, TrendingUp, Loader2, LogIn } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import { CHAPTER_ORDER, COMPETENCES } from "../settings/competenceSettings";
 
-// Fonction pour obtenir la couleur en fonction du score
 function getScoreColor(score: number) {
   if (score >= 90) return { text: "text-green-400", bg: "bg-gradient-to-r from-green-500 to-green-400", stroke: "#22c55e" };
   if (score >= 75) return { text: "text-blue-400", bg: "bg-gradient-to-r from-blue-500 to-blue-400", stroke: "#3b82f6" };
@@ -19,124 +22,152 @@ interface HistoryEntry {
   exerciseNumber: number;
 }
 
+interface CompetenceScore {
+  id: string;
+  name: string;
+  points: number;
+  max_points: number;
+}
+
 interface SubjectData {
   subject: string;
   progress: number;
-  target: number;
   history: HistoryEntry[];
+  totalAnswers: number;
+  correctAnswers: number;
+  competences: CompetenceScore[];
+}
+
+function formatChartDate(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+function buildHistory(attempts: { attempted_at: string; is_correct: boolean }[]): HistoryEntry[] {
+  if (attempts.length === 0) return [];
+  const byDate = new Map<string, { correct: number; total: number }>();
+  for (const a of attempts) {
+    const date = a.attempted_at.slice(0, 10);
+    const cur = byDate.get(date) ?? { correct: 0, total: 0 };
+    cur.total += 1;
+    if (a.is_correct) cur.correct += 1;
+    byDate.set(date, cur);
+  }
+  const sortedDates = Array.from(byDate.keys()).sort();
+  let cumCorrect = 0;
+  let cumTotal = 0;
+  const history: HistoryEntry[] = [];
+  for (const date of sortedDates) {
+    const { correct, total } = byDate.get(date)!;
+    cumCorrect += correct;
+    cumTotal += total;
+    const score = cumTotal > 0 ? Math.round((cumCorrect / cumTotal) * 100) : 0;
+    history.push({ date: formatChartDate(date), score, exerciseNumber: cumTotal });
+  }
+  return history;
 }
 
 export function ProgressPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [data, setData] = useState<SubjectData[]>([]);
+  const [overview, setOverview] = useState<{ totalAnswers: number; correctAnswers: number; distinctExercises: number }>({ totalAnswers: 0, correctAnswers: 0, distinctExercises: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 8 catégories de mathématiques avec progression et historique
-  // Génération d'historiques qui montrent toutes les couleurs (rouge, orange, jaune, bleu, vert)
-  const data: SubjectData[] = [
-    {
-      subject: "Suites et limites",
-      progress: 88,
-      target: 75,
-      history: [
-        { date: "15/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "20/09/2024", score: 28, exerciseNumber: 1 },
-        { date: "25/09/2024", score: 45, exerciseNumber: 2 },
-        { date: "02/10/2024", score: 62, exerciseNumber: 3 },
-        { date: "10/10/2024", score: 77, exerciseNumber: 4 },
-        { date: "18/10/2024", score: 88, exerciseNumber: 5 },
-      ],
-    },
-    {
-      subject: "Limites et continuité",
-      progress: 82,
-      target: 75,
-      history: [
-        { date: "16/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "22/09/2024", score: 35, exerciseNumber: 1 },
-        { date: "28/09/2024", score: 58, exerciseNumber: 2 },
-        { date: "05/10/2024", score: 71, exerciseNumber: 3 },
-        { date: "12/10/2024", score: 82, exerciseNumber: 4 },
-      ],
-    },
-    {
-      subject: "Dérivabilité",
-      progress: 91,
-      target: 75,
-      history: [
-        { date: "17/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "21/09/2024", score: 42, exerciseNumber: 1 },
-        { date: "26/09/2024", score: 65, exerciseNumber: 2 },
-        { date: "03/10/2024", score: 79, exerciseNumber: 3 },
-        { date: "11/10/2024", score: 86, exerciseNumber: 4 },
-        { date: "19/10/2024", score: 91, exerciseNumber: 5 },
-      ],
-    },
-    {
-      subject: "Logarithme néperien",
-      progress: 48,
-      target: 75,
-      history: [
-        { date: "18/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "24/09/2024", score: 22, exerciseNumber: 1 },
-        { date: "01/10/2024", score: 38, exerciseNumber: 2 },
-        { date: "08/10/2024", score: 48, exerciseNumber: 3 },
-      ],
-    },
-    {
-      subject: "Primitives et équadiff",
-      progress: 67,
-      target: 75,
-      history: [
-        { date: "19/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "23/09/2024", score: 25, exerciseNumber: 1 },
-        { date: "29/09/2024", score: 44, exerciseNumber: 2 },
-        { date: "06/10/2024", score: 59, exerciseNumber: 3 },
-        { date: "14/10/2024", score: 67, exerciseNumber: 4 },
-      ],
-    },
-    {
-      subject: "Convexité",
-      progress: 93,
-      target: 75,
-      history: [
-        { date: "20/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "24/09/2024", score: 18, exerciseNumber: 1 },
-        { date: "27/09/2024", score: 52, exerciseNumber: 2 },
-        { date: "04/10/2024", score: 76, exerciseNumber: 3 },
-        { date: "13/10/2024", score: 87, exerciseNumber: 4 },
-        { date: "20/10/2024", score: 93, exerciseNumber: 5 },
-      ],
-    },
-    {
-      subject: "Stats",
-      progress: 15,
-      target: 75,
-      history: [
-        { date: "21/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "30/09/2024", score: 15, exerciseNumber: 1 },
-      ],
-    },
-    {
-      subject: "Probas",
-      progress: 80,
-      target: 75,
-      history: [
-        { date: "22/09/2024", score: 0, exerciseNumber: 0 },
-        { date: "26/09/2024", score: 32, exerciseNumber: 1 },
-        { date: "03/10/2024", score: 55, exerciseNumber: 2 },
-        { date: "09/10/2024", score: 72, exerciseNumber: 3 },
-        { date: "17/10/2024", score: 80, exerciseNumber: 4 },
-      ],
-    },
-  ];
+  const fetchProgress = useCallback(async () => {
+    if (!user) {
+      setData(CHAPTER_ORDER.map((s) => ({ subject: s, progress: 0, history: [], totalAnswers: 0, correctAnswers: 0, competences: [] })));
+      setOverview({ totalAnswers: 0, correctAnswers: 0, distinctExercises: 0 });
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const [
+        { data: attemptsData, error: attemptsErr },
+        { data: scoresData, error: scoresErr },
+      ] = await Promise.all([
+        supabase.from("exercise_attempts").select("exercise_id, is_correct, attempted_at").eq("user_id", user.id),
+        supabase.from("user_competence_scores").select("competence_id, points").eq("user_id", user.id),
+      ]);
 
-  const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(prev + 0.2, 2));
-  };
+      if (attemptsErr) {
+        console.warn("[ProgressPage] exercise_attempts query:", attemptsErr.message);
+      }
+      const attempts = attemptsData ?? [];
+      const exerciseIds = [...new Set(attempts.map((a) => a.exercise_id).filter(Boolean))] as number[];
+      let exercisesMap: Record<number, string> = {};
+      if (exerciseIds.length > 0) {
+        const { data: exData } = await supabase.from("exercises").select("id, chapter").in("id", exerciseIds);
+        if (exData) exercisesMap = Object.fromEntries(exData.map((e) => [e.id, e.chapter ?? ""]));
+      }
+      const totalAnswers = attempts.length;
+      const correctAnswers = attempts.filter((a) => a.is_correct).length;
+      const distinctExercises = exerciseIds.length;
+      setOverview({ totalAnswers, correctAnswers, distinctExercises });
 
-  const handleZoomOut = () => {
-    setZoomLevel((prev) => Math.max(prev - 0.2, 0.5));
-  };
+      const scoresByCompetence = new Map<string, number>();
+      if (!scoresErr && scoresData) {
+        scoresData.forEach((r) => scoresByCompetence.set(r.competence_id, r.points));
+      }
+
+      const byChapter = new Map<string, { is_correct: boolean; attempted_at: string }[]>();
+      for (const a of attempts) {
+        const chapter = exercisesMap[a.exercise_id] ?? "Autre";
+        if (!byChapter.has(chapter)) byChapter.set(chapter, []);
+        byChapter.get(chapter)!.push({ is_correct: a.is_correct, attempted_at: a.attempted_at });
+      }
+
+      const chapterToCompetences = new Map<string, CompetenceScore[]>();
+      for (const c of COMPETENCES) {
+        const points = scoresByCompetence.get(c.id) ?? 0;
+        const comp: CompetenceScore = { id: c.id, name: c.name, points, max_points: c.max_points };
+        if (!chapterToCompetences.has(c.chapter)) chapterToCompetences.set(c.chapter, []);
+        chapterToCompetences.get(c.chapter)!.push(comp);
+      }
+
+      const chapterNames = [...CHAPTER_ORDER];
+      const built: SubjectData[] = chapterNames.map((subject) => {
+        const competences = chapterToCompetences.get(subject) ?? [];
+        const chapterAttempts = byChapter.get(subject) ?? [];
+        const history = buildHistory(chapterAttempts);
+        const totalAnswers = chapterAttempts.length;
+        const correctAnswers = chapterAttempts.filter((a) => a.is_correct).length;
+        const chapterScore =
+          competences.length > 0
+            ? Math.round(
+                (competences.reduce((sum, c) => sum + (c.points / c.max_points) * 100, 0) / competences.length)
+              )
+            : totalAnswers > 0
+              ? Math.round((correctAnswers / totalAnswers) * 100)
+              : 0;
+        return {
+          subject,
+          progress: chapterScore,
+          history,
+          totalAnswers,
+          correctAnswers,
+          competences,
+        };
+      });
+
+      setData(built);
+    } catch (e) {
+      console.error("[ProgressPage] fetchProgress:", e);
+      setData(CHAPTER_ORDER.map((s) => ({ subject: s, progress: 0, history: [], totalAnswers: 0, correctAnswers: 0, competences: [] })));
+      setOverview({ totalAnswers: 0, correctAnswers: 0, distinctExercises: 0 });
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    fetchProgress();
+  }, [authLoading, fetchProgress]);
 
   // Custom tick pour rendre les labels cliquables
   const CustomAngleAxisTick = ({ payload, x, y, cx, cy }: any) => {
@@ -166,11 +197,11 @@ export function ProgressPage() {
 
   if (selectedSubject) {
     const color = getScoreColor(selectedSubject.progress);
-    
+    const hasCompetences = selectedSubject.competences.length > 0;
+
     return (
       <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
         <div className="max-w-6xl w-full space-y-4">
-          {/* Titre */}
           <div className="text-center">
             <h2
               className="text-4xl md:text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
@@ -182,195 +213,122 @@ export function ProgressPage() {
               className="text-blue-200 mt-2 drop-shadow-md"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
             >
-              Évolution du score au fil du temps
+              {hasCompetences ? "Score par compétence (moyenne du chapitre)" : "Historique des tentatives"}
             </p>
           </div>
 
-          {/* Carte avec graphique linéaire */}
           <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
-            {/* Boutons de contrôle */}
             <div className="flex items-center justify-between mb-6">
               <button
                 onClick={() => setSelectedSubject(null)}
                 className="flex items-center gap-2 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl px-4 py-2 transition-all"
               >
                 <X className="w-5 h-5 text-white" />
-                <span
-                  className="text-white"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
-                >
+                <span className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
                   Retour
                 </span>
               </button>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleZoomOut}
-                  disabled={zoomLevel <= 0.5}
-                  className="bg-slate-700/50 hover:bg-slate-600/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl p-2 transition-all"
-                >
-                  <ZoomOut className="w-5 h-5 text-white" />
-                </button>
-                <span
-                  className="text-white"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
-                >
-                  {Math.round(zoomLevel * 100)}%
-                </span>
-                <button
-                  onClick={handleZoomIn}
-                  disabled={zoomLevel >= 2}
-                  className="bg-slate-700/50 hover:bg-slate-600/60 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl p-2 transition-all"
-                >
-                  <ZoomIn className="w-5 h-5 text-white" />
-                </button>
+              <div className={`${color.text} text-xl`} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>
+                Score chapitre : {selectedSubject.progress}/100
               </div>
             </div>
 
-            <div className="bg-slate-900/40 rounded-2xl p-6 md:p-8 overflow-x-auto">
-              <div style={{ width: `${100 * zoomLevel}%`, minWidth: "100%" }}>
-                <ResponsiveContainer width="100%" height={450}>
-                  <LineChart data={selectedSubject.history} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                    <defs>
-                      <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color.stroke} stopOpacity={0.8} />
-                        <stop offset="100%" stopColor={color.stroke} stopOpacity={0.3} />
-                      </linearGradient>
-                    </defs>
-
-                    <CartesianGrid strokeDasharray="3 3" stroke="#475569" strokeOpacity={0.5} />
-
-                    <XAxis
-                      dataKey="date"
-                      stroke="#94a3b8"
-                      tick={{
-                        fill: "#e0f2fe",
-                        fontSize: 12,
-                        fontFamily: "'Fredoka', sans-serif",
-                      }}
-                    />
-
-                    <YAxis
-                      domain={[0, 100]}
-                      stroke="#94a3b8"
-                      tick={{
-                        fill: "#e0f2fe",
-                        fontSize: 12,
-                        fontFamily: "'Fredoka', sans-serif",
-                      }}
-                    />
-
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#1e293b",
-                        border: "1px solid #475569",
-                        borderRadius: "12px",
-                        fontFamily: "'Fredoka', sans-serif",
-                        fontWeight: 600,
-                      }}
-                      labelStyle={{ color: "#e0f2fe" }}
-                    />
-
-                    {/* Lignes de référence pour les paliers de couleur */}
-                    <ReferenceLine y={30} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.5} />
-                    <ReferenceLine y={50} stroke="#f97316" strokeDasharray="3 3" strokeOpacity={0.5} />
-                    <ReferenceLine y={74} stroke="#eab308" strokeDasharray="3 3" strokeOpacity={0.5} />
-                    <ReferenceLine y={75} stroke="#f59e0b" strokeWidth={2} strokeOpacity={0.8} label={{ value: "Objectif", fill: "#f59e0b", fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }} />
-                    <ReferenceLine y={90} stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.5} />
-
-                    <Line
-                      type="monotone"
-                      dataKey="score"
-                      stroke={color.stroke}
-                      strokeWidth={3}
-                      fill="url(#lineGradient)"
-                      dot={{
-                        r: 6,
-                        fill: color.stroke,
-                        strokeWidth: 3,
-                        stroke: "#fff",
-                      }}
-                      activeDot={{
-                        r: 8,
-                        fill: color.stroke,
-                        strokeWidth: 4,
-                        stroke: "#fff",
-                      }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+            {hasCompetences ? (
+              <div className="space-y-4">
+                {selectedSubject.competences.map((comp) => {
+                  const pct = comp.max_points > 0 ? Math.round((comp.points / comp.max_points) * 100) : 0;
+                  const compColor = getScoreColor(pct);
+                  return (
+                    <div
+                      key={comp.id}
+                      className="bg-slate-900/40 rounded-2xl p-4 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-blue-100" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
+                          {comp.name}
+                        </span>
+                        <span className={compColor.text} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.125rem" }}>
+                          {comp.points}/{comp.max_points}
+                        </span>
+                      </div>
+                      <div className="relative h-3 bg-slate-700/50 rounded-full overflow-hidden">
+                        <div
+                          className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${compColor.bg}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-
-            {/* Statistiques */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                <p
-                  className="text-blue-200 mb-1"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
-                >
-                  Score actuel
-                </p>
-                <p
-                  className={color.text}
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}
-                >
-                  {selectedSubject.progress}
-                </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-900/40 rounded-xl p-4 text-center">
+                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Score (tentatives)</p>
+                  <p className={color.text} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.progress}</p>
+                </div>
+                <div className="bg-slate-900/40 rounded-xl p-4 text-center">
+                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Réponses</p>
+                  <p className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.totalAnswers}</p>
+                </div>
+                <div className="bg-slate-900/40 rounded-xl p-4 text-center">
+                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Bonnes réponses</p>
+                  <p className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.correctAnswers}</p>
+                </div>
               </div>
-              <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                <p
-                  className="text-blue-200 mb-1"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
-                >
-                  Exercices
-                </p>
-                <p
-                  className="text-white"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}
-                >
-                  {selectedSubject.history.length - 1}
-                </p>
-              </div>
-              <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                <p
-                  className="text-blue-200 mb-1"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
-                >
-                  Progression
-                </p>
-                <p
-                  className="text-white"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}
-                >
-                  +{selectedSubject.progress}
-                </p>
-              </div>
-              <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                <p
-                  className="text-blue-200 mb-1"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
-                >
-                  Objectif
-                </p>
-                <p
-                  className={selectedSubject.progress >= 75 ? "text-green-400" : "text-orange-400"}
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}
-                >
-                  {selectedSubject.progress >= 75 ? "✓" : "75"}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  if (authLoading || loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-blue-400 animate-spin" />
+          <p className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Chargement de votre progression...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
+        <div className="max-w-md w-full text-center bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-700/60 flex items-center justify-center">
+            <MessageSquare className="w-10 h-10 text-blue-400" />
+          </div>
+          <h2
+            className="text-2xl md:text-3xl text-white mb-2"
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+          >
+            Connectez-vous pour voir votre progression
+          </h2>
+          <p className="text-blue-200 mb-6" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+            Vos réponses et votre taux de réussite seront enregistrés et affichés ici.
+          </p>
+          <button
+            onClick={() => router.push("/auth/login")}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-lg hover:scale-105 transition-transform"
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+          >
+            <LogIn className="w-5 h-5" />
+            Se connecter
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const correctRatePct = overview.totalAnswers > 0 ? Math.round((overview.correctAnswers / overview.totalAnswers) * 100) : 0;
+  const overviewColor = getScoreColor(correctRatePct);
+
   return (
     <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
       <div className="max-w-6xl w-full space-y-8">
-        {/* Titre avec style 3D */}
         <div className="text-center">
           <h2
             className="text-4xl md:text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
@@ -382,11 +340,41 @@ export function ProgressPage() {
             className="text-blue-200 mt-2 drop-shadow-md"
             style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
           >
-            Suivi par matière - Objectif: 75/100 minimum - Cliquez sur un chapitre
+            Suivi par matière - Cliquez sur un chapitre
           </p>
         </div>
 
-        {/* Carte principale avec le graphique */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 text-center">
+            <p className="text-red-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>{error}</p>
+          </div>
+        )}
+
+        {/* Overview cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="flex items-center gap-2 mb-2">
+              <MessageSquare className="w-5 h-5 text-blue-400" />
+              <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Réponses</span>
+            </div>
+            <p className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{overview.totalAnswers}</p>
+          </div>
+          <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-5 h-5 text-green-400" />
+              <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Taux de réussite</span>
+            </div>
+            <p className={`text-2xl ${overviewColor.text}`} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{correctRatePct}%</p>
+          </div>
+          <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="flex items-center gap-2 mb-2">
+              <Award className="w-5 h-5 text-yellow-400" />
+              <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Exercices</span>
+            </div>
+            <p className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{overview.distinctExercises}</p>
+          </div>
+        </div>
+
         <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
           <div className="bg-slate-900/40 rounded-2xl p-2 md:p-4">
             {/* Graphique radar */}
@@ -402,10 +390,6 @@ export function ProgressPage() {
                       </linearGradient>
                     );
                   })}
-                  <linearGradient id="targetGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#ef4444" stopOpacity={0.2} />
-                  </linearGradient>
                 </defs>
 
                 <PolarGrid
@@ -431,22 +415,6 @@ export function ProgressPage() {
                   tickCount={6}
                   stroke="#475569"
                   strokeOpacity={0.5}
-                />
-
-                {/* Octogone de référence (objectif 75) */}
-                <Radar
-                  name="Objectif minimum (75)"
-                  dataKey="target"
-                  stroke="#f59e0b"
-                  strokeWidth={3}
-                  fill="url(#targetGradient)"
-                  fillOpacity={0.3}
-                  dot={{
-                    r: 5,
-                    fill: "#f59e0b",
-                    strokeWidth: 2,
-                    stroke: "#fff",
-                  }}
                 />
 
                 {/* Progression de l'utilisateur */}
@@ -522,13 +490,6 @@ export function ProgressPage() {
                       className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${color.bg}`}
                       style={{ width: `${item.progress}%` }}
                     />
-                    {/* Marqueur de l'objectif */}
-                    <div
-                      className="absolute top-0 h-full w-0.5 bg-orange-400"
-                      style={{ left: "75%" }}
-                    >
-                      <div className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />
-                    </div>
                   </div>
                 </div>
               );

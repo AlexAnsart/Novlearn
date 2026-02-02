@@ -9,6 +9,7 @@ import {
   Mail,
   User,
   Users,
+  TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -33,6 +34,9 @@ interface FriendRequest {
 
 interface UserStats {
   exercises_completed: number;
+  total_answers: number;
+  correct_answers: number;
+  correct_rate_pct: number;
   level: string;
 }
 
@@ -276,58 +280,35 @@ export function AccountPage() {
         console.warn("[AccountPage] fetchUserStats TIMEOUT after 15s");
         if (isMountedRef.current) {
           setLoading(false);
-          setStats({ exercises_completed: 0, level: "Terminale" });
+          setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
         }
       }, 15000);
 
-      // Vérifier si annulé avant de commencer les requêtes
       if (abortController.signal.aborted || !isMountedRef.current) return;
 
-      // Récupérer le nombre total d'exercices réalisés
-      const {
-        data: attempts,
-        error: attemptsError,
-        count,
-      } = await supabase
+      const { data: attemptsData, error: attemptsError } = await supabase
         .from("exercise_attempts")
-        .select("id", { count: "exact", head: true })
+        .select("exercise_id, is_correct")
         .eq("user_id", user.id);
 
-      // Vérifier si annulé après la première requête
       if (abortController.signal.aborted || !isMountedRef.current) return;
 
       if (attemptsError) {
-        console.error(
-          "[AccountPage] Error fetching attempts:",
-          attemptsError.message
-        );
+        console.error("[AccountPage] Error fetching attempts:", attemptsError.message);
       }
 
-      // Récupérer la progression pour déterminer le niveau
-      const { data: progress, error: progressError } = await supabase
-        .from("user_progress")
-        .select("*")
-        .eq("user_id", user.id);
-
-      // Vérifier si annulé après la deuxième requête
-      if (abortController.signal.aborted || !isMountedRef.current) return;
-
-      if (progressError) {
-        console.error(
-          "[AccountPage] Error fetching progress:",
-          progressError.message
-        );
-      }
-
-      // Vérifier une dernière fois avant de mettre à jour l'état
-      if (abortController.signal.aborted || !isMountedRef.current) return;
-
-      if (attemptsError || progressError) {
-        setStats({ exercises_completed: 0, level: "Terminale" });
+      if (attemptsError || !attemptsData) {
+        setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
       } else {
-        const exercisesCompleted = count || 0;
+        const totalAnswers = attemptsData.length;
+        const correctAnswers = attemptsData.filter((a) => a.is_correct).length;
+        const distinctExercises = new Set(attemptsData.map((a) => a.exercise_id).filter(Boolean)).size;
+        const correctRatePct = totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) : 0;
         setStats({
-          exercises_completed: exercisesCompleted,
+          exercises_completed: distinctExercises,
+          total_answers: totalAnswers,
+          correct_answers: correctAnswers,
+          correct_rate_pct: correctRatePct,
           level: "Terminale",
         });
       }
@@ -337,7 +318,7 @@ export function AccountPage() {
 
       console.error("[AccountPage] fetchUserStats exception:", error);
       if (isMountedRef.current) {
-        setStats({ exercises_completed: 0, level: "Terminale" });
+        setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
       }
     } finally {
       if (timeoutId) {
@@ -705,13 +686,63 @@ export function AccountPage() {
                       fontSize: "1.5rem",
                     }}
                   >
-                    {stats?.exercises_completed || 0}
+                    {stats?.exercises_completed ?? 0}
+                  </p>
+                </div>
+
+                <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Award className="w-5 h-5 text-green-400" />
+                    <span
+                      className="text-blue-200"
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Réponses
+                    </span>
+                  </div>
+                  <p
+                    className="text-white ml-8"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                      fontSize: "1.5rem",
+                    }}
+                  >
+                    {stats?.total_answers ?? 0}
                   </p>
                 </div>
 
                 <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="flex items-center gap-3 mb-2">
                     <Award className="w-5 h-5 text-yellow-400" />
+                    <span
+                      className="text-blue-200"
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Taux de réussite
+                    </span>
+                  </div>
+                  <p
+                    className="text-white ml-8"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                      fontSize: "1.5rem",
+                    }}
+                  >
+                    {stats?.correct_rate_pct ?? 0}%
+                  </p>
+                </div>
+
+                <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Award className="w-5 h-5 text-orange-400" />
                     <span
                       className="text-blue-200"
                       style={{
@@ -730,9 +761,20 @@ export function AccountPage() {
                       fontSize: "1.5rem",
                     }}
                   >
-                    {stats?.level || "Terminale"}
+                    {stats?.level ?? "Terminale"}
                   </p>
                 </div>
+              </div>
+
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => router.push("/progression")}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-700/50 hover:bg-slate-600/60 text-blue-200 transition-all"
+                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                >
+                  <TrendingUp className="w-5 h-5" />
+                  Voir ma progression
+                </button>
               </div>
             </div>
 
