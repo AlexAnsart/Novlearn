@@ -8,9 +8,15 @@ import {
   Dumbbell,
   Loader2,
 } from "lucide-react";
-import { useRouter } from "next/navigation"; // Pour la redirection
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import {
+  type DifficultyUi,
+  dbToUiDifficulty,
+  uiToDbDifficulty,
+  type ExerciseListItem,
+} from "../lib/exerciseUtils";
 
 interface Chapter {
   id: string;
@@ -158,12 +164,83 @@ export function TrainingPage() {
     "flash" | "long" | null
   >(null);
 
+  // Chapters that have at least one exercise in DB (used to un-gray them)
+  const [chapterHasExercises, setChapterHasExercises] = useState<
+    Record<string, boolean>
+  >({});
+  // Exercises list for current chapter (for selection by difficulty)
+  const [chapterExercises, setChapterExercises] = useState<ExerciseListItem[]>(
+    [],
+  );
+  const [chapterExercisesLoading, setChapterExercisesLoading] = useState(false);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<
+    DifficultyUi | null
+  >(null);
+
   // Flashcards state
   const [currentFlashCardIndex, setCurrentFlashCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  // Loading state pour la recherche d'exercice
+  // Loading state for launching an exercise
   const [isSearchingExercise, setIsSearchingExercise] = useState(false);
+
+  // Fetch which chapters have exercises (for un-graying)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("exercises")
+        .select("chapter");
+      if (cancelled || error) return;
+      const chapterNames = new Set(
+        (data || []).map((r) => (r.chapter || "").trim()).filter(Boolean),
+      );
+      const byId: Record<string, boolean> = {};
+      chapters.forEach((c) => {
+        byId[c.id] = chapterNames.has(c.name);
+      });
+      setChapterHasExercises(byId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch exercises for selected chapter when on exercises tab
+  useEffect(() => {
+    if (!selectedChapter || selectedTab !== "exercises") {
+      setChapterExercises([]);
+      return;
+    }
+    const currentChapterObj = chapters.find((c) => c.id === selectedChapter);
+    const chapterNameInDb = currentChapterObj?.name;
+    if (!chapterNameInDb) return;
+
+    let cancelled = false;
+    setChapterExercisesLoading(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from("exercises")
+        .select("id, title, chapter, difficulty")
+        .eq("chapter", chapterNameInDb);
+      if (cancelled) return;
+      setChapterExercisesLoading(false);
+      if (error) {
+        setChapterExercises([]);
+        return;
+      }
+      const list: ExerciseListItem[] = (data || []).map((r) => ({
+        id: r.id,
+        title: r.title ?? null,
+        chapter: r.chapter ?? "",
+        difficulty: r.difficulty ?? "",
+      }));
+      setChapterExercises(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedChapter, selectedTab]);
 
   const handleToggleNotSeen = (chapterId: string) => {
     setChapterStates((prev) => ({
@@ -176,6 +253,7 @@ export function TrainingPage() {
     setSelectedChapter(chapterId);
     setSelectedTab(null);
     setSelectedExerciseType(null);
+    setSelectedDifficulty(null);
     setCurrentFlashCardIndex(0);
     setIsFlipped(false);
   };
@@ -211,43 +289,47 @@ export function TrainingPage() {
     }
   };
 
-  // --- LOGIQUE LANCEMENT EXERCICE CHAPITRE ---
+  // Launch a random exercise for the selected chapter (and optional difficulty)
   const handleStartChapterExercise = async () => {
     if (!selectedChapter) return;
     setIsSearchingExercise(true);
 
     try {
-      // 1. On retrouve le nom du chapitre tel qu'il est probablement écrit en BDD
-      // (On utilise .name car en BDD c'est souvent "Suites et limites" et non "suites")
       const currentChapterObj = chapters.find((c) => c.id === selectedChapter);
       const chapterNameInDb = currentChapterObj?.name;
+      if (!chapterNameInDb) throw new Error("Chapter not found");
 
-      // 2. On cherche TOUS les IDs d'exercices de ce chapitre
-      const { data, error } = await supabase
+      let query = supabase
         .from("exercises")
         .select("id")
-        .eq("chapter", chapterNameInDb); // Filtre par nom de chapitre
+        .eq("chapter", chapterNameInDb);
+
+      if (selectedDifficulty) {
+        const dbDiff = uiToDbDifficulty(selectedDifficulty);
+        query = query.or(`difficulty.eq.${dbDiff},difficulty.eq.${selectedDifficulty}`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
       if (!data || data.length === 0) {
         alert(
-          "Désolé, aucun exercice n'est encore disponible pour ce chapitre.",
+          selectedDifficulty
+            ? `Aucun exercice ${selectedDifficulty} pour ce chapitre.`
+            : "Aucun exercice disponible pour ce chapitre.",
         );
         setIsSearchingExercise(false);
         return;
       }
 
-      // 3. On en tire un au hasard
       const randomIndex = Math.floor(Math.random() * data.length);
       const randomExerciseId = data[randomIndex].id;
-
-      // 4. On redirige vers la page d'entraînement avec l'ID précis
-      // Note : Assurez-vous que votre page d'exercice est bien sur /exercices
       router.push(`/exercices?id=${randomExerciseId}`);
     } catch (err) {
       console.error("Erreur lors de la recherche d'exercice :", err);
       alert("Impossible de charger un exercice pour le moment.");
+    } finally {
       setIsSearchingExercise(false);
     }
   };
@@ -336,10 +418,21 @@ export function TrainingPage() {
   }
 
   // ----------------------------------------------------------------------------------
-  // RENDER : SELECTION EXERCICE (Menu Flash vs Long)
+  // RENDER : SELECTION EXERCICE (by chapter + difficulty, list + random)
   // ----------------------------------------------------------------------------------
   if (selectedChapter && selectedTab === "exercises") {
     const currentChapter = chapters.find((c) => c.id === selectedChapter);
+    const difficulties: (DifficultyUi | null)[] = [
+      null,
+      "Facile",
+      "Moyen",
+      "Difficile",
+    ];
+    const filteredExercises = selectedDifficulty
+      ? chapterExercises.filter(
+          (ex) => dbToUiDifficulty(ex.difficulty) === selectedDifficulty
+        )
+      : chapterExercises;
 
     return (
       <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
@@ -366,51 +459,116 @@ export function TrainingPage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* BOUTON EXERCICE FLASH (Modifié pour lancer la recherche) */}
+          {/* Difficulty filter */}
+          <div className="flex flex-wrap justify-center gap-2">
+            {difficulties.map((d) => (
+              <button
+                key={d ?? "all"}
+                onClick={() => setSelectedDifficulty(d)}
+                className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                  selectedDifficulty === d
+                    ? "bg-blue-500 text-white"
+                    : "bg-slate-700/60 text-blue-200 hover:bg-slate-600/60"
+                }`}
+                style={{ fontFamily: "'Fredoka', sans-serif" }}
+              >
+                {d ?? "Tous"}
+              </button>
+            ))}
+          </div>
+
+          {/* Random exercise button */}
+          <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
             <button
               onClick={handleStartChapterExercise}
-              disabled={isSearchingExercise}
-              className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-wait"
+              disabled={isSearchingExercise || filteredExercises.length === 0}
+              className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              <div className="text-center flex flex-col items-center">
-                {isSearchingExercise ? (
-                  <Loader2 className="w-16 h-16 text-blue-400 animate-spin mb-4" />
-                ) : (
-                  <div className="text-6xl mb-4">⚡</div>
-                )}
-
-                <h3
-                  className="text-white text-2xl"
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontWeight: 700,
-                  }}
-                >
-                  {isSearchingExercise ? "Recherche..." : "Exercice flash"}
-                </h3>
-              </div>
+              {isSearchingExercise ? (
+                <Loader2 className="w-6 h-6 text-white animate-spin" />
+              ) : (
+                <span className="text-2xl">⚡</span>
+              )}
+              <span
+                className="text-white text-xl font-bold"
+                style={{ fontFamily: "'Fredoka', sans-serif" }}
+              >
+                {isSearchingExercise
+                  ? "Chargement..."
+                  : `Lancer un exercice aléatoire${selectedDifficulty ? ` (${selectedDifficulty})` : ""}`}
+              </span>
             </button>
-
-            {/* BOUTON EXERCICE LONG (Pas encore dispo) */}
-            <button
-              onClick={() => setSelectedExerciseType("long")}
-              className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:scale-105 transition-transform"
-            >
-              <div className="text-center">
-                <div className="text-6xl mb-4">📝</div>
-                <h3
-                  className="text-white text-2xl"
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontWeight: 700,
-                  }}
-                >
-                  Exercice long
-                </h3>
-              </div>
-            </button>
+            {filteredExercises.length === 0 && !chapterExercisesLoading && (
+              <p className="text-blue-200/80 text-sm mt-2 text-center">
+                Aucun exercice pour ce filtre.
+              </p>
+            )}
           </div>
+
+          {/* List of exercises to choose from */}
+          <div className="space-y-3">
+            <h3
+              className="text-white text-lg font-bold"
+              style={{ fontFamily: "'Fredoka', sans-serif" }}
+            >
+              Ou choisir un exercice
+            </h3>
+            {chapterExercisesLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+              </div>
+            ) : filteredExercises.length === 0 ? (
+              <p className="text-blue-200/80 text-sm">
+                Aucun exercice disponible pour ce chapitre
+                {selectedDifficulty ? ` en ${selectedDifficulty}` : ""}.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {filteredExercises.map((ex) => {
+                  const uiDiff = dbToUiDifficulty(ex.difficulty);
+                  return (
+                    <li key={ex.id}>
+                      <button
+                        onClick={() => router.push(`/exercices?id=${ex.id}`)}
+                        className="w-full text-left bg-slate-800/60 hover:bg-slate-700/60 rounded-xl px-4 py-3 flex items-center justify-between gap-2 transition-all"
+                      >
+                        <span className="text-white truncate">
+                          {ex.title || `Exercice #${ex.id}`}
+                        </span>
+                        {uiDiff && (
+                          <span
+                            className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold ${
+                              uiDiff === "Difficile"
+                                ? "bg-red-500/20 text-red-200"
+                                : uiDiff === "Moyen"
+                                  ? "bg-yellow-500/20 text-yellow-200"
+                                  : "bg-green-500/20 text-green-200"
+                            }`}
+                          >
+                            {uiDiff}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Placeholder: long exercise (not yet available) */}
+          <button
+            onClick={() => setSelectedExerciseType("long")}
+            className="w-full bg-slate-800/40 rounded-2xl p-4 flex items-center gap-3 opacity-70"
+          >
+            <span className="text-3xl">📝</span>
+            <span
+              className="text-blue-200/80 text-lg font-semibold"
+              style={{ fontFamily: "'Fredoka', sans-serif" }}
+            >
+              Exercice long (bientôt)
+            </span>
+          </button>
         </div>
       </div>
     );
@@ -565,12 +723,15 @@ export function TrainingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {chapters.map((chapter) => (
+          {chapters.map((chapter) => {
+            const hasExercises = chapterHasExercises[chapter.id];
+            const isGrayed = !hasExercises;
+            return (
             <button
               key={chapter.id}
               onClick={() => handleChapterClick(chapter.id)}
               className={`bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:scale-105 transition-transform ${
-                chapterStates[chapter.id] ? "opacity-40 grayscale" : ""
+                isGrayed ? "opacity-40 grayscale" : ""
               }`}
             >
               <div className="text-center">
@@ -585,9 +746,13 @@ export function TrainingPage() {
                 >
                   {chapter.name}
                 </h3>
+                {!hasExercises && (
+                  <p className="text-blue-200/80 text-xs mt-1">Aucun exercice</p>
+                )}
               </div>
             </button>
-          ))}
+          );
+          })}
         </div>
       </div>
     </div>
