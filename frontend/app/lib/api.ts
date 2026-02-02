@@ -43,15 +43,26 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const requestId = `${endpoint}_${Date.now()}`;
+  console.log(`[api.ts] apiRequest: Starting ${endpoint}`, { requestId, method: options.method || 'GET' });
+  
   try {
+    console.log(`[api.ts] apiRequest: Getting auth headers for ${endpoint}`);
     const headers = await getAuthHeaders();
+    console.log(`[api.ts] apiRequest: Auth headers obtained for ${endpoint}`, { hasAuth: !!(headers as any)['Authorization'] });
+    
     const url = `${API_URL}${endpoint}`;
+    console.log(`[api.ts] apiRequest: Making fetch request to ${endpoint}`, { url, apiUrl: API_URL });
     
     // Create AbortController for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => {
+      console.log(`[api.ts] apiRequest: Timeout triggered for ${endpoint}`);
+      controller.abort();
+    }, 10000); // 10 second timeout
     
     let response: Response;
+    const fetchStartTime = Date.now();
     try {
       response = await fetch(url, {
         ...options,
@@ -61,8 +72,22 @@ async function apiRequest<T>(
           ...options.headers,
         },
       });
+      const fetchDuration = Date.now() - fetchStartTime;
+      console.log(`[api.ts] apiRequest: Fetch completed for ${endpoint}`, { 
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        duration: `${fetchDuration}ms`
+      });
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
+      const fetchDuration = Date.now() - fetchStartTime;
+      console.error(`[api.ts] apiRequest: Fetch error for ${endpoint}`, { 
+        error: fetchError.message,
+        name: fetchError.name,
+        duration: `${fetchDuration}ms`
+      });
+      
       if (fetchError.name === 'AbortError') {
         console.error(`[api.ts] Timeout on ${endpoint}`);
         throw new Error("Request timeout: Le serveur ne répond pas. Vérifiez que le backend est lancé sur http://localhost:8010");
@@ -72,14 +97,29 @@ async function apiRequest<T>(
     clearTimeout(timeoutId);
     
     if (!response.ok) {
+      console.log(`[api.ts] apiRequest: Response not OK for ${endpoint}, parsing error`);
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
       console.error(`[api.ts] ${endpoint} error:`, error);
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
     
-    return response.json();
+    console.log(`[api.ts] apiRequest: Parsing JSON response for ${endpoint}`);
+    const jsonStartTime = Date.now();
+    const result = await response.json();
+    const jsonDuration = Date.now() - jsonStartTime;
+    console.log(`[api.ts] apiRequest: Success for ${endpoint}`, { 
+      hasResult: !!result,
+      jsonDuration: `${jsonDuration}ms`,
+      resultKeys: result ? Object.keys(result) : []
+    });
+    
+    return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[api.ts] apiRequest: Error for ${endpoint}`, { 
+      error: errorMessage,
+      errorType: error instanceof Error ? error.constructor.name : typeof error
+    });
     
     // Provide more helpful error messages
     if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError") || errorMessage.includes("Network request failed")) {
@@ -120,7 +160,18 @@ export const friendsApi = {
    * Get or generate friend code for current user
    */
   async getFriendCode(): Promise<FriendCode> {
-    return apiRequest<FriendCode>('/api/friends/code');
+    console.log('[friendsApi] getFriendCode: Starting');
+    try {
+      const result = await apiRequest<FriendCode>('/api/friends/code');
+      console.log('[friendsApi] getFriendCode: Success', { 
+        hasCode: !!result?.code,
+        hasInviteLink: !!result?.invite_link 
+      });
+      return result;
+    } catch (error) {
+      console.error('[friendsApi] getFriendCode: Error', error);
+      throw error;
+    }
   },
 
   /**

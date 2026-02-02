@@ -141,33 +141,70 @@ export function AccountPage() {
   }, []);
 
   const loadFriendCode = useCallback(async () => {
-    if (!isMountedRef.current) return;
+    console.log('[AccountPage] loadFriendCode: Starting', { 
+      isMounted: isMountedRef.current,
+      hasUser: !!user,
+      activeTab 
+    });
+    
+    if (!isMountedRef.current) {
+      console.log('[AccountPage] loadFriendCode: Aborted - component not mounted');
+      return;
+    }
 
     setFriendCodeError(null);
     setFriendCodeLoading(true);
+    console.log('[AccountPage] loadFriendCode: Set loading to true');
+    
     try {
-      const { code, invite_link } = await friendsApi.getFriendCode();
+      console.log('[AccountPage] loadFriendCode: Calling friendsApi.getFriendCode()');
+      const startTime = Date.now();
+      const result = await friendsApi.getFriendCode();
+      const duration = Date.now() - startTime;
+      console.log('[AccountPage] loadFriendCode: API call completed', { 
+        duration: `${duration}ms`,
+        hasCode: !!result?.code,
+        hasInviteLink: !!result?.invite_link,
+        code: result?.code,
+        inviteLink: result?.invite_link
+      });
       
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) {
+        console.log('[AccountPage] loadFriendCode: Component unmounted after API call, ignoring result');
+        return;
+      }
       
-      setFriendCode(code);
-      setInviteLink(invite_link);
+      console.log('[AccountPage] loadFriendCode: Setting state with code and invite link');
+      setFriendCode(result.code);
+      setInviteLink(result.invite_link);
       setFriendCodeError(null);
       setFriendCodeLoading(false);
+      console.log('[AccountPage] loadFriendCode: Successfully completed');
     } catch (error: any) {
-      if (!isMountedRef.current) return;
-      
       const errorMessage = error?.message || String(error);
-      console.error('[AccountPage] loadFriendCode error:', errorMessage);
+      console.error('[AccountPage] loadFriendCode: Error caught', { 
+        error: errorMessage,
+        errorType: error?.constructor?.name,
+        errorStack: error?.stack,
+        isMounted: isMountedRef.current
+      });
       
-      setFriendCodeError(errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch") || errorMessage.includes("timeout") || errorMessage.includes("Request timeout")
+      if (!isMountedRef.current) {
+        console.log('[AccountPage] loadFriendCode: Component unmounted after error, ignoring');
+        return;
+      }
+      
+      const displayError = errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch") || errorMessage.includes("timeout") || errorMessage.includes("Request timeout")
         ? "Backend non disponible. Assurez-vous que le serveur backend est lancé sur http://localhost:8010"
-        : errorMessage);
+        : errorMessage;
+      
+      console.log('[AccountPage] loadFriendCode: Setting error state', { displayError });
+      setFriendCodeError(displayError);
       setFriendCode(null);
       setInviteLink(null);
       setFriendCodeLoading(false);
     }
-  }, []);
+  }, [user, activeTab]);
 
   const handleCopyInviteLink = () => {
     if (inviteLink) {
@@ -320,16 +357,27 @@ export function AccountPage() {
 
   // Load friends data
   useEffect(() => {
+    console.log('[AccountPage] useEffect friends data:', { 
+      hasUser: !!user,
+      userId: user?.id,
+      activeTab,
+      isMounted: isMountedRef.current
+    });
+    
     if (user && activeTab === "friends" && isMountedRef.current) {
+      console.log('[AccountPage] useEffect: Loading friends data');
       loadFriends();
       loadFriendRequests();
       loadFriendCode();
+    } else {
+      console.log('[AccountPage] useEffect: Skipping friends data load', {
+        reason: !user ? 'no user' : activeTab !== "friends" ? 'wrong tab' : 'not mounted'
+      });
     }
 
     // Cleanup function
     return () => {
-      // Les requêtes sont déjà gérées par isMountedRef dans les fonctions
-      // Pas besoin d'annuler ici car elles vérifient isMountedRef avant de mettre à jour l'état
+      console.log('[AccountPage] useEffect cleanup: friends data');
     };
   }, [user, activeTab, loadFriends, loadFriendRequests, loadFriendCode]);
 
@@ -680,19 +728,38 @@ export function AccountPage() {
                   <p className="text-blue-200 text-sm mb-1" style={{ fontFamily: "'Fredoka', sans-serif" }}>
                     Code :
                   </p>
-                  {friendCodeError ? (
-                    <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-                      {friendCodeError}
-                    </p>
-                  ) : friendCodeLoading || !friendCode ? (
-                    <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-                      Chargement...
-                    </p>
-                  ) : (
-                    <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-                      {friendCode}
-                    </p>
-                  )}
+                  {(() => {
+                    console.log('[AccountPage] Render friend code state:', {
+                      friendCode,
+                      friendCodeLoading,
+                      friendCodeError,
+                      shouldShowLoading: friendCodeLoading || !friendCode,
+                      shouldShowError: !!friendCodeError,
+                      shouldShowCode: !friendCodeError && !friendCodeLoading && !!friendCode
+                    });
+                    
+                    if (friendCodeError) {
+                      return (
+                        <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                          {friendCodeError}
+                        </p>
+                      );
+                    }
+                    
+                    if (friendCodeLoading || !friendCode) {
+                      return (
+                        <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                          Chargement...
+                        </p>
+                      );
+                    }
+                    
+                    return (
+                      <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                        {friendCode}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <button
                   onClick={handleCopyInviteLink}
