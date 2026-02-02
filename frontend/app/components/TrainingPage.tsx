@@ -342,6 +342,52 @@ export function TrainingPage() {
     const cards = flashCardsData[selectedChapter] || [];
     const currentCard = cards[currentFlashCardIndex];
 
+    // No course content yet for this chapter → show "à venir"
+    if (cards.length === 0) {
+      return (
+        <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
+          <div className="max-w-4xl w-full space-y-6">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl px-4 py-3 transition-all"
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+              <span
+                className="text-white"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+              >
+                Retour
+              </span>
+            </button>
+
+            <div className="text-center">
+              <h2
+                className="text-4xl md:text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+              >
+                Cours - {currentChapter?.name}
+              </h2>
+            </div>
+
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 md:p-16 text-center shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
+              <p
+                className="text-blue-200 text-xl md:text-2xl"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+              >
+                Les fiches de cours pour ce chapitre arrivent bientôt.
+              </p>
+              <p
+                className="text-slate-400 mt-2"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
+              >
+                À venir
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
         <div className="max-w-4xl w-full space-y-6">
