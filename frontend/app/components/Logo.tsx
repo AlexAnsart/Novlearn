@@ -26,6 +26,7 @@ export function Logo({ small = false }: LogoProps) {
           alt="NovLearn Logo"
           width={64}
           height={64}
+          priority
           className="w-full h-full object-contain"
           style={{
             filter: "drop-shadow(0 4px 12px rgba(59, 130, 246, 0.3))",

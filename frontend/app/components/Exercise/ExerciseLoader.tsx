@@ -4,7 +4,6 @@ import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import ExerciseRenderer from "./ExerciseRenderer";
 import { supabase } from "../../lib/supabase";
-import { useAuth } from "../../contexts/AuthContext";
 import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
 import { getCompetenceById } from "../../settings/competenceSettings";
 import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
@@ -64,7 +63,6 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
 
   // États de données
   const [exercise, setExercise] = useState<Exercise | null>(null);
@@ -83,6 +81,8 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   // État de la modale de feedback
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  // Feedback d'enregistrement de la tentative (pour debug / UX)
+  const [lastSaveStatus, setLastSaveStatus] = useState<"idle" | "saved" | "no_session" | "error">("idle");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -200,39 +200,59 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   // GESTIONNAIRES D'INTERACTION
   // =========================================================
 
-  const handleElementSubmit = useCallback((elementId: number, answer: unknown, isCorrect: boolean) => {
+  const handleElementSubmit = useCallback(async (elementId: number, answer: unknown, isCorrect: boolean) => {
     if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
+    setLastSaveStatus("idle");
 
-    if (user && exercise) {
-      supabase
-        .from("exercise_attempts")
-        .insert({
-          user_id: user.id,
-          exercise_id: exercise.id,
-          is_correct: isCorrect,
-          time_spent: null,
-        })
-        .then(({ error }) => {
-          if (error) console.error("[ExerciseLoader] exercise_attempts insert:", error.message);
-        });
+    // Validated user (server check) so insert is accepted by RLS
+    const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error("[ExerciseLoader] getUser failed:", userError.message);
+      setLastSaveStatus("error");
+    }
+    if (!currentUser || !exercise) {
+      if (!currentUser) {
+        console.warn("[ExerciseLoader] No user: connect to save attempts in Ma progression.");
+        setLastSaveStatus("no_session");
+      }
+      setCompletedElements(prev => {
+        const next = new Set(prev).add(elementId);
+        if (exercise && next.size >= totalQuestions && totalQuestions > 0) setIsExerciseFinished(true);
+        return next;
+      });
+      if (!isCorrect) setHasErrors(true);
+      return;
+    }
 
+    const exerciseIdNum = Number(exercise.id);
+    if (Number.isNaN(exerciseIdNum)) {
+      console.error("[ExerciseLoader] Invalid exercise.id:", exercise.id);
+      setLastSaveStatus("error");
+    } else {
+      const { error } = await supabase.from("exercise_attempts").insert({
+        user_id: currentUser.id,
+        exercise_id: exerciseIdNum,
+        is_correct: isCorrect,
+        time_spent: null,
+      });
+      if (error) {
+        console.error("[ExerciseLoader] exercise_attempts insert failed:", error.message, error.code);
+        setLastSaveStatus("error");
+      } else {
+        setLastSaveStatus("saved");
+      }
       if (exercise.competence_id) {
-        updateCompetenceScore(user.id, exercise.competence_id, exercise.difficulty, isCorrect);
+        updateCompetenceScore(currentUser.id, exercise.competence_id, exercise.difficulty, isCorrect);
       }
     }
 
-    if (!isCorrect) {
-      setHasErrors(true);
-    }
-
+    if (!isCorrect) setHasErrors(true);
     setCompletedElements(prev => {
       const next = new Set(prev).add(elementId);
-      if (exercise && next.size >= totalQuestions && totalQuestions > 0) {
-        setIsExerciseFinished(true);
-      }
+      if (exercise && next.size >= totalQuestions && totalQuestions > 0) setIsExerciseFinished(true);
       return next;
     });
-  }, [exercise, totalQuestions, onElementSubmit, user]);
+  }, [exercise, totalQuestions, onElementSubmit]);
 
   const handleNextExercise = () => {
     if (exerciseId) {
@@ -344,6 +364,25 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           preGeneratedVariables={variables}
           onElementSubmit={handleElementSubmit}
         />
+
+        {/* Feedback enregistrement tentative */}
+        {lastSaveStatus !== "idle" && (
+          <p
+            className={`mt-3 text-sm ${
+              lastSaveStatus === "saved"
+                ? "text-green-600"
+                : lastSaveStatus === "no_session"
+                ? "text-amber-600"
+                : "text-red-600"
+            }`}
+          >
+            {lastSaveStatus === "saved"
+              ? "Tentative enregistrée dans Ma progression."
+              : lastSaveStatus === "no_session"
+              ? "Connecte-toi pour enregistrer tes tentatives dans Ma progression."
+              : "Erreur d'enregistrement (voir la console)."}
+          </p>
+        )}
 
         {/* Zone de fin (Boutons Suivant et Feedback) */}
         {isExerciseFinished && (

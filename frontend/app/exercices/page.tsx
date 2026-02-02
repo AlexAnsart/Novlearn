@@ -2,14 +2,17 @@
 
 import { BookOpen, Sparkles, Loader2 } from "lucide-react";
 import { useState, Suspense, useCallback, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ExerciseLoader } from "../components/Exercise/ExerciseLoader";
 import { Layout } from "../components/Layout";
 import { Exercise } from "../types/exercise";
 import { getRecommendedExercise } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 
 // Composant qui lit l'URL
 function ExercisePageContent() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [recommendedId, setRecommendedId] = useState<string | undefined>(undefined);
   const [recommendLoading, setRecommendLoading] = useState(false);
@@ -17,6 +20,11 @@ function ExercisePageContent() {
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("id") || undefined;
   const chapterFromUrl = searchParams.get("chapter") || undefined;
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) router.push("/auth/login");
+  }, [user, authLoading, router]);
 
   // Sans id dans l'URL : on demande une recommandation (optionnellement par chapitre)
   useEffect(() => {
@@ -54,6 +62,19 @@ function ExercisePageContent() {
   const handleElementSubmit = useCallback((elementId: number, answer: unknown, isCorrect: boolean) => {
     // Element submitted
   }, []);
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-3 text-blue-200">
+          <Loader2 className="w-8 h-8 animate-spin" />
+          <span style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+            {authLoading ? "Chargement…" : "Redirection…"}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col px-4 md:px-8 py-6 max-w-[1400px] mx-auto w-full">

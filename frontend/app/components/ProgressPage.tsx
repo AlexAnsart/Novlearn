@@ -169,6 +169,13 @@ export function ProgressPage() {
     fetchProgress();
   }, [authLoading, fetchProgress]);
 
+  // Refetch when user comes back to the tab (e.g. after solving an exercise elsewhere)
+  useEffect(() => {
+    const onFocus = () => user && fetchProgress();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [user, fetchProgress]);
+
   // Custom tick pour rendre les labels cliquables
   const CustomAngleAxisTick = ({ payload, x, y, cx, cy }: any) => {
     const subject = data.find((d) => d.subject === payload.value);
