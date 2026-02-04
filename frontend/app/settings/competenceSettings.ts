@@ -13,7 +13,7 @@ export interface CompetenceConfig {
 }
 
 export const CHAPTER_ORDER: string[] = [
-  "Suites et limites",
+  "Suites numériques",
   "Limites et continuité",
   "Fonctions",
   "Dérivabilité",
@@ -26,9 +26,22 @@ export const CHAPTER_ORDER: string[] = [
 
 /** Competences: id, nom affiché, chapitre, barème (max points). Modifier ici, pas en DB. */
 export const COMPETENCES: CompetenceConfig[] = [
-  { id: "limites_de_suites_usuelles", name: "Limites de suites usuelles", chapter: "Suites et limites", max_points: 10 },
-  { id: "somme_des_termes_d_une_suite", name: "Somme des termes d'une suite", chapter: "Suites et limites", max_points: 20 },
-  { id: "suites_croissantes_decroissantes", name: "Suites croissantes / décroissantes", chapter: "Suites et limites", max_points: 15 },
+  // --- Suites numériques ---
+  { id: "definir_une_suite", name: "Définir une suite", chapter: "Suites numériques", max_points: 40 },
+  { id: "calculer_des_termes", name: "Calculer des termes", chapter: "Suites numériques", max_points: 30 },
+  { id: "etudier_variations_suite", name: "Étudier les variations (croissance/décroissance)", chapter: "Suites numériques", max_points: 70 },
+  { id: "determiner_une_limite_suite", name: "Déterminer une limite", chapter: "Suites numériques", max_points: 80 },
+  { id: "reconnaitre_suites_arith_geo", name: "Reconnaître des suites arithmétiques/géométriques", chapter: "Suites numériques", max_points: 30 },
+  { id: "modeliser_situation_suite", name: "Modéliser une situation par une suite", chapter: "Suites numériques", max_points: 30 },
+  { id: "interpreter_graphiquement_suite", name: "Interpréter graphiquement une suite", chapter: "Suites numériques", max_points: 20 },
+
+  // --- Limites et continuité ---
+  { id: "savoir_si_fonction_continue", name: "Savoir si une fonction est continue", chapter: "Limites et continuité", max_points: 30 },
+  { id: "calculer_limite_point", name: "Calculer une limite en un point", chapter: "Limites et continuité", max_points: 40 },
+  { id: "identifier_asymptote", name: "Identifier une asymptote horizontale/verticale", chapter: "Limites et continuité", max_points: 30 },
+  { id: "utiliser_limites_usuelles", name: "Utiliser les limites usuelles", chapter: "Limites et continuité", max_points: 50 },
+  { id: "dresser_tableau_signes_variations", name: "Dresser un tableau de signes et variations", chapter: "Limites et continuité", max_points: 80 },
+  { id: "determiner_max_min", name: "Déterminer des maximums et minimums", chapter: "Limites et continuité", max_points: 70 },
 ];
 
 const byId = new Map<string, CompetenceConfig>(COMPETENCES.map((c) => [c.id, c]));
