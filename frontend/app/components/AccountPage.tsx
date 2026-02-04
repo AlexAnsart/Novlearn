@@ -235,9 +235,9 @@ export function AccountPage() {
     }
   }, [user, activeTab]);
 
-  const handleCopyInviteLink = () => {
-    if (inviteLink) {
-      navigator.clipboard.writeText(inviteLink);
+  const handleCopyFriendCode = () => {
+    if (friendCode) {
+      navigator.clipboard.writeText(friendCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -845,8 +845,8 @@ export function AccountPage() {
                   })()}
                 </div>
                 <button
-                  onClick={handleCopyInviteLink}
-                  disabled={!inviteLink}
+                  onClick={handleCopyFriendCode}
+                  disabled={!friendCode}
                   className="px-6 py-4 rounded-xl bg-gradient-to-b from-blue-500 to-blue-700 text-white transition-all hover:scale-105 disabled:opacity-50 flex items-center gap-2"
                   style={{
                     fontFamily: "'Fredoka', sans-serif",
@@ -858,7 +858,7 @@ export function AccountPage() {
                   ) : (
                     <Copy className="w-5 h-5" />
                   )}
-                  {copied ? "Copié !" : "Copier le lien"}
+                  {copied ? "Copié !" : "Copier le code"}
                 </button>
               </div>
             </div>
