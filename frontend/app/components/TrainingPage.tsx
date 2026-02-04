@@ -9,14 +9,31 @@ import {
   Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { useEffect, useMemo, useState } from "react";
 import {
-  type DifficultyUi,
   dbToUiDifficulty,
   uiToDbDifficulty,
+  type DifficultyUi,
   type ExerciseListItem,
 } from "../lib/exerciseUtils";
+import { supabase } from "../lib/supabase";
+import { CHAPTER_ORDER } from "../settings/competenceSettings";
+// ON SUPPRIME L'IMPORT DE flashcardsData ICI
+// import { flashCardsData } from "../lib/flashcardsData";
+import MathText from "../components/ui/MathText";
+
+// Mapping des émojis pour les chapitres définis dans competenceSettings
+const CHAPTER_EMOJIS: Record<string, string> = {
+  "Suites numériques": "📊",
+  "Limites et continuité": "➡️",
+  Fonctions: "📈",
+  Dérivabilité: "⚡",
+  "Logarithme néperien": "📉",
+  "Primitives et équadiff": "∫",
+  Convexité: "⌒",
+  Stats: "📊",
+  Probas: "🎲",
+};
 
 interface Chapter {
   id: string;
@@ -25,137 +42,30 @@ interface Chapter {
   notSeenYet: boolean;
 }
 
+// Interface pour la DB
 interface FlashCard {
+  id: string;
   question: string;
   answer: string;
+  chapter: string;
 }
-
-// Vos données statiques (Chapitres et Flashcards) restent inchangées...
-const chapters: Chapter[] = [
-  { id: "suites", name: "Suites et limites", emoji: "📊", notSeenYet: true },
-  {
-    id: "Fonctions",
-    name: "Fonctions",
-    emoji: "➡️",
-    notSeenYet: true,
-  },
-  { id: "derivabilite", name: "Dérivabilité", emoji: "📈", notSeenYet: true },
-  {
-    id: "logarithme",
-    name: "Logarithme néperien",
-    emoji: "📉",
-    notSeenYet: true,
-  },
-  {
-    id: "primitives",
-    name: "Primitives et équadiff",
-    emoji: "∫",
-    notSeenYet: true,
-  },
-  { id: "convexite", name: "Convexité", emoji: "⌒", notSeenYet: true },
-  { id: "stats", name: "Stats", emoji: "📊", notSeenYet: true },
-  { id: "probas", name: "Probas", emoji: "🎲", notSeenYet: true },
-];
-
-const flashCardsData: Record<string, FlashCard[]> = {
-  suites: [
-    {
-      question: "Qu'est-ce qu'une suite arithmétique ?",
-      answer:
-        "Une suite où la différence entre deux termes consécutifs est constante (raison r).",
-    },
-    {
-      question: "Qu'est-ce qu'une suite géométrique ?",
-      answer:
-        "Une suite où le quotient entre deux termes consécutifs est constant (raison q).",
-    },
-    {
-      question: "Comment calculer la limite d'une suite ?",
-      answer:
-        "On étudie le comportement de la suite lorsque n tend vers l'infini.",
-    },
-  ],
-  limites: [
-    {
-      question: "Qu'est-ce qu'une limite finie ?",
-      answer:
-        "Une fonction f admet une limite finie L en a si f(x) se rapproche de L quand x tend vers a.",
-    },
-    {
-      question: "Qu'est-ce qu'une asymptote verticale ?",
-      answer: "Une droite d'équation x = a où la fonction tend vers l'infini.",
-    },
-  ],
-  derivabilite: [
-    {
-      question: "Quelle est la définition de la dérivée ?",
-      answer:
-        "La dérivée est le taux de variation instantané d'une fonction en un point.",
-    },
-    { question: "Quelle est la dérivée de x^n ?", answer: "n × x^(n-1)" },
-  ],
-  logarithme: [
-    { question: "Qu'est-ce que ln(1) ?", answer: "ln(1) = 0" },
-    {
-      question: "Quelle est la propriété principale du logarithme ?",
-      answer: "ln(a × b) = ln(a) + ln(b)",
-    },
-  ],
-  primitives: [
-    {
-      question: "Qu'est-ce qu'une primitive ?",
-      answer: "Une fonction F est une primitive de f si F' = f",
-    },
-    {
-      question: "Quelle est la primitive de x^n ?",
-      answer: "x^(n+1)/(n+1) + C",
-    },
-  ],
-  convexite: [
-    {
-      question: "Qu'est-ce qu'une fonction convexe ?",
-      answer:
-        "Une fonction dont la dérivée seconde est positive sur un intervalle.",
-    },
-    {
-      question: "Qu'est-ce qu'un point d'inflexion ?",
-      answer: "Un point où la fonction change de convexité.",
-    },
-  ],
-  stats: [
-    {
-      question: "Qu'est-ce la moyenne ?",
-      answer:
-        "La somme de toutes les valeurs divisée par le nombre de valeurs.",
-    },
-    {
-      question: "Qu'est-ce la médiane ?",
-      answer: "La valeur qui sépare les données en deux parties égales.",
-    },
-  ],
-  probas: [
-    {
-      question: "Qu'est-ce qu'une probabilité ?",
-      answer:
-        "Un nombre entre 0 et 1 qui mesure la chance qu'un événement se produise.",
-    },
-    {
-      question: "Quelle est la formule de la probabilité conditionnelle ?",
-      answer: "P(A|B) = P(A ∩ B) / P(B)",
-    },
-  ],
-};
 
 export function TrainingPage() {
   const router = useRouter();
 
-  const [chapterStates, setChapterStates] = useState<Record<string, boolean>>(
-    chapters.reduce(
-      (acc, chapter) => ({ ...acc, [chapter.id]: chapter.notSeenYet }),
-      {},
-    ),
-  );
+  // Construction dynamique de la liste des chapitres basée sur CHAPTER_ORDER
+  const chapters: Chapter[] = useMemo(() => {
+    return CHAPTER_ORDER.map((name) => ({
+      id: name, // On utilise le nom comme ID pour simplifier le lien avec la DB
+      name: name,
+      emoji: CHAPTER_EMOJIS[name] || "📚", // Emoji par défaut si non trouvé
+      notSeenYet: true,
+    }));
+  }, []);
 
+  const [chapterStates, setChapterStates] = useState<Record<string, boolean>>(
+    chapters.reduce((acc, c) => ({ ...acc, [c.id]: c.notSeenYet }), {}),
+  );
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<"exercises" | "course" | null>(
     null,
@@ -164,27 +74,25 @@ export function TrainingPage() {
     "flash" | "long" | null
   >(null);
 
-  // Chapters that have at least one exercise in DB (used to un-gray them)
+  // États exercices...
   const [chapterHasExercises, setChapterHasExercises] = useState<
     Record<string, boolean>
   >({});
-  // Exercises list for current chapter (for selection by difficulty)
   const [chapterExercises, setChapterExercises] = useState<ExerciseListItem[]>(
     [],
   );
   const [chapterExercisesLoading, setChapterExercisesLoading] = useState(false);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<
-    DifficultyUi | null
-  >(null);
+  const [selectedDifficulty, setSelectedDifficulty] =
+    useState<DifficultyUi | null>(null);
+  const [isSearchingExercise, setIsSearchingExercise] = useState(false);
 
-  // Flashcards state
+  // --- NOUVEAUX ÉTATS POUR FLASHCARDS ---
+  const [flashcards, setFlashcards] = useState<FlashCard[]>([]);
+  const [flashcardsLoading, setFlashcardsLoading] = useState(false);
   const [currentFlashCardIndex, setCurrentFlashCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  // Loading state for launching an exercise
-  const [isSearchingExercise, setIsSearchingExercise] = useState(false);
-
-  // Fetch which chapters have exercises (for un-graying)
+  // Vérifier quels chapitres ont des exercices en base
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -197,6 +105,7 @@ export function TrainingPage() {
       );
       const byId: Record<string, boolean> = {};
       chapters.forEach((c) => {
+        // La comparaison se fait maintenant directement sur le nom du chapitre
         byId[c.id] = chapterNames.has(c.name);
       });
       setChapterHasExercises(byId);
@@ -204,17 +113,16 @@ export function TrainingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [chapters]);
 
-  // Fetch exercises for selected chapter when on exercises tab
+  // Charger les exercices du chapitre sélectionné
   useEffect(() => {
     if (!selectedChapter || selectedTab !== "exercises") {
       setChapterExercises([]);
       return;
     }
-    const currentChapterObj = chapters.find((c) => c.id === selectedChapter);
-    const chapterNameInDb = currentChapterObj?.name;
-    if (!chapterNameInDb) return;
+    // selectedChapter est ici le nom du chapitre (car id = name)
+    const chapterNameInDb = selectedChapter;
 
     let cancelled = false;
     setChapterExercisesLoading(true);
@@ -237,6 +145,41 @@ export function TrainingPage() {
       }));
       setChapterExercises(list);
     })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedChapter, selectedTab]);
+
+  // --- NOUVEAU USE EFFECT POUR CHARGER LES FLASHCARDS ---
+  useEffect(() => {
+    if (!selectedChapter || selectedTab !== "course") {
+      setFlashcards([]);
+      return;
+    }
+
+    let cancelled = false;
+    setFlashcardsLoading(true);
+    setCurrentFlashCardIndex(0);
+    setIsFlipped(false);
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("flashcards")
+        .select("*")
+        .eq("chapter", selectedChapter); // selectedChapter = nom du chapitre en DB
+
+      if (cancelled) return;
+      setFlashcardsLoading(false);
+
+      if (error) {
+        console.error("Erreur flashcards:", error);
+        return;
+      }
+      if (data) {
+        setFlashcards(data);
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -268,36 +211,29 @@ export function TrainingPage() {
     }
   };
 
-  // --- LOGIQUE FLASHCARDS ---
+  // --- LOGIQUE FLASHCARDS MISE À JOUR ---
   const handleNextCard = () => {
-    const currentChapter = chapters.find((c) => c.id === selectedChapter);
-    if (currentChapter) {
-      const cards = flashCardsData[currentChapter.id] || [];
-      setCurrentFlashCardIndex((prev) => (prev + 1) % cards.length);
+    if (flashcards.length > 0) {
+      setCurrentFlashCardIndex((prev) => (prev + 1) % flashcards.length);
       setIsFlipped(false);
     }
   };
 
   const handlePrevCard = () => {
-    const currentChapter = chapters.find((c) => c.id === selectedChapter);
-    if (currentChapter) {
-      const cards = flashCardsData[currentChapter.id] || [];
+    if (flashcards.length > 0) {
       setCurrentFlashCardIndex(
-        (prev) => (prev - 1 + cards.length) % cards.length,
+        (prev) => (prev - 1 + flashcards.length) % flashcards.length,
       );
       setIsFlipped(false);
     }
   };
 
-  // Launch a random exercise for the selected chapter (and optional difficulty)
   const handleStartChapterExercise = async () => {
     if (!selectedChapter) return;
     setIsSearchingExercise(true);
 
     try {
-      const currentChapterObj = chapters.find((c) => c.id === selectedChapter);
-      const chapterNameInDb = currentChapterObj?.name;
-      if (!chapterNameInDb) throw new Error("Chapter not found");
+      const chapterNameInDb = selectedChapter; // id = name
 
       let query = supabase
         .from("exercises")
@@ -306,7 +242,9 @@ export function TrainingPage() {
 
       if (selectedDifficulty) {
         const dbDiff = uiToDbDifficulty(selectedDifficulty);
-        query = query.or(`difficulty.eq.${dbDiff},difficulty.eq.${selectedDifficulty}`);
+        query = query.or(
+          `difficulty.eq.${dbDiff},difficulty.eq.${selectedDifficulty}`,
+        );
       }
 
       const { data, error } = await query;
@@ -339,54 +277,7 @@ export function TrainingPage() {
   // ----------------------------------------------------------------------------------
   if (selectedChapter && selectedTab === "course") {
     const currentChapter = chapters.find((c) => c.id === selectedChapter);
-    const cards = flashCardsData[selectedChapter] || [];
-    const currentCard = cards[currentFlashCardIndex];
-
-    // No course content yet for this chapter → show "à venir"
-    if (cards.length === 0) {
-      return (
-        <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
-          <div className="max-w-4xl w-full space-y-6">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl px-4 py-3 transition-all"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-              <span
-                className="text-white"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
-              >
-                Retour
-              </span>
-            </button>
-
-            <div className="text-center">
-              <h2
-                className="text-4xl md:text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
-              >
-                Cours - {currentChapter?.name}
-              </h2>
-            </div>
-
-            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 md:p-16 text-center shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
-              <p
-                className="text-blue-200 text-xl md:text-2xl"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
-              >
-                Les fiches de cours pour ce chapitre arrivent bientôt.
-              </p>
-              <p
-                className="text-slate-400 mt-2"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
-              >
-                À venir
-              </p>
-            </div>
-          </div>
-        </div>
-      );
-    }
+    const currentCard = flashcards[currentFlashCardIndex];
 
     return (
       <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
@@ -409,62 +300,92 @@ export function TrainingPage() {
               className="text-4xl md:text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
             >
-              Flash Cards - {currentChapter?.name}
+              Cours - {currentChapter?.name}
             </h2>
           </div>
 
-          <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
-            <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={handlePrevCard}
-                className="p-3 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl transition-all"
-              >
-                <ChevronLeft className="w-6 h-6 text-white" />
-              </button>
-
-              <span
-                className="text-blue-200"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
-              >
-                {currentFlashCardIndex + 1} / {cards.length}
-              </span>
-
-              <button
-                onClick={handleNextCard}
-                className="p-3 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl transition-all"
-              >
-                <ChevronRight className="w-6 h-6 text-white" />
-              </button>
+          {flashcardsLoading ? (
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 text-center shadow-md">
+              <Loader2 className="w-10 h-10 text-blue-400 animate-spin mx-auto" />
+              <p className="text-blue-200 mt-4">Chargement du cours...</p>
             </div>
-
-            <div
-              onClick={() => setIsFlipped(!isFlipped)}
-              className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl p-12 min-h-[300px] flex items-center justify-center cursor-pointer hover:scale-105 transition-transform shadow-2xl"
-              style={{ perspective: "1000px" }}
-            >
+          ) : flashcards.length === 0 ? (
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 md:p-16 text-center shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
               <p
-                className="text-white text-center text-2xl"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                className="text-blue-200 text-xl md:text-2xl"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
               >
-                {isFlipped ? currentCard.answer : currentCard.question}
+                Les fiches de cours pour ce chapitre arrivent bientôt.
+              </p>
+              <p
+                className="text-slate-400 mt-2"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
+              >
+                À venir
               </p>
             </div>
+          ) : (
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
+              <div className="flex items-center justify-between mb-6">
+                <button
+                  onClick={handlePrevCard}
+                  className="p-3 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl transition-all"
+                >
+                  <ChevronLeft className="w-6 h-6 text-white" />
+                </button>
 
-            <p
-              className="text-blue-200 text-center mt-4"
-              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
-            >
-              Cliquez sur la carte pour voir{" "}
-              {isFlipped ? "la question" : "la réponse"}
-            </p>
-          </div>
+                <span
+                  className="text-blue-200"
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 600,
+                  }}
+                >
+                  {currentFlashCardIndex + 1} / {flashcards.length}
+                </span>
+
+                <button
+                  onClick={handleNextCard}
+                  className="p-3 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl transition-all"
+                >
+                  <ChevronRight className="w-6 h-6 text-white" />
+                </button>
+              </div>
+
+              <div
+                onClick={() => setIsFlipped(!isFlipped)}
+                className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl p-8 md:p-12 min-h-[300px] flex items-center justify-center cursor-pointer hover:scale-105 transition-transform shadow-2xl relative"
+                style={{ perspective: "1000px" }}
+              >
+                {/* UTILISATION DE MATHTEXT POUR LE LATEX 
+                   On change la couleur du texte en blanc via une classe ou un style wrapper
+                */}
+                <div className="text-white text-center text-xl md:text-2xl font-semibold select-none w-full">
+                  <MathText
+                    content={
+                      isFlipped ? currentCard.answer : currentCard.question
+                    }
+                    className="text-white"
+                  />
+                </div>
+              </div>
+
+              <p
+                className="text-blue-200 text-center mt-4"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+              >
+                Cliquez sur la carte pour voir{" "}
+                {isFlipped ? "la question" : "la réponse"}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
   // ----------------------------------------------------------------------------------
-  // RENDER : SELECTION EXERCICE (by chapter + difficulty, list + random)
+  // RENDER : SELECTION EXERCICE
   // ----------------------------------------------------------------------------------
   if (selectedChapter && selectedTab === "exercises") {
     const currentChapter = chapters.find((c) => c.id === selectedChapter);
@@ -476,7 +397,7 @@ export function TrainingPage() {
     ];
     const filteredExercises = selectedDifficulty
       ? chapterExercises.filter(
-          (ex) => dbToUiDifficulty(ex.difficulty) === selectedDifficulty
+          (ex) => dbToUiDifficulty(ex.difficulty) === selectedDifficulty,
         )
       : chapterExercises;
 
@@ -541,7 +462,9 @@ export function TrainingPage() {
               >
                 {isSearchingExercise
                   ? "Chargement..."
-                  : `Lancer un exercice aléatoire${selectedDifficulty ? ` (${selectedDifficulty})` : ""}`}
+                  : `Lancer un exercice aléatoire${
+                      selectedDifficulty ? ` (${selectedDifficulty})` : ""
+                    }`}
               </span>
             </button>
             {filteredExercises.length === 0 && !chapterExercisesLoading && (
@@ -551,7 +474,7 @@ export function TrainingPage() {
             )}
           </div>
 
-          {/* List of exercises to choose from */}
+          {/* List of exercises */}
           <div className="space-y-3">
             <h3
               className="text-white text-lg font-bold"
@@ -602,7 +525,7 @@ export function TrainingPage() {
             )}
           </div>
 
-          {/* Placeholder: long exercise (not yet available) */}
+          {/* Placeholder: long exercise */}
           <button
             onClick={() => setSelectedExerciseType("long")}
             className="w-full bg-slate-800/40 rounded-2xl p-4 flex items-center gap-3 opacity-70"
@@ -771,33 +694,36 @@ export function TrainingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {chapters.map((chapter) => {
             const hasExercises = chapterHasExercises[chapter.id];
+            // On laisse "grisé" visuellement si pas d'exo, mais cliquable pour voir le cours
             const isGrayed = !hasExercises;
             return (
-            <button
-              key={chapter.id}
-              onClick={() => handleChapterClick(chapter.id)}
-              className={`bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:scale-105 transition-transform ${
-                isGrayed ? "opacity-40 grayscale" : ""
-              }`}
-            >
-              <div className="text-center">
-                <div className="text-5xl mb-3">{chapter.emoji}</div>
-                <h3
-                  className="text-white"
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontWeight: 700,
-                    fontSize: "1.125rem",
-                  }}
-                >
-                  {chapter.name}
-                </h3>
-                {!hasExercises && (
-                  <p className="text-blue-200/80 text-xs mt-1">Aucun exercice</p>
-                )}
-              </div>
-            </button>
-          );
+              <button
+                key={chapter.id}
+                onClick={() => handleChapterClick(chapter.id)}
+                className={`bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:scale-105 transition-transform ${
+                  isGrayed ? "opacity-60" : ""
+                }`}
+              >
+                <div className="text-center">
+                  <div className="text-5xl mb-3">{chapter.emoji}</div>
+                  <h3
+                    className="text-white"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "1.125rem",
+                    }}
+                  >
+                    {chapter.name}
+                  </h3>
+                  {!hasExercises && (
+                    <p className="text-blue-200/80 text-xs mt-1">
+                      (Cours seulement)
+                    </p>
+                  )}
+                </div>
+              </button>
+            );
           })}
         </div>
       </div>
