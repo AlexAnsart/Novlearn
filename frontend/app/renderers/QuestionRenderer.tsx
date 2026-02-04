@@ -1,19 +1,20 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  HelpCircle, 
-  Lightbulb, 
-  AlertCircle, 
-  ChevronDown, 
-  ChevronUp 
-} from 'lucide-react';
-import { MathText } from '../components/ui';
-import { VariableValues, QuestionContent } from '../types/exercise';
-import { checkAnswer } from '../utils/math/evaluation';
-import { MathInput } from '../components/ui/MathInput'; 
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
+  Lightbulb,
+  XCircle,
+} from "lucide-react";
+import React, { useMemo, useState } from "react"; // <--- AJOUT DE useMemo
+import { MathInput } from "../components/ui/MathInput";
+import MathText from "../components/ui/MathText";
+import { QuestionContent, VariableValues } from "../types/exercise";
+import { checkAnswer } from "../utils/math/evaluation";
+import { simplifyLatexExpression } from "../utils/math/simplication"; // <--- IMPORT DU FICHIER CRÉÉ
 
 interface QuestionRendererProps {
   content: QuestionContent;
@@ -24,16 +25,23 @@ interface QuestionRendererProps {
 const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   content,
   variables,
-  onSubmit
+  onSubmit,
 }) => {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState("");
   const [attempts, setAttempts] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
-  
-  // États d'affichage
+  const [status, setStatus] = useState<"idle" | "correct" | "incorrect">(
+    "idle",
+  );
+
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+
+  // --- CALCUL DE LA RÉPONSE SIMPLIFIÉE ---
+  // C'est ici qu'on transforme "8/2 * x" en "4x"
+  const simplifiedCorrectAnswer = useMemo(() => {
+    return simplifyLatexExpression(content.correctAnswer, variables);
+  }, [content.correctAnswer, variables]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,132 +50,147 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     const currentAttempt = attempts + 1;
     setAttempts(currentAttempt);
 
-    const isCorrect = checkAnswer(value, content.correctAnswer, variables, content.answerFormat);
-    
+    const isCorrect = checkAnswer(
+      value,
+      content.correctAnswer,
+      variables,
+      content.answerFormat,
+    );
+
     if (isCorrect) {
-      // --- SUCCÈS ---
-      setStatus('correct');
+      setStatus("correct");
       setIsFinished(true);
-      setShowExplanation(true); 
+      setShowExplanation(true);
       if (onSubmit) onSubmit(value, true);
     } else {
-      // --- ÉCHEC ---
-      setStatus('incorrect');
-      
+      setStatus("incorrect");
       if (currentAttempt >= 2) {
-        // PERDU DÉFINITIF
         setIsFinished(true);
         if (onSubmit) onSubmit(value, false);
       }
-      // Sinon on laisse continuer
     }
   };
 
   const formatForDisplay = (latex: string) => {
-    if (!latex) return '';
-    // Si la chaine contient déjà des $, on touche pas. Sinon, on entoure.
-    return latex.includes('$') ? latex : `$${latex}$`;
+    if (!latex) return "";
+    return latex.includes("$") ? latex : `$${latex}$`;
   };
 
   return (
-    <div className={`my-6 p-6 rounded-xl shadow-sm border transition-all duration-500 ${
-      isFinished && status === 'correct' ? 'bg-green-50/30 border-green-200' :
-      isFinished && status === 'incorrect' ? 'bg-red-50/30 border-red-200' :
-      'bg-white border-slate-200'
-    }`}>
-      
+    <div
+      className={`my-6 p-6 rounded-xl shadow-sm border transition-all duration-500 ${
+        isFinished && status === "correct"
+          ? "bg-green-50/30 border-green-200"
+          : isFinished && status === "incorrect"
+            ? "bg-red-50/30 border-red-200"
+            : "bg-white border-slate-200"
+      }`}
+    >
       {/* --- EN-TÊTE QUESTION --- */}
       <div className="flex gap-3 mb-6">
-        <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm transition-colors
-          ${isFinished && status === 'correct' ? 'bg-green-100 text-green-700' : 
-            isFinished && status === 'incorrect' ? 'bg-red-100 text-red-700' : 
-            'bg-indigo-100 text-indigo-600'}`}>
-          {isFinished ? (status === 'correct' ? '✓' : '✗') : '?'}
+        <div
+          className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm transition-colors
+          ${
+            isFinished && status === "correct"
+              ? "bg-green-100 text-green-700"
+              : isFinished && status === "incorrect"
+                ? "bg-red-100 text-red-700"
+                : "bg-indigo-100 text-indigo-600"
+          }`}
+        >
+          {isFinished ? (status === "correct" ? "✓" : "✗") : "?"}
         </div>
         <div className="flex-grow pt-1">
-          <MathText 
-            content={content.question} 
-            variables={variables} 
+          <MathText
+            content={content.question}
+            variables={variables}
             className="font-medium text-lg text-slate-800"
           />
         </div>
         {content.points && (
           <div className="text-xs font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md h-fit border border-slate-100">
-            {content.points} pt{content.points > 1 ? 's' : ''}
+            {content.points} pt{content.points > 1 ? "s" : ""}
           </div>
         )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 ml-0 md:ml-11">
-        
-        {/* --- ZONE DE SAISIE (AVEC MATHINPUT) --- */}
+        {/* --- ZONE DE SAISIE --- */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-start max-w-2xl">
-          
           <div className="flex-grow">
             <MathInput
               value={value}
               onChange={(val) => {
                 setValue(val);
-                // Si l'utilisateur modifie sa réponse après une erreur, on enlève le rouge
-                if (!isFinished && status === 'incorrect') setStatus('idle');
+                if (!isFinished && status === "incorrect") setStatus("idle");
               }}
-              placeholder={isFinished ? (status === 'correct' ? "Réponse validée" : "Terminé") : "Votre réponse..."}
+              placeholder={
+                isFinished
+                  ? status === "correct"
+                    ? "Réponse validée"
+                    : "Terminé"
+                  : "Votre réponse..."
+              }
               disabled={isFinished}
               className="w-full"
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={!value || isFinished}
             className={`px-6 py-2.5 text-white font-medium rounded-lg transition-all shadow-md active:scale-95 flex-shrink-0 h-fit
-              ${isFinished 
-                ? 'bg-slate-400 cursor-not-allowed opacity-50 shadow-none' 
-                : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'}`}
+              ${
+                isFinished
+                  ? "bg-slate-400 cursor-not-allowed opacity-50 shadow-none"
+                  : "bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg"
+              }`}
           >
-            {isFinished ? 'Validé' : attempts > 0 ? 'Réessayer' : 'Valider'}
+            {isFinished ? "Validé" : attempts > 0 ? "Réessayer" : "Valider"}
           </button>
         </div>
 
-        {/* --- FEEDBACK INTERMÉDIAIRE (1er essai raté) --- */}
-        {!isFinished && status === 'incorrect' && (
+        {/* --- FEEDBACK 1er ESSAI --- */}
+        {!isFinished && status === "incorrect" && (
           <div className="animate-in fade-in slide-in-from-left-2 space-y-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
             <div className="flex items-center gap-2 text-orange-700">
               <AlertCircle className="w-5 h-5" />
-              <span className="font-medium">Ce n'est pas tout à fait ça. Il vous reste un essai !</span>
+              <span className="font-medium">
+                Ce n'est pas tout à fait ça. Il vous reste un essai !
+              </span>
             </div>
-
-            {content.hint && (
-               !showHint ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowHint(true)}
-                    className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium hover:underline pl-7"
-                  >
-                    <HelpCircle className="w-4 h-4" />
-                    Besoin d'un indice ?
-                  </button>
-               ) : (
-                  <div className="ml-7 p-3 bg-white text-slate-700 text-sm rounded-lg border border-orange-200 flex gap-2 animate-in fade-in shadow-sm">
-                    <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-indigo-500" />
-                    <div>
-                      <span className="font-bold block text-xs uppercase mb-1 text-indigo-500">Indice :</span>
-                      <MathText content={content.hint} variables={variables} />
-                    </div>
+            {content.hint &&
+              (!showHint ? (
+                <button
+                  type="button"
+                  onClick={() => setShowHint(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium hover:underline pl-7"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Besoin d'un indice ?
+                </button>
+              ) : (
+                <div className="ml-7 p-3 bg-white text-slate-700 text-sm rounded-lg border border-orange-200 flex gap-2 animate-in fade-in shadow-sm">
+                  <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-indigo-500" />
+                  <div>
+                    <span className="font-bold block text-xs uppercase mb-1 text-indigo-500">
+                      Indice :
+                    </span>
+                    <MathText content={content.hint} variables={variables} />
                   </div>
-               )
-            )}
+                </div>
+              ))}
           </div>
         )}
 
-        {/* --- ZONE DE RÉSULTAT FINAL (Unified) --- */}
+        {/* --- RÉSULTAT FINAL --- */}
         {isFinished && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            
-            {/* 1. La Phrase de statut */}
-            <div className={`flex items-center gap-2 text-lg font-bold
-              ${status === 'correct' ? 'text-green-600' : 'text-red-600'}`}>
-              {status === 'correct' ? (
+            <div
+              className={`flex items-center gap-2 text-lg font-bold
+              ${status === "correct" ? "text-green-600" : "text-red-600"}`}
+            >
+              {status === "correct" ? (
                 <>
                   <CheckCircle2 className="w-6 h-6" />
                   <span>Excellent ! Bonne réponse.</span>
@@ -180,17 +203,21 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
               )}
             </div>
 
-            {/* 2. La Réponse "Officielle" */}
+            {/* --- CORRECTION SIMPLIFIÉE --- */}
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shadow-sm">
               <span className="font-bold text-sm uppercase text-slate-500 tracking-wider">
                 Réponse attendue :
               </span>
               <span className="font-bold text-xl text-slate-800">
-                <MathText content={formatForDisplay(content.correctAnswer)} variables={variables} displayMode={false} />
+                {/* On passe simplifiedCorrectAnswer au lieu de content.correctAnswer */}
+                <MathText
+                  content={formatForDisplay(simplifiedCorrectAnswer)}
+                  variables={{}} // On vide les variables car elles sont déjà substituées
+                  displayMode={false}
+                />
               </span>
             </div>
 
-            {/* 3. L'Explication */}
             {content.explanation && (
               <div className="pt-2">
                 <button
@@ -198,10 +225,18 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                   onClick={() => setShowExplanation(!showExplanation)}
                   className="group flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
                 >
-                  <div className={`p-1 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors`}>
-                    {showExplanation ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  <div
+                    className={`p-1 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors`}
+                  >
+                    {showExplanation ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
                   </div>
-                  {showExplanation ? "Masquer l'explication" : "Voir l'explication de la correction"}
+                  {showExplanation
+                    ? "Masquer l'explication"
+                    : "Voir l'explication de la correction"}
                 </button>
 
                 {showExplanation && (
@@ -215,7 +250,10 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                           Détails du raisonnement
                         </p>
                         <div className="text-slate-800 text-base leading-relaxed">
-                          <MathText content={content.explanation} variables={variables} />
+                          <MathText
+                            content={content.explanation}
+                            variables={variables}
+                          />
                         </div>
                       </div>
                     </div>
@@ -225,7 +263,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
             )}
           </div>
         )}
-
       </form>
     </div>
   );

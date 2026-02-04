@@ -5,7 +5,7 @@ import { VariableValues } from '../../types/exercise';
 // 1. TRADUCTEUR UNIVERSEL (Texte/LaTeX -> Math.js)
 // ==========================================
 
-const toMathJsSyntax = (expression: string): string => {
+export const toMathJsSyntax = (expression: string): string => {
   if (!expression) return '';
   let expr = expression;
 

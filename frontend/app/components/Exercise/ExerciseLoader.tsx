@@ -112,6 +112,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       setIsExerciseFinished(false);
       setCompletedElements(new Set());
       setHasErrors(false);
+      setLastSaveStatus("idle"); 
 
       slowTimerRef.current = setTimeout(() => {
         if (!abortController.signal.aborted) setIsTakingLong(true);
