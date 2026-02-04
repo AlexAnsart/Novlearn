@@ -10,6 +10,8 @@ import {
   User,
   Users,
   TrendingUp,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -62,6 +64,10 @@ export function AccountPage() {
   );
   const [friendCodeLoading, setFriendCodeLoading] = useState(false);
 
+  // --- ÉTATS POUR LA SUPPRESSION DE COMPTE ---
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Refs pour gérer le montage et l'annulation des requêtes
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -95,6 +101,49 @@ export function AccountPage() {
       router.push("/auth/login");
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);
+    }
+  };
+
+  // --- FONCTION DE SUPPRESSION DE COMPTE CORRIGÉE ---
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setIsDeleting(true);
+
+    try {
+      console.log("Lancement de la suppression définitive du compte...");
+
+      // 1. Récupérer la session actuelle pour avoir le token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("Session introuvable. Veuillez vous reconnecter.");
+      }
+
+      // 2. Appeler notre route API sécurisée pour supprimer le compte
+      const response = await fetch('/api/delete-account', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`, // On envoie le token pour prouver qu'on est bien nous
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur lors de la suppression");
+      }
+
+      // 3. Si l'API a réussi, on déconnecte le client localement pour nettoyer le stockage
+      await signOut();
+      
+      // 4. Redirection vers l'accueil
+      router.push("/");
+      
+    } catch (error: any) {
+      console.error("Erreur suppression compte:", error);
+      alert(`Impossible de supprimer le compte : ${error.message}`);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -166,68 +215,21 @@ export function AccountPage() {
   }, []);
 
   const loadFriendCode = useCallback(async () => {
-    console.log('[AccountPage] loadFriendCode: Starting', {
-      isMounted: isMountedRef.current,
-      hasUser: !!user,
-      activeTab,
-    });
-
-    if (!isMountedRef.current) {
-      console.log('[AccountPage] loadFriendCode: Aborted - component not mounted');
-      return;
-    }
-
+    if (!isMountedRef.current) return;
     setFriendCodeError(null);
     setFriendCodeLoading(true);
-    console.log('[AccountPage] loadFriendCode: Set loading to true');
 
     try {
-      console.log('[AccountPage] loadFriendCode: Calling friendsApi.getFriendCode()');
-      const startTime = Date.now();
       const result = await friendsApi.getFriendCode();
-      const duration = Date.now() - startTime;
-      console.log('[AccountPage] loadFriendCode: API call completed', {
-        duration: `${duration}ms`,
-        hasCode: !!result?.code,
-        hasInviteLink: !!result?.invite_link,
-        code: result?.code,
-        inviteLink: result?.invite_link,
-      });
-
-      if (!isMountedRef.current) {
-        console.log('[AccountPage] loadFriendCode: Component unmounted after API call, ignoring result');
-        return;
-      }
-
-      console.log('[AccountPage] loadFriendCode: Setting state with code and invite link');
+      if (!isMountedRef.current) return;
       setFriendCode(result.code);
       setInviteLink(result.invite_link);
       setFriendCodeError(null);
       setFriendCodeLoading(false);
-      console.log('[AccountPage] loadFriendCode: Successfully completed');
     } catch (error: any) {
+      if (!isMountedRef.current) return;
       const errorMessage = error?.message || String(error);
-      console.error('[AccountPage] loadFriendCode: Error caught', {
-        error: errorMessage,
-        errorType: error?.constructor?.name,
-        errorStack: error?.stack,
-        isMounted: isMountedRef.current,
-      });
-
-      if (!isMountedRef.current) {
-        console.log('[AccountPage] loadFriendCode: Component unmounted after error, ignoring');
-        return;
-      }
-
-      const displayError =
-        errorMessage.includes('fetch') ||
-        errorMessage.includes('Failed to fetch') ||
-        errorMessage.includes('timeout') ||
-        errorMessage.includes('Request timeout')
-          ? 'Backend non disponible. Assurez-vous que le serveur backend est lancé sur http://localhost:8010'
-          : errorMessage;
-
-      console.log('[AccountPage] loadFriendCode: Setting error state', { displayError });
+      const displayError = errorMessage.includes('fetch') ? 'Backend non disponible.' : errorMessage;
       setFriendCodeError(displayError);
       setFriendCode(null);
       setInviteLink(null);
@@ -262,7 +264,6 @@ export function AccountPage() {
   const fetchUserStats = useCallback(async () => {
     if (!isMountedRef.current || !user) return;
 
-    // Créer un AbortController pour cette requête
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -273,11 +274,8 @@ export function AccountPage() {
     let timeoutId: NodeJS.Timeout | null = null;
 
     try {
-      // Timeout de sécurité : si la requête prend plus de 15 secondes, on arrête le loading
       timeoutId = setTimeout(() => {
         if (abortController.signal.aborted || !isMountedRef.current) return;
-
-        console.warn("[AccountPage] fetchUserStats TIMEOUT after 15s");
         if (isMountedRef.current) {
           setLoading(false);
           setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
@@ -292,10 +290,6 @@ export function AccountPage() {
         .eq("user_id", user.id);
 
       if (abortController.signal.aborted || !isMountedRef.current) return;
-
-      if (attemptsError) {
-        console.error("[AccountPage] Error fetching attempts:", attemptsError.message);
-      }
 
       if (attemptsError || !attemptsData) {
         setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
@@ -313,17 +307,12 @@ export function AccountPage() {
         });
       }
     } catch (error) {
-      // Ignorer les erreurs si la requête a été annulée
       if (abortController.signal.aborted || !isMountedRef.current) return;
-
-      console.error("[AccountPage] fetchUserStats exception:", error);
       if (isMountedRef.current) {
         setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
       }
     } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
       if (isMountedRef.current && !abortController.signal.aborted) {
         setLoading(false);
       }
@@ -338,65 +327,34 @@ export function AccountPage() {
       return;
     }
 
-    // If we have a user, proceed even if profile is not loaded yet
     if (user) {
       if (profile) {
         fetchUserStats();
       } else {
-        // Wait a bit for profile to load, but don't wait forever
         const profileTimeout = setTimeout(() => {
           if (isMountedRef.current) {
             fetchUserStats();
           }
         }, 3000);
-
-        return () => {
-          clearTimeout(profileTimeout);
-        };
+        return () => clearTimeout(profileTimeout);
       }
     }
 
-    // Cleanup function
     return () => {
       isMountedRef.current = false;
-
-      // Annuler les requêtes en cours
-      if (
-        abortControllerRef.current &&
-        !abortControllerRef.current.signal.aborted
-      ) {
+      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
         abortControllerRef.current.abort();
       }
     };
   }, [user, profile, authLoading, router, fetchUserStats]);
 
-  // Load friends data
   useEffect(() => {
-    console.log('[AccountPage] useEffect friends data:', { 
-      hasUser: !!user,
-      userId: user?.id,
-      activeTab,
-      isMounted: isMountedRef.current
-    });
-    
     if (user && activeTab === "friends" && isMountedRef.current) {
-      console.log('[AccountPage] useEffect: Loading friends data');
       loadFriends();
       loadFriendRequests();
       loadFriendCode();
-    } else {
-      console.log('[AccountPage] useEffect: Skipping friends data load', {
-        reason: !user ? 'no user' : activeTab !== "friends" ? 'wrong tab' : 'not mounted'
-      });
     }
-
-    // Cleanup function
-    return () => {
-      console.log('[AccountPage] useEffect cleanup: friends data');
-    };
   }, [user, activeTab, loadFriends, loadFriendRequests, loadFriendCode]);
-
-  // Removed verbose render logging - only log errors now
 
   if (authLoading || loading) {
     return (
@@ -413,18 +371,8 @@ export function AccountPage() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const months = [
-      "Janvier",
-      "Février",
-      "Mars",
-      "Avril",
-      "Mai",
-      "Juin",
-      "Juillet",
-      "Août",
-      "Septembre",
-      "Octobre",
-      "Novembre",
-      "Décembre",
+      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
     ];
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
@@ -467,23 +415,11 @@ export function AccountPage() {
               <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Calendar className="w-5 h-5 text-blue-400" />
-                  <span
-                    className="text-blue-200"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 600,
-                    }}
-                  >
+                  <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
                     Membre depuis
                   </span>
                 </div>
-                <p
-                  className="text-white ml-8"
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontWeight: 500,
-                  }}
-                >
+                <p className="text-white ml-8" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
                   {selectedFriend.memberSince}
                 </p>
               </div>
@@ -491,24 +427,11 @@ export function AccountPage() {
               <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Award className="w-5 h-5 text-blue-400" />
-                  <span
-                    className="text-blue-200"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 600,
-                    }}
-                  >
+                  <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
                     Exercices réalisés
                   </span>
                 </div>
-                <p
-                  className="text-white ml-8"
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontWeight: 500,
-                    fontSize: "1.5rem",
-                  }}
-                >
+                <p className="text-white ml-8" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}>
                   {selectedFriend.exercisesCompleted}
                 </p>
               </div>
@@ -516,24 +439,11 @@ export function AccountPage() {
               <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Award className="w-5 h-5 text-yellow-400" />
-                  <span
-                    className="text-blue-200"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 600,
-                    }}
-                  >
+                  <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
                     Niveau
                   </span>
                 </div>
-                <p
-                  className="text-white ml-8"
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontWeight: 500,
-                    fontSize: "1.5rem",
-                  }}
-                >
+                <p className="text-white ml-8" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}>
                   {selectedFriend.level}
                 </p>
               </div>
@@ -545,7 +455,56 @@ export function AccountPage() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
+    <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8 relative">
+      
+      {/* --- MODALE DE CONFIRMATION DE SUPPRESSION --- */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-white text-2xl font-bold mb-4" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                Supprimer votre compte ?
+              </h3>
+              <p className="text-slate-300 mb-8 leading-relaxed">
+                Êtes-vous sûr de vouloir faire ça ? <br />
+                <span className="text-red-400 font-semibold">Cette action est irréversible.</span> <br />
+                Toutes vos données (progression, amis, statistiques) seront définitivement effacées.
+              </p>
+              
+              <div className="flex flex-col gap-3 w-full">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Suppression en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-5 h-5" />
+                      Oui, supprimer définitivement
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={isDeleting}
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3.5 px-6 rounded-xl transition-all disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-4xl w-full space-y-6">
         {/* Titre */}
         <div className="text-center">
@@ -779,15 +738,45 @@ export function AccountPage() {
             </div>
 
             {/* Bouton de déconnexion */}
-            <div className="flex justify-center">
+            <div className="flex justify-center mb-8">
               <button
                 onClick={handleSignOut}
-                className="bg-red-600/80 hover:bg-red-700 backdrop-blur-sm rounded-2xl px-8 py-4 transition-all shadow-[0_4px_16px_rgba(220,38,38,0.3)] hover:shadow-[0_6px_20px_rgba(220,38,38,0.4)] flex items-center gap-3"
+                className="bg-slate-700/80 hover:bg-slate-600 backdrop-blur-sm rounded-2xl px-8 py-4 transition-all shadow-lg flex items-center gap-3"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
               >
                 <LogOut className="w-5 h-5 text-white" />
                 <span className="text-white text-lg">Se déconnecter</span>
               </button>
+            </div>
+
+            {/* --- ZONE DE DANGER (SUPPRESSION) --- */}
+            <div className="mt-8 pt-8 border-t border-slate-700/50">
+              <h3
+                className="text-red-400 text-xl font-bold mb-4 flex items-center gap-2"
+                style={{ fontFamily: "'Fredoka', sans-serif" }}
+              >
+                <AlertTriangle className="w-6 h-6" />
+                Zone de danger
+              </h3>
+              <div className="bg-red-950/20 border border-red-900/50 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-red-200 font-semibold text-lg">
+                    Supprimer mon compte
+                  </p>
+                  <p className="text-red-300/60 text-sm max-w-md">
+                    Attention, cette action est irréversible. Toutes vos données
+                    seront définitivement effacées.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="text-red-500 hover:text-red-400 hover:bg-red-500/10 font-bold px-5 py-3 rounded-xl transition-all flex items-center gap-2 border border-red-500/30 hover:border-red-500/50 whitespace-nowrap"
+                  style={{ fontFamily: "'Fredoka', sans-serif" }}
+                >
+                  <Trash2 className="w-5 h-5" />
+                  Supprimer mon compte
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -812,18 +801,12 @@ export function AccountPage() {
                     Code :
                   </p>
                   {(() => {
-                    console.log('[AccountPage] Render friend code state:', {
-                      friendCode,
-                      friendCodeLoading,
-                      friendCodeError,
-                      shouldShowLoading: friendCodeLoading || !friendCode,
-                      shouldShowError: !!friendCodeError,
-                      shouldShowCode: !friendCodeError && !friendCodeLoading && !!friendCode,
-                    });
-
                     if (friendCodeError) {
                       return (
-                        <p className="text-red-400 text-sm" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                        <p
+                          className="text-red-400 text-sm"
+                          style={{ fontFamily: "'Fredoka', sans-serif" }}
+                        >
                           {friendCodeError}
                         </p>
                       );
@@ -831,14 +814,20 @@ export function AccountPage() {
 
                     if (friendCodeLoading || !friendCode) {
                       return (
-                        <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                        <p
+                          className="text-white text-2xl font-bold"
+                          style={{ fontFamily: "'Fredoka', sans-serif" }}
+                        >
                           Chargement...
                         </p>
                       );
                     }
 
                     return (
-                      <p className="text-white text-2xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                      <p
+                        className="text-white text-2xl font-bold"
+                        style={{ fontFamily: "'Fredoka', sans-serif" }}
+                      >
                         {friendCode}
                       </p>
                     );
