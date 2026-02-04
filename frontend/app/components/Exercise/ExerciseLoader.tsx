@@ -255,11 +255,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   }, [exercise, totalQuestions, onElementSubmit]);
 
   const handleNextExercise = () => {
-    if (exerciseId) {
-      router.push(pathname);
-    } else {
-      setRefreshTrigger(prev => prev + 1);
-    }
+    setRefreshTrigger(prev => prev + 1);
   };
 
   // =========================================================
