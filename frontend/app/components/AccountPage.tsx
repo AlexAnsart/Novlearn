@@ -104,7 +104,6 @@ export function AccountPage() {
     }
   };
 
-  // --- FONCTION DE SUPPRESSION DE COMPTE CORRIGÉE ---
   const handleDeleteAccount = async () => {
     if (!user) return;
     setIsDeleting(true);
