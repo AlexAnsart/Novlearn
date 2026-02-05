@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trophy, Medal, Crown, ChevronRight, Loader2, Flame } from 'lucide-react'; // Ajout de Flame
+import { Trophy, Medal, Crown, ChevronRight, Loader2, Flame, Star } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ interface LeaderboardEntry {
   first_name: string | null;
   last_name: string | null;
   score: number;
-  best_streak: number; // Nouvelle propriété
+  best_streak: number;
   rank: number;
 }
 
@@ -20,28 +20,33 @@ interface MonthlyLeaderboardProps {
   limit?: number;
 }
 
+type LeaderboardTab = 'score' | 'streak';
+
 export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>('score'); // Nouvel état pour l'onglet
+  
   const { user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [user]);
+  }, [user, activeTab]); // Recharger quand l'onglet change
 
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
       
       const now = new Date();
-      // Important : Toujours envoyer une date ISO valide pour le début du mois
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      // Force UTC pour éviter le bug de timezone
+      const firstDayOfMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString();
       
       const { data, error } = await supabase.rpc('get_monthly_leaderboard', {
         month_start: firstDayOfMonth,
-        result_limit: limit
+        result_limit: limit,
+        sort_by: activeTab // On envoie le tri choisi à la base de données
       });
 
       if (error) throw error;
@@ -49,7 +54,7 @@ export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeade
       if (data) {
         setLeaderboard(data);
         
-        // Trouver le rang de l'utilisateur actuel
+        // Trouver le rang de l'utilisateur actuel dans ce classement spécifique
         if (user) {
           const currentUserEntry = data.find((e: LeaderboardEntry) => e.user_id === user.id);
           setUserRank(currentUserEntry || null);
@@ -91,10 +96,38 @@ export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeade
     return new Date().toLocaleDateString('fr-FR', { month: 'long' });
   };
 
+  // --- RENDU DES ONGLETS (Tabs) ---
+  const renderTabs = () => (
+    <div className="flex p-1 bg-slate-900/50 rounded-xl mb-4 border border-slate-700/50">
+      <button
+        onClick={() => setActiveTab('score')}
+        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
+          activeTab === 'score' 
+            ? 'bg-slate-700 text-white shadow-sm' 
+            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+        }`}
+      >
+        <Trophy className="w-4 h-4 text-yellow-400" />
+        Points
+      </button>
+      <button
+        onClick={() => setActiveTab('streak')}
+        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
+          activeTab === 'streak' 
+            ? 'bg-slate-700 text-white shadow-sm' 
+            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+        }`}
+      >
+        <Flame className="w-4 h-4 text-orange-500" />
+        Série (Streak)
+      </button>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className={`${compact ? 'p-4' : 'p-6'} flex items-center justify-center`}>
-        <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+      <div className={`${compact ? 'p-4' : 'p-6'} bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 flex items-center justify-center min-h-[200px]`}>
+        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
       </div>
     );
   }
@@ -102,12 +135,12 @@ export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeade
   // --- VERSION COMPACTE (Widget Dashboard) ---
   if (compact) {
     return (
-      <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50">
+      <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50 flex flex-col h-full">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-400" />
-            <h3 className="text-white font-semibold text-sm capitalize">{getCurrentMonthName()}</h3>
-          </div>
+          <h3 className="text-white font-semibold text-sm capitalize flex items-center gap-2">
+            {activeTab === 'score' ? <Trophy className="w-4 h-4 text-yellow-400"/> : <Flame className="w-4 h-4 text-orange-500"/>}
+            Top {activeTab === 'score' ? 'Points' : 'Série'} {getCurrentMonthName()}
+          </h3>
           <button
             onClick={() => router.push('/classement')}
             className="text-indigo-400 hover:text-indigo-300 text-xs flex items-center gap-1 transition-colors"
@@ -116,7 +149,9 @@ export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeade
           </button>
         </div>
 
-        <div className="space-y-2">
+        {renderTabs()}
+
+        <div className="space-y-2 flex-1 overflow-hidden">
           {leaderboard.slice(0, 3).map((entry) => (
             <div
               key={entry.user_id}
@@ -129,17 +164,22 @@ export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeade
                 <span className="text-white text-sm block truncate">{getDisplayName(entry)}</span>
               </div>
               
-              {/* Affichage du Streak en compact */}
-              {entry.best_streak > 2 && (
-                <div className="flex items-center gap-1 text-orange-400">
-                  <Flame className="w-3 h-3 fill-orange-400" />
-                  <span className="text-xs font-bold">{entry.best_streak}</span>
-                </div>
-              )}
-              
-              <span className="text-indigo-300 text-sm font-medium whitespace-nowrap">{entry.score} pts</span>
+              <div className="text-right">
+                {activeTab === 'score' ? (
+                  <span className="text-indigo-300 text-sm font-bold">{entry.score} pts</span>
+                ) : (
+                  <div className="flex items-center gap-1 text-orange-400">
+                    <Flame className="w-3 h-3 fill-orange-400" />
+                    <span className="text-sm font-bold">{entry.best_streak}</span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
+          
+          {leaderboard.length === 0 && (
+            <p className="text-slate-400 text-xs text-center py-4">Aucune donnée</p>
+          )}
         </div>
       </div>
     );
@@ -148,13 +188,19 @@ export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeade
   // --- VERSION COMPLÈTE (Page Classement) ---
   return (
     <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-xl flex items-center justify-center">
-          <Trophy className="w-6 h-6 text-white" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            {activeTab === 'score' ? <Trophy className="w-6 h-6 text-white" /> : <Flame className="w-6 h-6 text-white" />}
+          </div>
+          <div>
+            <h2 className="text-white font-bold text-xl">Classement {activeTab === 'score' ? 'Général' : 'Séries'}</h2>
+            <p className="text-slate-400 text-sm capitalize">{getCurrentMonthName()} {new Date().getFullYear()}</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-white font-bold text-xl">Classement du mois</h2>
-          <p className="text-slate-400 text-sm capitalize">{getCurrentMonthName()} {new Date().getFullYear()}</p>
+        
+        <div className="w-full md:w-64">
+          {renderTabs()}
         </div>
       </div>
 
@@ -174,29 +220,40 @@ export function MonthlyLeaderboard({ compact = false, limit = 10 }: MonthlyLeade
               <span className="text-white font-medium">
                 {user?.id === entry.user_id ? 'Vous' : getDisplayName(entry)}
               </span>
-              
-              {/* Badge Streak */}
-              {entry.best_streak > 0 && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-bold" title="Meilleure série du mois">
-                  <Flame className="w-3 h-3 fill-orange-400" />
-                  {entry.best_streak}
-                </div>
-              )}
             </div>
 
-            <div className="text-right">
-              <span className="text-indigo-300 font-bold text-lg">{entry.score}</span>
-              <span className="text-slate-400 text-sm ml-1">pts</span>
+            <div className="text-right flex items-center gap-6">
+              {/* On affiche les deux infos, mais on met en valeur celle de l'onglet actif */}
+              
+              {/* Info Série */}
+              <div className={`flex items-center gap-1 ${activeTab === 'streak' ? 'opacity-100 scale-110' : 'opacity-50'} transition-all`}>
+                <Flame className={`w-4 h-4 ${activeTab === 'streak' ? 'text-orange-500 fill-orange-500' : 'text-slate-400'}`} />
+                <span className={`font-bold ${activeTab === 'streak' ? 'text-orange-400' : 'text-slate-400'}`}>
+                  {entry.best_streak}
+                </span>
+              </div>
+
+              {/* Info Points */}
+              <div className={`w-20 text-right ${activeTab === 'score' ? 'opacity-100' : 'opacity-60'}`}>
+                <span className={`font-bold text-lg ${activeTab === 'score' ? 'text-indigo-300' : 'text-slate-400'}`}>
+                  {entry.score}
+                </span>
+                <span className="text-slate-500 text-xs ml-1">pts</span>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
       {leaderboard.length === 0 && (
-        <div className="text-center py-8">
-          <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-400">Aucun classement disponible ce mois-ci</p>
-          <p className="text-slate-500 text-sm mt-1">Soyez le premier à gagner des points !</p>
+        <div className="text-center py-12 bg-slate-900/20 rounded-xl border border-dashed border-slate-700">
+          {activeTab === 'score' ? (
+            <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          ) : (
+            <Flame className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          )}
+          <p className="text-slate-400">Aucun classement {activeTab === 'streak' ? 'de série' : ''} disponible ce mois-ci</p>
+          <p className="text-slate-500 text-sm mt-1">Soyez le premier à apparaître ici !</p>
         </div>
       )}
     </div>

@@ -256,14 +256,12 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   }, [exercise, totalQuestions, onElementSubmit]);
 
   const handleNextExercise = () => {
-    setLoading(true);
-    setRefreshTrigger(0); 
-    
-    router.push('/exercices');
-    
-
-    if (!exerciseId) {
-       setRefreshTrigger(prev => prev + 1);
+    if (exerciseId) {
+      // Si on a un ID, retour à la liste
+      router.push('/exercices');
+    } else {
+      // Si aléatoire, on recharge juste
+      setRefreshTrigger(prev => prev + 1);
     }
   };
 
