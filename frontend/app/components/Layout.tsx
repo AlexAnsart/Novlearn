@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Logo } from './Logo';
 import { SidebarIcon } from './SidebarIcon';
-import { User, Home } from 'lucide-react';
+import { User, Home, Trophy } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
@@ -33,6 +33,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const isProgress = pathname === '/progression';
   const isClasses = pathname === '/classes';
   const isTraining = pathname === '/entrainement';
+  const isLeaderboard = pathname === '/classement';
   const isSettings = pathname === '/parametres';
   const isAccount = pathname === '/compte';
 
@@ -57,6 +58,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         emoji="🏋️"
         active={isTraining}
         onClick={() => router.push('/entrainement')}
+      />
+      <SidebarIcon
+        emoji={<Trophy className="w-6 h-6" />}
+        active={isLeaderboard}
+        onClick={() => router.push('/classement')}
       />
       <div className="flex-1" />
       <SidebarIcon
