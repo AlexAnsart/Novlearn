@@ -33,7 +33,6 @@ export default function Home() {
       <FeedbackModal
         isOpen={isFeedbackOpen}
         onClose={() => setIsFeedbackOpen(false)}
-        // On ne passe pas d'exerciseId ni de titre -> Feedback Général
       />
 
       <div className="flex-1 flex items-center justify-center px-8 pb-8">

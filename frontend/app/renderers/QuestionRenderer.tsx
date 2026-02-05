@@ -9,12 +9,12 @@ import {
   Lightbulb,
   XCircle,
 } from "lucide-react";
-import React, { useMemo, useState } from "react"; // <--- AJOUT DE useMemo
+import React, { useMemo, useState } from "react"; 
 import { MathInput } from "../components/ui/MathInput";
 import MathText from "../components/ui/MathText";
 import { QuestionContent, VariableValues } from "../types/exercise";
 import { checkAnswer } from "../utils/math/evaluation";
-import { simplifyLatexExpression } from "../utils/math/simplication"; // <--- IMPORT DU FICHIER CRÉÉ
+import { simplifyLatexExpression } from "../utils/math/simplication"; 
 
 interface QuestionRendererProps {
   content: QuestionContent;
@@ -37,8 +37,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
-  // --- CALCUL DE LA RÉPONSE SIMPLIFIÉE ---
-  // C'est ici qu'on transforme "8/2 * x" en "4x"
   const simplifiedCorrectAnswer = useMemo(() => {
     return simplifyLatexExpression(content.correctAnswer, variables);
   }, [content.correctAnswer, variables]);
@@ -107,11 +105,6 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
             className="font-medium text-lg text-slate-800"
           />
         </div>
-        {content.points && (
-          <div className="text-xs font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md h-fit border border-slate-100">
-            {content.points} pt{content.points > 1 ? "s" : ""}
-          </div>
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 ml-0 md:ml-11">

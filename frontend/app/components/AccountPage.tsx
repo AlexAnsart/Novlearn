@@ -748,15 +748,7 @@ export function AccountPage() {
               </button>
             </div>
 
-            {/* --- ZONE DE DANGER (SUPPRESSION) --- */}
             <div className="mt-8 pt-8 border-t border-slate-700/50">
-              <h3
-                className="text-red-400 text-xl font-bold mb-4 flex items-center gap-2"
-                style={{ fontFamily: "'Fredoka', sans-serif" }}
-              >
-                <AlertTriangle className="w-6 h-6" />
-                Zone de danger
-              </h3>
               <div className="bg-red-950/20 border border-red-900/50 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <p className="text-red-200 font-semibold text-lg">
