@@ -28,7 +28,7 @@ export const flashCardsData: Record<string, FlashCard[]> = {
       answer: "Une droite d'équation x = a où la fonction tend vers l'infini.",
     },
   ],
-  "Fonctions": [], // Pas de contenu fourni pour l'instant
+  "Fonctions": [], 
   "Dérivabilité": [
     {
       question: "Quelle est la définition de la dérivée ?",

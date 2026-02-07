@@ -11,7 +11,6 @@ import {
   Users,
   TrendingUp,
   Trash2,
-  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -776,7 +775,7 @@ export function AccountPage() {
         {activeTab === "friends" && (
           <>
             {/* Mon code d'ami */}
-            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] mb-6">
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] mb-6">
               <h3
                 className="text-white text-xl mb-4"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
@@ -784,9 +783,9 @@ export function AccountPage() {
                 Mon code d'ami
               </h3>
               <div className="flex items-center gap-3">
-                <div className="flex-1 bg-slate-900/40 rounded-xl p-4">
+                <div className="flex-1 bg-slate-900/40 rounded-xl p-3 md:p-4 min-w-0">
                   <p
-                    className="text-blue-200 text-sm mb-1"
+                    className="text-blue-200 text-sm mb-1 truncate"
                     style={{ fontFamily: "'Fredoka', sans-serif" }}
                   >
                     Code :
@@ -794,29 +793,17 @@ export function AccountPage() {
                   {(() => {
                     if (friendCodeError) {
                       return (
-                        <p
-                          className="text-red-400 text-sm"
-                          style={{ fontFamily: "'Fredoka', sans-serif" }}
-                        >
+                        <p className="text-red-400 text-sm truncate">
                           {friendCodeError}
                         </p>
                       );
                     }
-
                     if (friendCodeLoading || !friendCode) {
-                      return (
-                        <p
-                          className="text-white text-2xl font-bold"
-                          style={{ fontFamily: "'Fredoka', sans-serif" }}
-                        >
-                          Chargement...
-                        </p>
-                      );
+                      return <p className="text-white text-xl md:text-2xl font-bold">...</p>;
                     }
-
                     return (
                       <p
-                        className="text-white text-2xl font-bold"
+                        className="text-white text-xl md:text-2xl font-bold truncate"
                         style={{ fontFamily: "'Fredoka', sans-serif" }}
                       >
                         {friendCode}
@@ -824,55 +811,63 @@ export function AccountPage() {
                     );
                   })()}
                 </div>
+
+                {/* BOUTON COPIER RESPONSIVE */}
                 <button
                   onClick={handleCopyFriendCode}
                   disabled={!friendCode}
-                  className="px-6 py-4 rounded-xl bg-gradient-to-b from-blue-500 to-blue-700 text-white transition-all hover:scale-105 disabled:opacity-50 flex items-center gap-2"
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontWeight: 700,
-                  }}
+                  // Mobile : p-4 (carré). Desktop (md) : px-6 py-4 (rectangle)
+                  className="p-4 md:px-6 md:py-4 rounded-xl bg-gradient-to-b from-blue-500 to-blue-700 text-white transition-all hover:scale-105 disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
                 >
-                  {copied ? (
-                    <Check className="w-5 h-5" />
-                  ) : (
-                    <Copy className="w-5 h-5" />
-                  )}
-                  {copied ? "Copié !" : "Copier le code"}
+                  {copied ? <Check className="w-5 h-5 md:w-6 md:h-6" /> : <Copy className="w-5 h-5 md:w-6 md:h-6" />}
+                  
+                  {/* TEXTE : Caché sur mobile (hidden), Visible sur PC (md:block) */}
+                  <span 
+                    className="hidden md:block"
+                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                  >
+                    {copied ? "Copié !" : "Copier le code"}
+                  </span>
                 </button>
               </div>
             </div>
 
             {/* Ajouter un ami */}
-            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] mb-6">
+            <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] mb-6">
               <h3
                 className="text-white text-xl mb-4"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
               >
                 Ajouter un ami
               </h3>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 <input
                   type="text"
                   value={addFriendCode}
                   onChange={(e) => setAddFriendCode(e.target.value)}
-                  placeholder="Entrez le code d'ami"
-                  className="flex-1 px-4 py-3 rounded-xl bg-slate-900/40 text-white border-2 border-slate-700 focus:border-blue-500 outline-none"
+                  // Placeholder court sur mobile, plus long sur desktop
+                  placeholder="Code d'ami"
+                  className="flex-1 px-3 py-3 md:px-4 rounded-xl bg-slate-900/40 text-white border-2 border-slate-700 focus:border-blue-500 outline-none min-w-0"
                   style={{ fontFamily: "'Fredoka', sans-serif" }}
                 />
+
+                {/* BOUTON AJOUTER RESPONSIVE */}
                 <button
                   onClick={handleAddFriend}
                   disabled={addingFriend || !addFriendCode.trim()}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-b from-purple-500 to-purple-700 text-white transition-all hover:scale-105 disabled:opacity-50"
+                  // Mobile : px-4 (étroit). Desktop (md) : px-6 (plus large)
+                  className="px-4 py-3 md:px-6 rounded-xl bg-gradient-to-b from-purple-500 to-purple-700 text-white transition-all hover:scale-105 disabled:opacity-50 shrink-0"
                   style={{
                     fontFamily: "'Fredoka', sans-serif",
                     fontWeight: 700,
                   }}
                 >
-                  {addingFriend ? "Envoi..." : "Ajouter"}
+                  {/* Texte s'adapte ou reste court */}
+                  {addingFriend ? "..." : "Ajouter"}
                 </button>
               </div>
             </div>
+          
 
             {/* Demandes d'amis en attente */}
             {(friendRequests.length > 0 || friendRequestsError) && (

@@ -109,21 +109,23 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Choix Catégorie */}
           <div
-            className={`grid gap-2 ${exerciseId ? "grid-cols-4" : "grid-cols-3"}`}
+            className={`grid gap-2 ${exerciseId ? "grid-cols-4" : "grid-cols-2"}`}
           >
-            <button
-              type="button"
-              onClick={() => setCategory("content_error")}
-              className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
-                ${
-                  category === "content_error"
-                    ? "bg-red-50 border-red-200 text-red-600"
-                    : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-            >
-              <AlertTriangle className="w-5 h-5 mb-1" />
-              Erreur
-            </button>
+            {exerciseId && (
+              <button
+                type="button"
+                onClick={() => setCategory("content_error")}
+                className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
+                  ${
+                    category === "content_error"
+                      ? "bg-red-50 border-red-200 text-red-600"
+                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                  }`}
+              >
+                <AlertTriangle className="w-5 h-5 mb-1" />
+                Erreur
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setCategory("suggestion")}
