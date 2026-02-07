@@ -23,6 +23,13 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
+      - name: Clean conflicting files and cache
+        working-directory: ./frontend
+        run: |
+          rm -rf .next
+          rm -f app/auth/callback/page.tsx
+          echo "Cache and conflicting files cleaned"
+
       - name: Build frontend
         working-directory: ./frontend
         run: npm run build
