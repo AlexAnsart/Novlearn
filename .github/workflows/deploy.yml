@@ -23,13 +23,6 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
-      - name: Clean conflicting files and cache
-        working-directory: ./frontend
-        run: |
-          rm -rf .next
-          rm -f app/auth/callback/page.tsx
-          echo "Cache and conflicting files cleaned"
-
       - name: Build frontend
         working-directory: ./frontend
         run: npm run build
@@ -223,6 +216,20 @@ jobs:
             sudo mkdir -p /opt/novlearn
             sudo chown -R $USER:$USER /opt/novlearn
 
+            # ------------------------------------------------------------------
+            # CORRECTIF DU PROBLEME PAGE/ROUTE PARALLELES
+            # On supprime explicitement le fichier fantôme sur le VPS
+            # ------------------------------------------------------------------
+            if [ -f "/opt/novlearn/frontend/app/auth/callback/page.tsx" ]; then
+              echo "🗑️ Suppression du fichier fantôme page.tsx..."
+              rm -f /opt/novlearn/frontend/app/auth/callback/page.tsx
+            fi
+
+            # On nettoie aussi le cache du build précédent
+            echo "🧹 Nettoyage du cache .next..."
+            rm -rf /opt/novlearn/frontend/.next
+            # ------------------------------------------------------------------
+
             # Installer Node.js et npm si nécessaire
             if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
               echo "📦 Installation de Node.js et npm..."
@@ -315,9 +322,6 @@ jobs:
 
             # Naviguer vers le répertoire de déploiement
             cd /opt/novlearn
-
-            echo "🧹 Nettoyage FORCE du cache Next.js..."
-            rm -rf frontend/.next
 
             # Rendre le script de déploiement exécutable
             chmod +x deploy.sh
