@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
             className="w-full py-4 rounded-3xl bg-gradient-to-b from-blue-500 to-blue-700 text-white font-bold text-lg shadow-[0_8px_0_0_rgb(29,78,216)] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
-            Envoyer le lien
+            Envoyer le lien (V2)
           </button>
         </form>
 
