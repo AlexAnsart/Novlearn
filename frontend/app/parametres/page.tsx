@@ -188,17 +188,21 @@ export default function SettingsPage() {
               {/* Infos Personnelles */}
               <section className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 md:p-8">
                 <div className="flex justify-between items-center mb-6">
-                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                     <User className="text-indigo-400" /> Informations
-                   </h2>
-                   <button 
-                     onClick={handleUpdateInfo}
-                     disabled={loading}
-                     className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2"
-                   >
-                     {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
-                     Sauvegarder Infos
-                   </button>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <User className="text-indigo-400" /> Informations
+                  </h2>
+                  <button 
+                    onClick={handleUpdateInfo}
+                    disabled={loading}
+                    // J'ai modifié le padding ici : p-3 (carré sur mobile) -> md:px-4 (rectangulaire sur PC)
+                    className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white p-3 md:px-4 md:py-2 rounded-lg font-medium transition-all flex items-center gap-2"
+                    title="Sauvegarder les informations" // Ajout d'un titre pour l'accessibilité quand il n'y a pas de texte
+                  >
+                    {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
+                    
+                    {/* Le texte est caché sur mobile (hidden) et visible sur PC (md:inline) */}
+                    <span className="hidden md:inline">Sauvegarder Infos</span>
+                  </button>
                 </div>
                 
                 <div className="grid md:grid-cols-2 gap-6">

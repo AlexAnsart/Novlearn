@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/app/lib/supabase';
+// Assurez-vous que le chemin vers votre lib supabase est correct
+// Parfois c'est '@/lib/supabase' ou '@/utils/supabase' selon votre structure
+import { supabase } from '@/app/lib/supabase'; // ou '../lib/supabase' si besoin
 import { Mail, ArrowLeft, Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -15,12 +17,20 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const redirectTo = `${origin}/auth/callback?next=/auth/update-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo, });
+      const productionUrl = 'https://novlearn.fr';
+      const redirectTo = `${productionUrl}/auth/callback?next=/auth/update-password`;
+
+      console.log('🔗 Envoi du lien de reset vers :', redirectTo);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
 
       if (error) throw error;
-      toast.success("Email envoyé ! Vérifiez votre boîte de réception.");
+      toast.success("Email envoyé ! Vérifiez votre boîte de réception (et vos spams).");
+      
     } catch (error: any) {
+      console.error(error);
       toast.error(error.message || "Erreur lors de l'envoi");
     } finally {
       setLoading(false);
