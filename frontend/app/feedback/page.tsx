@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/app/lib/supabase';
-import { useAuth } from '@/app/contexts/AuthContext';
-import { Layout } from '@/app/components/Layout';
-import { 
-  Loader2, 
-  Trash2, 
-  RefreshCw, 
-  MessageSquare, 
-  AlertCircle, 
-  Filter, 
+import { Layout } from "@/app/components/Layout";
+import { useAuth } from "@/app/contexts/AuthContext";
+import { supabase } from "@/app/lib/supabase";
+import {
+  AlertCircle,
+  BookOpen,
+  Filter,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
   Star,
-  BookOpen
-} from 'lucide-react';
-import { toast } from 'sonner';
+  Trash2,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 interface Feedback {
   id: string;
@@ -23,7 +23,7 @@ interface Feedback {
   message: string;
   category: string;
   difficulty_rating?: number | null; // Peut être null
-  exercise_id?: number | null;       // Peut être null
+  exercise_id?: number | null; // Peut être null
   user_id: string | null;
   profiles?: {
     email: string;
@@ -33,18 +33,24 @@ interface Feedback {
 }
 
 // Types de filtres possibles
-type FilterType = 'all' | 'rating' | 'bug' | 'content_error' | 'suggestion' | 'other';
+type FilterType =
+  | "all"
+  | "rating"
+  | "bug"
+  | "content_error"
+  | "suggestion"
+  | "other";
 
 export default function FeedbackDashboard() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth/login');
+      router.push("/auth/login");
     } else if (user) {
       fetchFeedbacks();
     }
@@ -54,21 +60,23 @@ export default function FeedbackDashboard() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('feedbacks')
-        .select(`
+        .from("feedbacks")
+        .select(
+          `
           *,
           profiles:user_id (
             email,
             first_name,
             last_name
           )
-        `)
-        .order('created_at', { ascending: false });
+        `,
+        )
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setFeedbacks(data || []);
     } catch (error) {
-      console.error('Erreur chargement feedbacks:', error);
+      console.error("Erreur chargement feedbacks:", error);
       toast.error("Impossible de charger les feedbacks.");
     } finally {
       setLoading(false);
@@ -76,36 +84,66 @@ export default function FeedbackDashboard() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce feedback ?')) return;
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce feedback ?"))
+      return;
 
     try {
-      const { error } = await supabase.from('feedbacks').delete().eq('id', id);
+      const { error } = await supabase.from("feedbacks").delete().eq("id", id);
       if (error) throw error;
-      setFeedbacks(prev => prev.filter(f => f.id !== id));
-      toast.success('Feedback supprimé');
+      setFeedbacks((prev) => prev.filter((f) => f.id !== id));
+      toast.success("Feedback supprimé");
     } catch (error) {
-      console.error('Erreur suppression:', error);
+      console.error("Erreur suppression:", error);
       toast.error("Erreur lors de la suppression");
     }
   };
 
   // --- LOGIQUE DE FILTRAGE ---
-  const filteredFeedbacks = feedbacks.filter(item => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'rating') return item.difficulty_rating !== null; // On prend tout ce qui a une note
+  const filteredFeedbacks = feedbacks.filter((item) => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "rating") return item.difficulty_rating !== null; // On prend tout ce qui a une note
     return item.category === activeFilter;
   });
 
   // --- UI HELPERS ---
   const getCategoryBadge = (category: string) => {
-    const style = "px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider flex items-center gap-1";
+    const style =
+      "px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider flex items-center gap-1";
     switch (category) {
-      case 'bug': return <span className={`${style} bg-red-500/20 text-red-300 border-red-500/30`}>🐛 Bug</span>;
-      case 'feature': 
-      case 'suggestion': return <span className={`${style} bg-blue-500/20 text-blue-300 border-blue-500/30`}>💡 Suggestion</span>;
-      case 'content': 
-      case 'content_error': return <span className={`${style} bg-purple-500/20 text-purple-300 border-purple-500/30`}>📝 Contenu</span>;
-      default: return <span className={`${style} bg-slate-700 text-slate-300 border-slate-600`}>Autre</span>;
+      case "bug":
+        return (
+          <span
+            className={`${style} bg-red-500/20 text-red-300 border-red-500/30`}
+          >
+            🐛 Bug
+          </span>
+        );
+      case "feature":
+      case "suggestion":
+        return (
+          <span
+            className={`${style} bg-blue-500/20 text-blue-300 border-blue-500/30`}
+          >
+            💡 Suggestion
+          </span>
+        );
+      case "content":
+      case "content_error":
+        return (
+          <span
+            className={`${style} bg-purple-500/20 text-purple-300 border-purple-500/30`}
+          >
+            📝 Contenu
+          </span>
+        );
+      default:
+        return (
+          <span
+            className={`${style} bg-slate-700 text-slate-300 border-slate-600`}
+          >
+            Autre
+          </span>
+        );
     }
   };
 
@@ -113,22 +151,26 @@ export default function FeedbackDashboard() {
     return (
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
-          <Star 
-            key={star} 
-            className={`w-4 h-4 ${star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-slate-600'}`} 
+          <Star
+            key={star}
+            className={`w-4 h-4 ${star <= rating ? "fill-yellow-400 text-yellow-400" : "text-slate-600"}`}
           />
         ))}
       </div>
     );
   };
 
-  if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><Loader2 className="animate-spin text-white" /></div>;
+  if (authLoading)
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Loader2 className="animate-spin text-white" />
+      </div>
+    );
 
   return (
     <Layout>
       <div className="flex-1 px-4 md:px-8 pb-8 overflow-y-auto bg-slate-900">
         <div className="max-w-6xl mx-auto pt-8">
-          
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
@@ -140,21 +182,54 @@ export default function FeedbackDashboard() {
                 {feedbacks.length} retours reçus au total
               </p>
             </div>
-            <button 
+            <button
               onClick={fetchFeedbacks}
               className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors self-start md:self-auto"
             >
-              <RefreshCw className={`w-5 h-5 text-white ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-5 h-5 text-white ${loading ? "animate-spin" : ""}`}
+              />
             </button>
           </div>
 
           {/* Filtres */}
           <div className="flex flex-wrap gap-2 mb-6">
-            <FilterButton label="Tout" active={activeFilter === 'all'} onClick={() => setActiveFilter('all')} count={feedbacks.length} />
-            <FilterButton label="Notes Difficulté" active={activeFilter === 'rating'} onClick={() => setActiveFilter('rating')} count={feedbacks.filter(f => f.difficulty_rating !== null).length} />
-            <FilterButton label="Erreurs Contenu" active={activeFilter === 'content_error'} onClick={() => setActiveFilter('content_error')} count={feedbacks.filter(f => f.category === 'content_error').length} />
-            <FilterButton label="Suggestions" active={activeFilter === 'suggestion'} onClick={() => setActiveFilter('suggestion')} count={feedbacks.filter(f => f.category === 'suggestion').length} />
-            <FilterButton label="Bugs" active={activeFilter === 'bug'} onClick={() => setActiveFilter('bug')} count={feedbacks.filter(f => f.category === 'bug').length} />
+            <FilterButton
+              label="Tout"
+              active={activeFilter === "all"}
+              onClick={() => setActiveFilter("all")}
+              count={feedbacks.length}
+            />
+            <FilterButton
+              label="Notes Difficulté"
+              active={activeFilter === "rating"}
+              onClick={() => setActiveFilter("rating")}
+              count={
+                feedbacks.filter((f) => f.difficulty_rating !== null).length
+              }
+            />
+            <FilterButton
+              label="Erreurs Contenu"
+              active={activeFilter === "content_error"}
+              onClick={() => setActiveFilter("content_error")}
+              count={
+                feedbacks.filter((f) => f.category === "content_error").length
+              }
+            />
+            <FilterButton
+              label="Suggestions"
+              active={activeFilter === "suggestion"}
+              onClick={() => setActiveFilter("suggestion")}
+              count={
+                feedbacks.filter((f) => f.category === "suggestion").length
+              }
+            />
+            <FilterButton
+              label="Bugs"
+              active={activeFilter === "bug"}
+              onClick={() => setActiveFilter("bug")}
+              count={feedbacks.filter((f) => f.category === "bug").length}
+            />
           </div>
 
           {/* Liste */}
@@ -165,19 +240,23 @@ export default function FeedbackDashboard() {
           ) : filteredFeedbacks.length === 0 ? (
             <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
               <AlertCircle className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-              <p className="text-slate-400">Aucun feedback dans cette catégorie.</p>
+              <p className="text-slate-400">
+                Aucun feedback dans cette catégorie.
+              </p>
             </div>
           ) : (
             <div className="grid gap-4">
               {filteredFeedbacks.map((item) => (
-                <div key={item.id} className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-sm hover:border-slate-600 transition-all relative group">
-                  
+                <div
+                  key={item.id}
+                  className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-sm hover:border-slate-600 transition-all relative group"
+                >
                   {/* En-tête de la carte */}
                   <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
                     <div className="flex items-center flex-wrap gap-3">
                       {/* Badge Catégorie */}
                       {getCategoryBadge(item.category)}
-                      
+
                       {/* Badge Exercice ID */}
                       {item.exercise_id && (
                         <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
@@ -187,12 +266,17 @@ export default function FeedbackDashboard() {
                       )}
 
                       <span className="text-slate-500 text-sm">
-                        {new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(item.created_at).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button 
+                      <button
                         onClick={() => handleDelete(item.id)}
                         className="text-slate-600 hover:text-red-400 hover:bg-red-400/10 p-2 rounded-lg transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                         title="Supprimer"
@@ -204,40 +288,47 @@ export default function FeedbackDashboard() {
 
                   {/* Contenu principal */}
                   <div className="mb-4">
-                     {/* Affichage spécial si c'est juste une note */}
-                     {item.difficulty_rating ? (
-                        <div className="flex items-center gap-3 mb-2 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 w-fit">
-                          <span className="text-slate-300 text-sm font-medium">Difficulté ressentie :</span>
-                          {renderStars(item.difficulty_rating)}
-                          <span className="text-slate-500 text-xs font-bold">({item.difficulty_rating}/5)</span>
-                        </div>
-                     ) : null}
+                    {/* Affichage spécial si c'est juste une note */}
+                    {item.difficulty_rating ? (
+                      <div className="flex items-center gap-3 mb-2 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 w-fit">
+                        <span className="text-slate-300 text-sm font-medium">
+                          Difficulté ressentie :
+                        </span>
+                        {renderStars(item.difficulty_rating)}
+                        <span className="text-slate-500 text-xs font-bold">
+                          ({item.difficulty_rating}/5)
+                        </span>
+                      </div>
+                    ) : null}
 
-                     {/* Message */}
-                     {item.message && (
-                        <p className="text-slate-200 text-lg whitespace-pre-wrap leading-relaxed">
-                          {item.message}
-                        </p>
-                     )}
+                    {/* Message */}
+                    {item.message && (
+                      <p className="text-slate-200 text-lg whitespace-pre-wrap leading-relaxed">
+                        {item.message}
+                      </p>
+                    )}
                   </div>
 
                   {/* Footer : Utilisateur */}
                   <div className="flex items-center justify-between border-t border-slate-700/50 pt-4 mt-2">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-xs">
-                        {item.profiles?.first_name?.[0] || '?'}
+                        {item.profiles?.first_name?.[0] || "?"}
                       </div>
                       <div className="flex flex-col">
                         <span className="text-white text-sm font-medium">
-                          {item.profiles?.first_name ? `${item.profiles.first_name} ${item.profiles.last_name || ''}` : 'Anonyme'}
+                          {item.profiles?.first_name
+                            ? `${item.profiles.first_name} ${item.profiles.last_name || ""}`
+                            : "Anonyme"}
                         </span>
                         {item.profiles?.email && (
-                          <span className="text-slate-500 text-xs">{item.profiles.email}</span>
+                          <span className="text-slate-500 text-xs">
+                            {item.profiles.email}
+                          </span>
                         )}
                       </div>
                     </div>
                   </div>
-
                 </div>
               ))}
             </div>
@@ -249,19 +340,31 @@ export default function FeedbackDashboard() {
 }
 
 // Petit composant pour les boutons de filtre
-function FilterButton({ label, active, onClick, count }: { label: string, active: boolean, onClick: () => void, count: number }) {
+function FilterButton({
+  label,
+  active,
+  onClick,
+  count,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  count: number;
+}) {
   return (
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border flex items-center gap-2 ${
-        active 
-          ? 'bg-indigo-600 text-white border-indigo-500' 
-          : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+        active
+          ? "bg-indigo-600 text-white border-indigo-500"
+          : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200"
       }`}
     >
       {active && <Filter className="w-3 h-3" />}
       {label}
-      <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-500'}`}>
+      <span
+        className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${active ? "bg-indigo-500 text-white" : "bg-slate-700 text-slate-500"}`}
+      >
         {count}
       </span>
     </button>

@@ -1,9 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from "react";
-import { Users, Swords } from "lucide-react";
+import { Swords, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { friendsApi, duelsApi, Friend, DuelRequest as ApiDuelRequest } from "../lib/api";
+import { useEffect, useState } from "react";
+import {
+  DuelRequest as ApiDuelRequest,
+  duelsApi,
+  Friend,
+  friendsApi,
+} from "../lib/api";
 
 interface LocalDuelRequest {
   id: string;
@@ -27,15 +32,17 @@ export function DuelPage() {
       setLoading(true);
       const [friendsData, duelsData] = await Promise.all([
         friendsApi.getFriends(),
-        duelsApi.getPendingDuels()
+        duelsApi.getPendingDuels(),
       ]);
-      
+
       setFriends(friendsData.friends);
-      setDuelRequests(duelsData.duels.map((d: ApiDuelRequest) => ({
-        id: d.id.toString(),
-        from: d.from_user_name,
-        fromId: d.from_user_id
-      })));
+      setDuelRequests(
+        duelsData.duels.map((d: ApiDuelRequest) => ({
+          id: d.id.toString(),
+          from: d.from_user_name,
+          fromId: d.from_user_id,
+        })),
+      );
     } catch (error: any) {
       console.error("Error loading data:", error);
     } finally {
@@ -43,9 +50,12 @@ export function DuelPage() {
     }
   };
 
-  const handleSendDuelRequest = async (friendId: string, friendName: string) => {
+  const handleSendDuelRequest = async (
+    friendId: string,
+    friendName: string,
+  ) => {
     if (sentDuels.includes(friendId)) return;
-    
+
     try {
       await duelsApi.createDuel(friendId);
       setSentDuels([...sentDuels, friendId]);
@@ -61,7 +71,7 @@ export function DuelPage() {
       const result = await duelsApi.acceptDuel(parseInt(requestId));
       setDuelRequests(duelRequests.filter((r) => r.id !== requestId));
       alert(`Duel accepté avec ${fromName} !`);
-      
+
       // Redirect to active duel
       router.push(`/duel/active/${result.duel.id}`);
     } catch (error: any) {
@@ -126,7 +136,10 @@ export function DuelPage() {
                     </div>
                     <span
                       className="text-white"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
                     >
                       {request.from} vous défie !
                     </span>
@@ -135,14 +148,20 @@ export function DuelPage() {
                     <button
                       onClick={() => handleAcceptDuel(request.id, request.from)}
                       className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white transition-all"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
                     >
                       Accepter
                     </button>
                     <button
                       onClick={() => handleDeclineDuel(request.id)}
                       className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
                     >
                       Refuser
                     </button>
@@ -173,13 +192,19 @@ export function DuelPage() {
                   <div>
                     <p
                       className="text-white"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
                     >
                       {friend.name}
                     </p>
                     <p
                       className="text-blue-200 text-sm"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 400,
+                      }}
                     >
                       {friend.email}
                     </p>
@@ -193,9 +218,14 @@ export function DuelPage() {
                       ? "bg-slate-700/50 text-gray-400 cursor-not-allowed"
                       : "bg-gradient-to-b from-purple-500 to-purple-700 text-white hover:scale-105 shadow-lg"
                   }`}
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 700,
+                  }}
                 >
-                  {sentDuels.includes(friend.id) ? "Demande envoyée" : "Envoyer une demande de duel"}
+                  {sentDuels.includes(friend.id)
+                    ? "Demande envoyée"
+                    : "Envoyer une demande de duel"}
                 </button>
               </div>
             ))}
@@ -207,7 +237,8 @@ export function DuelPage() {
                 className="text-gray-400"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
               >
-                Vous n'avez pas encore d'amis. Rejoignez une classe pour en rencontrer !
+                Vous n'avez pas encore d'amis. Rejoignez une classe pour en
+                rencontrer !
               </p>
             </div>
           )}
@@ -216,4 +247,3 @@ export function DuelPage() {
     </div>
   );
 }
-

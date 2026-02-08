@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState, useCallback } from 'react';
-import { MCQContent, RendererProps } from '../types/exercise';
-import { MathText } from '../components/ui';
+import React, { useState } from "react";
+import { MathText } from "../components/ui";
+import { MCQContent, RendererProps } from "../types/exercise";
 
 interface MCQRendererProps extends RendererProps<MCQContent> {
   onSubmit?: (selectedIndex: number, isCorrect: boolean) => void;
@@ -26,11 +26,12 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
   };
 
   const getOptionStyle = (index: number, isCorrectOption: boolean) => {
-    const base = "w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-3 ";
-    
+    const base =
+      "w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-3 ";
+
     if (!isValidated) {
-      return selectedIndex === index 
-        ? base + "border-blue-500 bg-blue-50" 
+      return selectedIndex === index
+        ? base + "border-blue-500 bg-blue-50"
         : base + "border-gray-200 hover:border-gray-300 hover:bg-gray-50";
     }
 
@@ -42,9 +43,9 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
   return (
     <div className="p-5 bg-white rounded-2xl shadow-sm border border-gray-200">
       <div className="mb-6">
-        <MathText 
-          content={content.question} 
-          variables={variables} 
+        <MathText
+          content={content.question}
+          variables={variables}
           className="text-lg font-medium text-slate-800"
         />
       </div>
@@ -57,13 +58,20 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
             className={getOptionStyle(index, option.correct)}
             disabled={isValidated}
           >
-            <span className={`
+            <span
+              className={`
               flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-              ${!isValidated && selectedIndex === index ? 'bg-blue-500 text-white' : 
-                isValidated && option.correct ? 'bg-green-500 text-white' :
-                isValidated && selectedIndex === index ? 'bg-red-500 text-white' :
-                'bg-gray-200 text-gray-600'}
-            `}>
+              ${
+                !isValidated && selectedIndex === index
+                  ? "bg-blue-500 text-white"
+                  : isValidated && option.correct
+                    ? "bg-green-500 text-white"
+                    : isValidated && selectedIndex === index
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-200 text-gray-600"
+              }
+            `}
+            >
               {String.fromCharCode(65 + index)}
             </span>
             <div className="flex-grow">
@@ -83,7 +91,10 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
         </button>
         {isValidated && allowRetry && (
           <button
-            onClick={() => { setIsValidated(false); setSelectedIndex(null); }}
+            onClick={() => {
+              setIsValidated(false);
+              setSelectedIndex(null);
+            }}
             className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
           >
             Réessayer

@@ -50,7 +50,7 @@ export default function ActiveDuelPage() {
         (payload) => {
           console.log("Duel updated:", payload);
           setDuel(payload.new as Duel);
-        }
+        },
       )
       .subscribe();
 
@@ -105,7 +105,7 @@ export default function ActiveDuelPage() {
           exercise.elements[0].id, // Pour l'instant, on utilise le premier élément
           answer,
           isCorrect,
-          timeSpent
+          timeSpent,
         );
 
         if (result.duel) {
@@ -121,7 +121,7 @@ export default function ActiveDuelPage() {
         alert(error.message || "Erreur lors de la soumission de la réponse");
       }
     },
-    [exercise, duel, duelId, startTime]
+    [exercise, duel, duelId, startTime],
   );
 
   if (loading) {
@@ -314,7 +314,7 @@ export default function ActiveDuelPage() {
                     Object.keys(variables).forEach((varName) => {
                       answerExpr = answerExpr.replace(
                         new RegExp(`\\{${varName}\\}`, "g"),
-                        String(variables[varName])
+                        String(variables[varName]),
                       );
                     });
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Fredoka } from "next/font/google";
-import { Toaster } from "sonner"; 
+import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
 import "./globals.css";
 
@@ -9,16 +9,17 @@ import "./globals.css";
 const fredoka = Fredoka({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-fredoka", 
+  variable: "--font-fredoka",
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Novlearn",
-  description: "Plateforme d'entraînement ludique et personnalisée pour le Bac de mathématiques",
+  description:
+    "Plateforme d'entraînement ludique et personnalisée pour le Bac de mathématiques",
   icons: {
-    icon: '/favicon.ico', 
-  }
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -43,22 +44,16 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      
+
       {/* On applique le fond sombre par défaut pour éviter le flash blanc */}
       <body className="bg-slate-900 text-slate-50 antialiased font-sans selection:bg-indigo-500/30">
         <AuthProvider>
           {/* Contenu de l'application */}
           {children}
 
-          <Toaster 
-            position="top-right" 
-            theme="dark" 
-            richColors 
-            closeButton 
-          />
+          <Toaster position="top-right" theme="dark" richColors closeButton />
         </AuthProvider>
       </body>
-
     </html>
   );
 }

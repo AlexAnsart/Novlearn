@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { ReactNode } from "react";
 
@@ -12,7 +12,11 @@ interface SidebarIconProps {
   onClick?: () => void;
 }
 
-export function SidebarIcon({ emoji, active = false, onClick }: SidebarIconProps) {
+export function SidebarIcon({
+  emoji,
+  active = false,
+  onClick,
+}: SidebarIconProps) {
   return (
     <button
       onClick={onClick}
@@ -21,13 +25,14 @@ export function SidebarIcon({ emoji, active = false, onClick }: SidebarIconProps
         flex items-center justify-center
         transform transition-all duration-200 
         hover:scale-110 active:scale-95
-        ${active
-          ? 'bg-blue-600/80 shadow-lg shadow-blue-500/30'
-          : 'bg-slate-700/50 hover:bg-slate-600/60'
+        ${
+          active
+            ? "bg-blue-600/80 shadow-lg shadow-blue-500/30"
+            : "bg-slate-700/50 hover:bg-slate-600/60"
         }
       `}
     >
-      {typeof emoji === 'string' ? (
+      {typeof emoji === "string" ? (
         <span className="text-2xl">{emoji}</span>
       ) : (
         <div className="text-white">{emoji}</div>
@@ -35,4 +40,3 @@ export function SidebarIcon({ emoji, active = false, onClick }: SidebarIconProps
     </button>
   );
 }
-

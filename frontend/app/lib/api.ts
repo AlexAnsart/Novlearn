@@ -1,37 +1,40 @@
 /**
  * API client for Novlearn backend
- * 
+ *
  * In production, API_URL should be empty so requests go through Apache proxy.
  * In development, set NEXT_PUBLIC_API_URL=http://localhost:8010
  */
 
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 /**
  * Get authorization header with Supabase token
  */
 async function getAuthHeaders(): Promise<HeadersInit> {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
     if (error) {
-      console.error('[api.ts] Session error:', error.message);
-      throw new Error('Not authenticated');
+      console.error("[api.ts] Session error:", error.message);
+      throw new Error("Not authenticated");
     }
-    
+
     if (!session?.access_token) {
-      console.error('[api.ts] No session or access token');
-      throw new Error('Not authenticated');
+      console.error("[api.ts] No session or access token");
+      throw new Error("Not authenticated");
     }
-    
+
     return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
     };
   } catch (error) {
-    console.error('[api.ts] getAuthHeaders error:', error);
+    console.error("[api.ts] getAuthHeaders error:", error);
     throw error;
   }
 }
@@ -41,26 +44,34 @@ async function getAuthHeaders(): Promise<HeadersInit> {
  */
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const requestId = `${endpoint}_${Date.now()}`;
-  console.log(`[api.ts] apiRequest: Starting ${endpoint}`, { requestId, method: options.method || 'GET' });
-  
+  console.log(`[api.ts] apiRequest: Starting ${endpoint}`, {
+    requestId,
+    method: options.method || "GET",
+  });
+
   try {
     console.log(`[api.ts] apiRequest: Getting auth headers for ${endpoint}`);
     const headers = await getAuthHeaders();
-    console.log(`[api.ts] apiRequest: Auth headers obtained for ${endpoint}`, { hasAuth: !!(headers as any)['Authorization'] });
-    
+    console.log(`[api.ts] apiRequest: Auth headers obtained for ${endpoint}`, {
+      hasAuth: !!(headers as any)["Authorization"],
+    });
+
     const url = `${API_URL}${endpoint}`;
-    console.log(`[api.ts] apiRequest: Making fetch request to ${endpoint}`, { url, apiUrl: API_URL });
-    
+    console.log(`[api.ts] apiRequest: Making fetch request to ${endpoint}`, {
+      url,
+      apiUrl: API_URL,
+    });
+
     // Create AbortController for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.log(`[api.ts] apiRequest: Timeout triggered for ${endpoint}`);
       controller.abort();
     }, 10000); // 10 second timeout
-    
+
     let response: Response;
     const fetchStartTime = Date.now();
     try {
@@ -73,60 +84,72 @@ async function apiRequest<T>(
         },
       });
       const fetchDuration = Date.now() - fetchStartTime;
-      console.log(`[api.ts] apiRequest: Fetch completed for ${endpoint}`, { 
+      console.log(`[api.ts] apiRequest: Fetch completed for ${endpoint}`, {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
-        duration: `${fetchDuration}ms`
+        duration: `${fetchDuration}ms`,
       });
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       const fetchDuration = Date.now() - fetchStartTime;
-      console.error(`[api.ts] apiRequest: Fetch error for ${endpoint}`, { 
+      console.error(`[api.ts] apiRequest: Fetch error for ${endpoint}`, {
         error: fetchError.message,
         name: fetchError.name,
-        duration: `${fetchDuration}ms`
+        duration: `${fetchDuration}ms`,
       });
-      
-      if (fetchError.name === 'AbortError') {
+
+      if (fetchError.name === "AbortError") {
         console.error(`[api.ts] Timeout on ${endpoint}`);
-        throw new Error("Request timeout: Le serveur ne répond pas. Vérifiez que le backend est lancé sur http://localhost:8010");
+        throw new Error(
+          "Request timeout: Le serveur ne répond pas. Vérifiez que le backend est lancé sur http://localhost:8010",
+        );
       }
       throw fetchError;
     }
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
-      console.log(`[api.ts] apiRequest: Response not OK for ${endpoint}, parsing error`);
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.log(
+        `[api.ts] apiRequest: Response not OK for ${endpoint}, parsing error`,
+      );
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Unknown error" }));
       console.error(`[api.ts] ${endpoint} error:`, error);
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
-    
+
     console.log(`[api.ts] apiRequest: Parsing JSON response for ${endpoint}`);
     const jsonStartTime = Date.now();
     const result = await response.json();
     const jsonDuration = Date.now() - jsonStartTime;
-    console.log(`[api.ts] apiRequest: Success for ${endpoint}`, { 
+    console.log(`[api.ts] apiRequest: Success for ${endpoint}`, {
       hasResult: !!result,
       jsonDuration: `${jsonDuration}ms`,
-      resultKeys: result ? Object.keys(result) : []
+      resultKeys: result ? Object.keys(result) : [],
     });
-    
+
     return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[api.ts] apiRequest: Error for ${endpoint}`, { 
+    console.error(`[api.ts] apiRequest: Error for ${endpoint}`, {
       error: errorMessage,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
     });
-    
+
     // Provide more helpful error messages
-    if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError") || errorMessage.includes("Network request failed")) {
+    if (
+      errorMessage.includes("Failed to fetch") ||
+      errorMessage.includes("NetworkError") ||
+      errorMessage.includes("Network request failed")
+    ) {
       console.error(`[api.ts] Network error on ${endpoint}`);
-      throw new Error("Impossible de se connecter au backend. Vérifiez que le serveur est lancé sur http://localhost:8010");
+      throw new Error(
+        "Impossible de se connecter au backend. Vérifiez que le serveur est lancé sur http://localhost:8010",
+      );
     }
-    
+
     throw error;
   }
 }
@@ -147,11 +170,13 @@ export interface RecommendExerciseResponse {
  * chapter (optionnel) : limiter au chapitre (streak et exos de ce chapitre).
  * Retourne null si non connecté, 404 ou erreur (fallback = exercice aléatoire côté Loader).
  */
-export async function getRecommendedExercise(chapter?: string | null): Promise<RecommendExerciseResponse | null> {
+export async function getRecommendedExercise(
+  chapter?: string | null,
+): Promise<RecommendExerciseResponse | null> {
   try {
     const endpoint = chapter
       ? `/api/recommend-exercise?chapter=${encodeURIComponent(chapter)}`
-      : '/api/recommend-exercise';
+      : "/api/recommend-exercise";
     return await apiRequest<RecommendExerciseResponse>(endpoint);
   } catch {
     return null;
@@ -187,16 +212,16 @@ export const friendsApi = {
    * Get or generate friend code for current user
    */
   async getFriendCode(): Promise<FriendCode> {
-    console.log('[friendsApi] getFriendCode: Starting');
+    console.log("[friendsApi] getFriendCode: Starting");
     try {
-      const result = await apiRequest<FriendCode>('/api/friends/code');
-      console.log('[friendsApi] getFriendCode: Success', { 
+      const result = await apiRequest<FriendCode>("/api/friends/code");
+      console.log("[friendsApi] getFriendCode: Success", {
         hasCode: !!result?.code,
-        hasInviteLink: !!result?.invite_link 
+        hasInviteLink: !!result?.invite_link,
       });
       return result;
     } catch (error) {
-      console.error('[friendsApi] getFriendCode: Error', error);
+      console.error("[friendsApi] getFriendCode: Error", error);
       throw error;
     }
   },
@@ -205,8 +230,8 @@ export const friendsApi = {
    * Add friend using their invite code
    */
   async addFriendByCode(code: string): Promise<{ message: string }> {
-    return apiRequest('/api/friends/add-by-code', {
-      method: 'POST',
+    return apiRequest("/api/friends/add-by-code", {
+      method: "POST",
       body: JSON.stringify({ code }),
     });
   },
@@ -215,14 +240,14 @@ export const friendsApi = {
    * Get list of friends
    */
   async getFriends(): Promise<{ friends: Friend[] }> {
-    return apiRequest('/api/friends');
+    return apiRequest("/api/friends");
   },
 
   /**
    * Get pending friend requests
    */
   async getFriendRequests(): Promise<{ requests: FriendRequest[] }> {
-    return apiRequest('/api/friends/requests');
+    return apiRequest("/api/friends/requests");
   },
 
   /**
@@ -230,7 +255,7 @@ export const friendsApi = {
    */
   async acceptFriendRequest(requestId: number): Promise<{ message: string }> {
     return apiRequest(`/api/friends/requests/${requestId}/accept`, {
-      method: 'POST',
+      method: "POST",
     });
   },
 
@@ -239,7 +264,7 @@ export const friendsApi = {
    */
   async declineFriendRequest(requestId: number): Promise<{ message: string }> {
     return apiRequest(`/api/friends/requests/${requestId}/decline`, {
-      method: 'POST',
+      method: "POST",
     });
   },
 };
@@ -253,7 +278,7 @@ export interface Duel {
   player1_id: string;
   player2_id: string;
   exercise_id: number;
-  status: 'waiting' | 'active' | 'finished';
+  status: "waiting" | "active" | "finished";
   player1_score: number;
   player2_score: number;
   player1_time: number | null;
@@ -280,9 +305,12 @@ export const duelsApi = {
   /**
    * Create a new duel
    */
-  async createDuel(friendId: string, exerciseId?: number): Promise<{ message: string; duel_id: number; duel: Duel }> {
-    return apiRequest('/api/duels/create', {
-      method: 'POST',
+  async createDuel(
+    friendId: string,
+    exerciseId?: number,
+  ): Promise<{ message: string; duel_id: number; duel: Duel }> {
+    return apiRequest("/api/duels/create", {
+      method: "POST",
       body: JSON.stringify({ friend_id: friendId, exercise_id: exerciseId }),
     });
   },
@@ -292,7 +320,7 @@ export const duelsApi = {
    */
   async acceptDuel(duelId: number): Promise<{ message: string; duel: Duel }> {
     return apiRequest(`/api/duels/${duelId}/accept`, {
-      method: 'POST',
+      method: "POST",
     });
   },
 
@@ -301,7 +329,7 @@ export const duelsApi = {
    */
   async declineDuel(duelId: number): Promise<{ message: string }> {
     return apiRequest(`/api/duels/${duelId}/decline`, {
-      method: 'POST',
+      method: "POST",
     });
   },
 
@@ -309,14 +337,14 @@ export const duelsApi = {
    * Get pending duels (waiting for acceptance)
    */
   async getPendingDuels(): Promise<{ duels: DuelRequest[] }> {
-    return apiRequest('/api/duels/pending');
+    return apiRequest("/api/duels/pending");
   },
 
   /**
    * Get active duels
    */
   async getActiveDuels(): Promise<{ duels: Duel[] }> {
-    return apiRequest('/api/duels/active');
+    return apiRequest("/api/duels/active");
   },
 
   /**
@@ -334,10 +362,15 @@ export const duelsApi = {
     elementId: number,
     answer: string,
     isCorrect: boolean,
-    timeSpent: number
-  ): Promise<{ message: string; correct: boolean; new_score?: number; duel?: Duel }> {
+    timeSpent: number,
+  ): Promise<{
+    message: string;
+    correct: boolean;
+    new_score?: number;
+    duel?: Duel;
+  }> {
     return apiRequest(`/api/duels/${duelId}/submit`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({
         duel_id: duelId,
         element_id: elementId,

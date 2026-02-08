@@ -4,9 +4,9 @@ import { Home, Trophy, User } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { Footer } from "./Footer";
 import { Logo } from "./Logo";
 import { SidebarIcon } from "./SidebarIcon";
-import { Footer } from "./Footer"; 
 
 interface LayoutProps {
   children: ReactNode;
@@ -63,7 +63,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
 
       {/* Espaceur : Uniquement sur Desktop pour pousser les réglages en bas */}
       {!isMobile && <div className="flex-1" />}
-      
+
       {/* NOUVEAU : Icône Compte -> Uniquement sur Mobile */}
       {isMobile && (
         <SidebarIcon
@@ -73,14 +73,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         />
       )}
 
-
       <SidebarIcon
         emoji="⚙️"
         active={isSettings}
         onClick={() => router.push("/parametres")}
       />
-
-      
     </>
   );
 
@@ -96,7 +93,6 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
 
           {/* Main Content Wrapper (décalé de la largeur de la sidebar) */}
           <div className="flex-1 flex flex-col ml-24">
-            
             {/* Header - Masqué en mode plein écran */}
             {!isFullScreen && (
               <div className="p-8 flex items-center justify-between">
@@ -153,9 +149,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
             )}
 
             {/* Zone centrale (Children) */}
-            <main className="flex-1 w-full relative">
-              {children}
-            </main>
+            <main className="flex-1 w-full relative">{children}</main>
 
             {/* Footer Desktop */}
             {!isFullScreen && <Footer />}
@@ -176,11 +170,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
           )}
 
           {/* Central Area + Footer */}
-          <div className={`flex-1 flex flex-col ${!isFullScreen ? "pb-24" : ""}`}>
-            <main className="flex-1">
-                {children}
-            </main>
-            
+          <div
+            className={`flex-1 flex flex-col ${!isFullScreen ? "pb-24" : ""}`}
+          >
+            <main className="flex-1">{children}</main>
+
             {/* Footer Mobile */}
             {!isFullScreen && <Footer />}
           </div>

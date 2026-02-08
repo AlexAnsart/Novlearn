@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Layout } from '../components/Layout';
-import { MonthlyLeaderboard } from '../components/MonthlyLeaderboard';
-import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { Layout } from "../components/Layout";
+import { MonthlyLeaderboard } from "../components/MonthlyLeaderboard";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function ClassementPage() {
   const router = useRouter();
@@ -12,7 +12,7 @@ export default function ClassementPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/auth/login');
+      router.push("/auth/login");
     }
   }, [user, loading, router]);
 
@@ -32,7 +32,7 @@ export default function ClassementPage() {
         <div className="max-w-2xl mx-auto">
           {/* Titre de la page */}
           <div className="mb-6">
-            <h1 
+            <h1
               className="text-3xl text-white mb-2"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
             >
@@ -48,7 +48,9 @@ export default function ClassementPage() {
 
           {/* Info */}
           <div className="mt-6 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
-            <h3 className="text-white font-medium mb-2">Comment gagner des points ?</h3>
+            <h3 className="text-white font-medium mb-2">
+              Comment gagner des points ?
+            </h3>
             <ul className="text-slate-400 text-sm space-y-1">
               <li>• Chaque exercice réussi vous rapporte des points</li>
               <li>• Le classement est réinitialisé au début de chaque mois</li>

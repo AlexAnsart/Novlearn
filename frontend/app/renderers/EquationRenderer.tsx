@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { EquationContent, RendererProps } from '../types/exercise';
-import { MathText } from '../components/ui';
-import { substituteVariables } from '../utils/math/parsing';
-import { checkAnswer } from '../utils/math/evaluation';
+import React, { useCallback, useEffect, useState } from "react";
+import { MathText } from "../components/ui";
+import { EquationContent, RendererProps } from "../types/exercise";
+import { checkAnswer } from "../utils/math/evaluation";
+import { substituteVariables } from "../utils/math/parsing";
 
 interface EquationRendererProps extends RendererProps<EquationContent> {
   onSubmit?: (answer: string, isCorrect: boolean) => void;
@@ -15,45 +15,53 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
   variables,
   onSubmit,
 }) => {
-  const [answer, setAnswer] = useState('');
+  const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<{
-    type: 'success' | 'error' | 'warning' | 'info';
+    type: "success" | "error" | "warning" | "info";
     message: string;
   } | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
-    setAnswer('');
+    setAnswer("");
     setFeedback(null);
     setIsSubmitted(false);
   }, [variables]);
 
   const handleSubmit = useCallback(() => {
     if (!answer.trim()) {
-      setFeedback({ type: 'warning', message: 'Veuillez entrer une réponse.' });
+      setFeedback({ type: "warning", message: "Veuillez entrer une réponse." });
       return;
     }
 
     if (content.requireAnswer && content.correctAnswer) {
       // 1. Calculer la réponse attendue en substituant les variables
-      const expectedAnswer = substituteVariables(content.correctAnswer, variables);
-      
+      const expectedAnswer = substituteVariables(
+        content.correctAnswer,
+        variables,
+      );
+
       // 2. Vérification (Numeric ou Textuelle)
       // Note: Pour les équations complexes (ensembles {x,y}), checkAnswer gère le basique.
       // Si vous avez besoin de vérifier des ensembles, la logique précédente peut être réintégrée dans checkAnswer.
       // Ici on utilise une comparaison souple.
-      const isCorrect = checkAnswer(answer, expectedAnswer, variables, content.answerType === 'numeric' ? 'number' : 'text');
+      const isCorrect = checkAnswer(
+        answer,
+        expectedAnswer,
+        variables,
+        content.answerType === "numeric" ? "number" : "text",
+      );
 
       setFeedback({
-        type: isCorrect ? 'success' : 'error',
+        type: isCorrect ? "success" : "error",
         message: isCorrect
-          ? '✓ Bravo ! Bonne réponse !'
+          ? "✓ Bravo ! Bonne réponse !"
           : `✗ Incorrect. La réponse était : ${expectedAnswer}`,
       });
       setIsSubmitted(true);
       onSubmit?.(answer, isCorrect);
     } else {
-      setFeedback({ type: 'info', message: 'Réponse enregistrée.' });
+      setFeedback({ type: "info", message: "Réponse enregistrée." });
       onSubmit?.(answer, true);
     }
   }, [answer, content, variables, onSubmit]);
@@ -76,12 +84,16 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
               type="text"
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !isSubmitted && handleSubmit()}
+              onKeyDown={(e) =>
+                e.key === "Enter" && !isSubmitted && handleSubmit()
+              }
               disabled={isSubmitted}
               className="flex-1 min-w-[200px] px-4 py-3 rounded-xl border-2 border-gray-200 
                          focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200
                          disabled:opacity-50 transition-all"
-              placeholder={content.answerType === 'set' ? 'Ex: {1; 2}' : 'Votre réponse...'}
+              placeholder={
+                content.answerType === "set" ? "Ex: {1; 2}" : "Votre réponse..."
+              }
             />
             <button
               onClick={handleSubmit}
@@ -93,11 +105,15 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
           </div>
 
           {feedback && (
-            <div className={`mt-4 p-4 rounded-xl border ${
-              feedback.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
-              feedback.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
-              'bg-blue-50 border-blue-200 text-blue-800'
-            }`}>
+            <div
+              className={`mt-4 p-4 rounded-xl border ${
+                feedback.type === "success"
+                  ? "bg-green-50 border-green-200 text-green-800"
+                  : feedback.type === "error"
+                    ? "bg-red-50 border-red-200 text-red-800"
+                    : "bg-blue-50 border-blue-200 text-blue-800"
+              }`}
+            >
               {feedback.message}
             </div>
           )}

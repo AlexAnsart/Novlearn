@@ -1,13 +1,17 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Variable, VariableValues } from '../types/exercise';
-import { generateVariables, toNumericVariables, getNumericValue } from '../utils/variableGenerator';
+import { useCallback, useMemo, useState } from "react";
+import { Variable, VariableValues } from "../types/exercise";
+import {
+  generateVariables,
+  getNumericValue,
+  toNumericVariables,
+} from "../utils/variableGenerator";
 
 /**
  * Hook pour gérer les variables d'un exercice
  */
 export function useVariables(variables: Variable[]) {
   const [values, setValues] = useState<VariableValues>(() =>
-    generateVariables(variables)
+    generateVariables(variables),
   );
 
   // Régénère toutes les variables
@@ -20,30 +24,27 @@ export function useVariables(variables: Variable[]) {
     (name: string): number | string | undefined => {
       return values[name];
     },
-    [values]
+    [values],
   );
 
   // Récupère uniquement les valeurs numériques
-  const numericValues = useMemo(() => 
-    toNumericVariables(values),
-    [values]
-  );
+  const numericValues = useMemo(() => toNumericVariables(values), [values]);
 
   // Récupère une valeur numérique (avec fallback)
   const getNumeric = useCallback(
     (name: string, fallback: number = 0): number => {
       return getNumericValue(values, name, fallback);
     },
-    [values]
+    [values],
   );
 
   // Récupère une valeur string
   const getString = useCallback(
-    (name: string, fallback: string = ''): string => {
+    (name: string, fallback: string = ""): string => {
       const val = values[name];
       return val !== undefined ? String(val) : fallback;
     },
-    [values]
+    [values],
   );
 
   return {

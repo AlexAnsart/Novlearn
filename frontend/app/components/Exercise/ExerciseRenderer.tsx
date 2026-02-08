@@ -10,18 +10,18 @@ import TextRenderer from "../../renderers/TextRenderer";
 import VariationTableRenderer from "../../renderers/VariationTableRenderer";
 
 import {
+  EquationContent,
   Exercise,
   ExerciseElement,
-  VariableValues,
+  FunctionContent,
+  GraphContent,
+  MCQContent,
+  QuestionContent,
+  SignTableContent,
   // Types spécifiques
   TextContent,
-  FunctionContent,
-  EquationContent,
+  VariableValues,
   VariationTableContent,
-  SignTableContent,
-  GraphContent,
-  QuestionContent,
-  MCQContent
 } from "../../types/exercise";
 
 interface ExerciseRendererProps {
@@ -29,7 +29,7 @@ interface ExerciseRendererProps {
   onElementSubmit?: (
     elementId: number,
     answer: unknown,
-    isCorrect: boolean
+    isCorrect: boolean,
   ) => void;
   preGeneratedVariables?: VariableValues;
 }
@@ -120,7 +120,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
     default:
       return (
         <div className="p-4 border border-dashed border-red-200 bg-red-50 text-red-600 rounded">
-           Type non supporté : {(element as any).type}
+          Type non supporté : {(element as any).type}
         </div>
       );
   }
@@ -137,8 +137,8 @@ export const ExerciseRenderer: React.FC<ExerciseRendererProps> = ({
   // Si les variables ne sont pas fournies, on pourrait les générer ici,
   // mais idéalement elles viennent du ExerciseLoader via preGeneratedVariables.
   const variables = useMemo(
-    () => preGeneratedVariables || {}, 
-    [preGeneratedVariables]
+    () => preGeneratedVariables || {},
+    [preGeneratedVariables],
   );
 
   return (

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Layout } from '../components/Layout';
-import { ProgressPage } from '../components/ProgressPage';
+import { Layout } from "../components/Layout";
+import { ProgressPage } from "../components/ProgressPage";
 
 export default function ProgressionPage() {
   return (
@@ -10,4 +10,3 @@ export default function ProgressionPage() {
     </Layout>
   );
 }
-

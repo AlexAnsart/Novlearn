@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
+import { ArrowLeft, Hash, Search, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
-import { Search, Hash, Users, UserPlus, ArrowLeft } from "lucide-react";
 
 interface ClassData {
   id: string;
@@ -33,9 +33,16 @@ export function ClassesPage() {
       id: "1",
       name: "Les Mathématiciens",
       code: "#AB12CD34",
-      description: "Groupe d'entraide pour réviser les mathématiques du bac. Objectif: excellence !",
+      description:
+        "Groupe d'entraide pour réviser les mathématiques du bac. Objectif: excellence !",
       emblem: "🦁",
-      members: ["GOTAGA", "MathPro2024", "Einstein42", "CalculGenius", "IntegralMaster"],
+      members: [
+        "GOTAGA",
+        "MathPro2024",
+        "Einstein42",
+        "CalculGenius",
+        "IntegralMaster",
+      ],
     },
   ]);
 
@@ -44,15 +51,23 @@ export function ClassesPage() {
       id: "1",
       name: "Les Mathématiciens",
       code: "#AB12CD34",
-      description: "Groupe d'entraide pour réviser les mathématiques du bac. Objectif: excellence !",
+      description:
+        "Groupe d'entraide pour réviser les mathématiques du bac. Objectif: excellence !",
       emblem: "🦁",
-      members: ["GOTAGA", "MathPro2024", "Einstein42", "CalculGenius", "IntegralMaster"],
+      members: [
+        "GOTAGA",
+        "MathPro2024",
+        "Einstein42",
+        "CalculGenius",
+        "IntegralMaster",
+      ],
     },
     {
       id: "2",
       name: "Terminale S Elite",
       code: "#XY56ZW78",
-      description: "Les meilleurs élèves de terminale S se regroupent ici pour viser 20/20",
+      description:
+        "Les meilleurs élèves de terminale S se regroupent ici pour viser 20/20",
       emblem: "🎓",
       members: ["ProMaths", "ScienceKing", "FormulaQueen"],
     },
@@ -68,7 +83,8 @@ export function ClassesPage() {
       id: "4",
       name: "Les Dérivés",
       code: "#AS34DF56",
-      description: "Spécialisés dans les dérivées et les fonctions exponentielles",
+      description:
+        "Spécialisés dans les dérivées et les fonctions exponentielles",
       emblem: "📈",
       members: ["DeriveMaster", "FunctionPro"],
     },
@@ -109,7 +125,7 @@ export function ClassesPage() {
   const [viewMode, setViewMode] = useState<"main" | "friends">("main");
 
   const filteredClasses = allClasses.filter((cls) =>
-    cls.name.toLowerCase().includes(searchQuery.toLowerCase())
+    cls.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const searchByCode = () => {
@@ -197,14 +213,20 @@ export function ClassesPage() {
                 <div className="flex items-center gap-3 mb-2">
                   <span
                     className="text-blue-200"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 600,
+                    }}
                   >
                     Membre depuis
                   </span>
                 </div>
                 <p
                   className="text-white"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 500,
+                  }}
                 >
                   {selectedFriend.memberSince}
                 </p>
@@ -214,14 +236,21 @@ export function ClassesPage() {
                 <div className="flex items-center gap-3 mb-2">
                   <span
                     className="text-blue-200"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 600,
+                    }}
                   >
                     Exercices réalisés
                   </span>
                 </div>
                 <p
                   className="text-white"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 500,
+                    fontSize: "1.5rem",
+                  }}
                 >
                   {selectedFriend.exercisesCompleted}
                 </p>
@@ -231,14 +260,21 @@ export function ClassesPage() {
                 <div className="flex items-center gap-3 mb-2">
                   <span
                     className="text-blue-200"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 600,
+                    }}
                   >
                     Niveau
                   </span>
                 </div>
                 <p
                   className="text-white"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 500,
+                    fontSize: "1.5rem",
+                  }}
                 >
                   {selectedFriend.level}
                 </p>
@@ -277,7 +313,10 @@ export function ClassesPage() {
                 </div>
                 <h2
                   className="text-white text-3xl"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 700,
+                  }}
                 >
                   {selectedClass.name}
                 </h2>
@@ -285,13 +324,19 @@ export function ClassesPage() {
               <div className="text-right">
                 <p
                   className="text-blue-200 mb-1"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 500,
+                  }}
                 >
                   Code de classe:
                 </p>
                 <p
                   className="text-white text-2xl"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 700,
+                  }}
                 >
                   {selectedClass.code}
                 </p>
@@ -300,7 +345,11 @@ export function ClassesPage() {
 
             <p
               className="text-blue-100 mb-6"
-              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.125rem" }}
+              style={{
+                fontFamily: "'Fredoka', sans-serif",
+                fontWeight: 500,
+                fontSize: "1.125rem",
+              }}
             >
               {selectedClass.description}
             </p>
@@ -309,7 +358,11 @@ export function ClassesPage() {
               <button
                 onClick={() => handleJoinClass(selectedClass)}
                 className="mb-6 px-8 py-4 rounded-3xl bg-gradient-to-b from-green-500 to-green-700 text-white shadow-[0_8px_0_0_rgb(21,128,61),0_13px_20px_rgba(34,197,94,0.3)] transform transition-all duration-200 hover:scale-105 active:scale-95 active:shadow-[0_4px_0_0_rgb(21,128,61),0_6px_15px_rgba(34,197,94,0.3)] active:translate-y-1"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.125rem" }}
+                style={{
+                  fontFamily: "'Fredoka', sans-serif",
+                  fontWeight: 700,
+                  fontSize: "1.125rem",
+                }}
               >
                 Rejoindre la classe
               </button>
@@ -332,7 +385,9 @@ export function ClassesPage() {
                       }
                     }}
                     className={`bg-slate-900/40 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between ${
-                      member !== "GOTAGA" ? "cursor-pointer hover:bg-slate-800/60" : ""
+                      member !== "GOTAGA"
+                        ? "cursor-pointer hover:bg-slate-800/60"
+                        : ""
                     } transition-all`}
                   >
                     <div className="flex items-center gap-3">
@@ -341,7 +396,10 @@ export function ClassesPage() {
                       </div>
                       <span
                         className="text-white"
-                        style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                        style={{
+                          fontFamily: "'Fredoka', sans-serif",
+                          fontWeight: 600,
+                        }}
                       >
                         {member} {member === "GOTAGA" && "(Vous)"}
                       </span>
@@ -405,7 +463,10 @@ export function ClassesPage() {
                       </div>
                       <span
                         className="text-white"
-                        style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                        style={{
+                          fontFamily: "'Fredoka', sans-serif",
+                          fontWeight: 600,
+                        }}
                       >
                         {request.from}
                       </span>
@@ -414,14 +475,20 @@ export function ClassesPage() {
                       <button
                         onClick={() => handleAcceptFriendRequest(request)}
                         className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white transition-all"
-                        style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                        style={{
+                          fontFamily: "'Fredoka', sans-serif",
+                          fontWeight: 600,
+                        }}
                       >
                         Accepter
                       </button>
                       <button
                         onClick={() => handleDeclineFriendRequest(request.id)}
                         className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all"
-                        style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                        style={{
+                          fontFamily: "'Fredoka', sans-serif",
+                          fontWeight: 600,
+                        }}
                       >
                         Refuser
                       </button>
@@ -452,13 +519,19 @@ export function ClassesPage() {
                   <div>
                     <p
                       className="text-white"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
                     >
                       {friend.name}
                     </p>
                     <p
                       className="text-blue-200 text-sm"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 400,
+                      }}
                     >
                       {friend.exercisesCompleted} exercices
                     </p>
@@ -499,7 +572,10 @@ export function ClassesPage() {
               <div className="bg-slate-700/50 rounded-2xl p-8 text-center">
                 <p
                   className="text-gray-400 text-xl"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 600,
+                  }}
                 >
                   Aucune classe rejointe 😵‍💫
                 </p>
@@ -517,13 +593,19 @@ export function ClassesPage() {
                   </div>
                   <h4
                     className="text-white text-2xl"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                    }}
                   >
                     {joinedClasses[0].name}
                   </h4>
                   <p
                     className="text-blue-200 mt-2"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                    }}
                   >
                     {joinedClasses[0].members.length} membres
                   </p>
@@ -545,13 +627,19 @@ export function ClassesPage() {
                     <div className="flex-1">
                       <p
                         className="text-white"
-                        style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                        style={{
+                          fontFamily: "'Fredoka', sans-serif",
+                          fontWeight: 700,
+                        }}
                       >
                         {cls.name}
                       </p>
                       <p
                         className="text-blue-200 text-sm"
-                        style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
+                        style={{
+                          fontFamily: "'Fredoka', sans-serif",
+                          fontWeight: 400,
+                        }}
                       >
                         {cls.members.length} membres
                       </p>
@@ -603,13 +691,19 @@ export function ClassesPage() {
                   <div className="flex-1">
                     <p
                       className="text-white"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
                     >
                       {cls.name}
                     </p>
                     <p
                       className="text-blue-200 text-sm"
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 400 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 400,
+                      }}
                     >
                       {cls.members.length} membres
                     </p>
@@ -640,14 +734,20 @@ export function ClassesPage() {
                     onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                     maxLength={8}
                     className="w-full bg-slate-900/60 text-white rounded-2xl pl-12 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                    }}
                   />
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={searchByCode}
                     className="flex-1 px-6 py-3 rounded-2xl bg-gradient-to-b from-green-500 to-green-700 text-white shadow-lg hover:scale-105 transition-all"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                    }}
                   >
                     Rechercher
                   </button>
@@ -657,7 +757,10 @@ export function ClassesPage() {
                       setCodeInput("");
                     }}
                     className="px-6 py-3 rounded-2xl bg-slate-700/50 hover:bg-slate-600/60 text-white transition-all"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                    }}
                   >
                     Annuler
                   </button>
@@ -670,4 +773,3 @@ export function ClassesPage() {
     </div>
   );
 }
-

@@ -1,19 +1,58 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect } from "react";
+import {
+  Award,
+  Loader2,
+  LogIn,
+  MessageSquare,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, ResponsiveContainer } from "recharts";
-import { X, MessageSquare, Award, TrendingUp, Loader2, LogIn } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from "recharts";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { CHAPTER_ORDER, COMPETENCES } from "../settings/competenceSettings";
 
 function getScoreColor(score: number) {
-  if (score >= 90) return { text: "text-green-400", bg: "bg-gradient-to-r from-green-500 to-green-400", stroke: "#22c55e" };
-  if (score >= 75) return { text: "text-blue-400", bg: "bg-gradient-to-r from-blue-500 to-blue-400", stroke: "#3b82f6" };
-  if (score >= 51) return { text: "text-yellow-400", bg: "bg-gradient-to-r from-yellow-500 to-yellow-400", stroke: "#eab308" };
-  if (score >= 31) return { text: "text-orange-400", bg: "bg-gradient-to-r from-orange-500 to-orange-400", stroke: "#f97316" };
-  return { text: "text-red-400", bg: "bg-gradient-to-r from-red-500 to-red-400", stroke: "#ef4444" };
+  if (score >= 90)
+    return {
+      text: "text-green-400",
+      bg: "bg-gradient-to-r from-green-500 to-green-400",
+      stroke: "#22c55e",
+    };
+  if (score >= 75)
+    return {
+      text: "text-blue-400",
+      bg: "bg-gradient-to-r from-blue-500 to-blue-400",
+      stroke: "#3b82f6",
+    };
+  if (score >= 51)
+    return {
+      text: "text-yellow-400",
+      bg: "bg-gradient-to-r from-yellow-500 to-yellow-400",
+      stroke: "#eab308",
+    };
+  if (score >= 31)
+    return {
+      text: "text-orange-400",
+      bg: "bg-gradient-to-r from-orange-500 to-orange-400",
+      stroke: "#f97316",
+    };
+  return {
+    text: "text-red-400",
+    bg: "bg-gradient-to-r from-red-500 to-red-400",
+    stroke: "#ef4444",
+  };
 }
 
 interface HistoryEntry {
@@ -43,7 +82,9 @@ function formatChartDate(iso: string): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-function buildHistory(attempts: { attempted_at: string; is_correct: boolean }[]): HistoryEntry[] {
+function buildHistory(
+  attempts: { attempted_at: string; is_correct: boolean }[],
+): HistoryEntry[] {
   if (attempts.length === 0) return [];
   const byDate = new Map<string, { correct: number; total: number }>();
   for (const a of attempts) {
@@ -62,7 +103,11 @@ function buildHistory(attempts: { attempted_at: string; is_correct: boolean }[])
     cumCorrect += correct;
     cumTotal += total;
     const score = cumTotal > 0 ? Math.round((cumCorrect / cumTotal) * 100) : 0;
-    history.push({ date: formatChartDate(date), score, exerciseNumber: cumTotal });
+    history.push({
+      date: formatChartDate(date),
+      score,
+      exerciseNumber: cumTotal,
+    });
   }
   return history;
 }
@@ -70,15 +115,30 @@ function buildHistory(attempts: { attempted_at: string; is_correct: boolean }[])
 export function ProgressPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(
+    null,
+  );
   const [data, setData] = useState<SubjectData[]>([]);
-  const [overview, setOverview] = useState<{ totalAnswers: number; correctAnswers: number; distinctExercises: number }>({ totalAnswers: 0, correctAnswers: 0, distinctExercises: 0 });
+  const [overview, setOverview] = useState<{
+    totalAnswers: number;
+    correctAnswers: number;
+    distinctExercises: number;
+  }>({ totalAnswers: 0, correctAnswers: 0, distinctExercises: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProgress = useCallback(async () => {
     if (!user) {
-      setData(CHAPTER_ORDER.map((s) => ({ subject: s, progress: 0, history: [], totalAnswers: 0, correctAnswers: 0, competences: [] })));
+      setData(
+        CHAPTER_ORDER.map((s) => ({
+          subject: s,
+          progress: 0,
+          history: [],
+          totalAnswers: 0,
+          correctAnswers: 0,
+          competences: [],
+        })),
+      );
       setOverview({ totalAnswers: 0, correctAnswers: 0, distinctExercises: 0 });
       setLoading(false);
       return;
@@ -90,19 +150,36 @@ export function ProgressPage() {
         { data: attemptsData, error: attemptsErr },
         { data: scoresData, error: scoresErr },
       ] = await Promise.all([
-        supabase.from("exercise_attempts").select("exercise_id, is_correct, attempted_at").eq("user_id", user.id),
-        supabase.from("user_competence_scores").select("competence_id, points").eq("user_id", user.id),
+        supabase
+          .from("exercise_attempts")
+          .select("exercise_id, is_correct, attempted_at")
+          .eq("user_id", user.id),
+        supabase
+          .from("user_competence_scores")
+          .select("competence_id, points")
+          .eq("user_id", user.id),
       ]);
 
       if (attemptsErr) {
-        console.warn("[ProgressPage] exercise_attempts query:", attemptsErr.message);
+        console.warn(
+          "[ProgressPage] exercise_attempts query:",
+          attemptsErr.message,
+        );
       }
       const attempts = attemptsData ?? [];
-      const exerciseIds = [...new Set(attempts.map((a) => a.exercise_id).filter(Boolean))] as number[];
+      const exerciseIds = [
+        ...new Set(attempts.map((a) => a.exercise_id).filter(Boolean)),
+      ] as number[];
       let exercisesMap: Record<number, string> = {};
       if (exerciseIds.length > 0) {
-        const { data: exData } = await supabase.from("exercises").select("id, chapter").in("id", exerciseIds);
-        if (exData) exercisesMap = Object.fromEntries(exData.map((e) => [e.id, e.chapter ?? ""]));
+        const { data: exData } = await supabase
+          .from("exercises")
+          .select("id, chapter")
+          .in("id", exerciseIds);
+        if (exData)
+          exercisesMap = Object.fromEntries(
+            exData.map((e) => [e.id, e.chapter ?? ""]),
+          );
       }
       const totalAnswers = attempts.length;
       const correctAnswers = attempts.filter((a) => a.is_correct).length;
@@ -111,21 +188,34 @@ export function ProgressPage() {
 
       const scoresByCompetence = new Map<string, number>();
       if (!scoresErr && scoresData) {
-        scoresData.forEach((r) => scoresByCompetence.set(r.competence_id, r.points));
+        scoresData.forEach((r) =>
+          scoresByCompetence.set(r.competence_id, r.points),
+        );
       }
 
-      const byChapter = new Map<string, { is_correct: boolean; attempted_at: string }[]>();
+      const byChapter = new Map<
+        string,
+        { is_correct: boolean; attempted_at: string }[]
+      >();
       for (const a of attempts) {
         const chapter = exercisesMap[a.exercise_id] ?? "Autre";
         if (!byChapter.has(chapter)) byChapter.set(chapter, []);
-        byChapter.get(chapter)!.push({ is_correct: a.is_correct, attempted_at: a.attempted_at });
+        byChapter
+          .get(chapter)!
+          .push({ is_correct: a.is_correct, attempted_at: a.attempted_at });
       }
 
       const chapterToCompetences = new Map<string, CompetenceScore[]>();
       for (const c of COMPETENCES) {
         const points = scoresByCompetence.get(c.id) ?? 0;
-        const comp: CompetenceScore = { id: c.id, name: c.name, points, max_points: c.max_points };
-        if (!chapterToCompetences.has(c.chapter)) chapterToCompetences.set(c.chapter, []);
+        const comp: CompetenceScore = {
+          id: c.id,
+          name: c.name,
+          points,
+          max_points: c.max_points,
+        };
+        if (!chapterToCompetences.has(c.chapter))
+          chapterToCompetences.set(c.chapter, []);
         chapterToCompetences.get(c.chapter)!.push(comp);
       }
 
@@ -135,11 +225,16 @@ export function ProgressPage() {
         const chapterAttempts = byChapter.get(subject) ?? [];
         const history = buildHistory(chapterAttempts);
         const totalAnswers = chapterAttempts.length;
-        const correctAnswers = chapterAttempts.filter((a) => a.is_correct).length;
+        const correctAnswers = chapterAttempts.filter(
+          (a) => a.is_correct,
+        ).length;
         const chapterScore =
           competences.length > 0
             ? Math.round(
-                (competences.reduce((sum, c) => sum + (c.points / c.max_points) * 100, 0) / competences.length)
+                competences.reduce(
+                  (sum, c) => sum + (c.points / c.max_points) * 100,
+                  0,
+                ) / competences.length,
               )
             : totalAnswers > 0
               ? Math.round((correctAnswers / totalAnswers) * 100)
@@ -157,7 +252,16 @@ export function ProgressPage() {
       setData(built);
     } catch (e) {
       console.error("[ProgressPage] fetchProgress:", e);
-      setData(CHAPTER_ORDER.map((s) => ({ subject: s, progress: 0, history: [], totalAnswers: 0, correctAnswers: 0, competences: [] })));
+      setData(
+        CHAPTER_ORDER.map((s) => ({
+          subject: s,
+          progress: 0,
+          history: [],
+          totalAnswers: 0,
+          correctAnswers: 0,
+          competences: [],
+        })),
+      );
       setOverview({ totalAnswers: 0, correctAnswers: 0, distinctExercises: 0 });
     } finally {
       setLoading(false);
@@ -220,7 +324,9 @@ export function ProgressPage() {
               className="text-blue-200 mt-2 drop-shadow-md"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
             >
-              {hasCompetences ? "Score par compétence (moyenne du chapitre)" : "Historique des tentatives"}
+              {hasCompetences
+                ? "Score par compétence (moyenne du chapitre)"
+                : "Historique des tentatives"}
             </p>
           </div>
 
@@ -231,11 +337,20 @@ export function ProgressPage() {
                 className="flex items-center gap-2 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl px-4 py-2 transition-all"
               >
                 <X className="w-5 h-5 text-white" />
-                <span className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
+                <span
+                  className="text-white"
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 600,
+                  }}
+                >
                   Retour
                 </span>
               </button>
-              <div className={`${color.text} text-xl`} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>
+              <div
+                className={`${color.text} text-xl`}
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+              >
                 Score chapitre : {selectedSubject.progress}/100
               </div>
             </div>
@@ -243,7 +358,10 @@ export function ProgressPage() {
             {hasCompetences ? (
               <div className="space-y-4">
                 {selectedSubject.competences.map((comp) => {
-                  const pct = comp.max_points > 0 ? Math.round((comp.points / comp.max_points) * 100) : 0;
+                  const pct =
+                    comp.max_points > 0
+                      ? Math.round((comp.points / comp.max_points) * 100)
+                      : 0;
                   const compColor = getScoreColor(pct);
                   return (
                     <div
@@ -251,10 +369,23 @@ export function ProgressPage() {
                       className="bg-slate-900/40 rounded-2xl p-4 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-blue-100" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
+                        <span
+                          className="text-blue-100"
+                          style={{
+                            fontFamily: "'Fredoka', sans-serif",
+                            fontWeight: 600,
+                          }}
+                        >
                           {comp.name}
                         </span>
-                        <span className={compColor.text} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.125rem" }}>
+                        <span
+                          className={compColor.text}
+                          style={{
+                            fontFamily: "'Fredoka', sans-serif",
+                            fontWeight: 700,
+                            fontSize: "1.125rem",
+                          }}
+                        >
                           {comp.points}/{comp.max_points}
                         </span>
                       </div>
@@ -271,16 +402,67 @@ export function ProgressPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Score (tentatives)</p>
-                  <p className={color.text} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.progress}</p>
+                  <p
+                    className="text-blue-200 mb-1"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Score (tentatives)
+                  </p>
+                  <p
+                    className={color.text}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "1.5rem",
+                    }}
+                  >
+                    {selectedSubject.progress}
+                  </p>
                 </div>
                 <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Réponses</p>
-                  <p className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.totalAnswers}</p>
+                  <p
+                    className="text-blue-200 mb-1"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Réponses
+                  </p>
+                  <p
+                    className="text-white"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "1.5rem",
+                    }}
+                  >
+                    {selectedSubject.totalAnswers}
+                  </p>
                 </div>
                 <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Bonnes réponses</p>
-                  <p className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.correctAnswers}</p>
+                  <p
+                    className="text-blue-200 mb-1"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Bonnes réponses
+                  </p>
+                  <p
+                    className="text-white"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "1.5rem",
+                    }}
+                  >
+                    {selectedSubject.correctAnswers}
+                  </p>
                 </div>
               </div>
             )}
@@ -295,7 +477,12 @@ export function ProgressPage() {
       <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-blue-400 animate-spin" />
-          <p className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Chargement de votre progression...</p>
+          <p
+            className="text-blue-200"
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+          >
+            Chargement de votre progression...
+          </p>
         </div>
       </div>
     );
@@ -314,8 +501,12 @@ export function ProgressPage() {
           >
             Connectez-vous pour voir votre progression
           </h2>
-          <p className="text-blue-200 mb-6" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
-            Vos réponses et votre taux de réussite seront enregistrés et affichés ici.
+          <p
+            className="text-blue-200 mb-6"
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+          >
+            Vos réponses et votre taux de réussite seront enregistrés et
+            affichés ici.
           </p>
           <button
             onClick={() => router.push("/auth/login")}
@@ -330,7 +521,10 @@ export function ProgressPage() {
     );
   }
 
-  const correctRatePct = overview.totalAnswers > 0 ? Math.round((overview.correctAnswers / overview.totalAnswers) * 100) : 0;
+  const correctRatePct =
+    overview.totalAnswers > 0
+      ? Math.round((overview.correctAnswers / overview.totalAnswers) * 100)
+      : 0;
   const overviewColor = getScoreColor(correctRatePct);
 
   return (
@@ -353,7 +547,12 @@ export function ProgressPage() {
 
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 text-center">
-            <p className="text-red-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>{error}</p>
+            <p
+              className="text-red-200"
+              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+            >
+              {error}
+            </p>
           </div>
         )}
 
@@ -362,23 +561,53 @@ export function ProgressPage() {
           <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="flex items-center gap-2 mb-2">
               <MessageSquare className="w-5 h-5 text-blue-400" />
-              <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Réponses</span>
+              <span
+                className="text-blue-200"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+              >
+                Réponses
+              </span>
             </div>
-            <p className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{overview.totalAnswers}</p>
+            <p
+              className="text-white text-2xl"
+              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+            >
+              {overview.totalAnswers}
+            </p>
           </div>
           <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-5 h-5 text-green-400" />
-              <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Taux de réussite</span>
+              <span
+                className="text-blue-200"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+              >
+                Taux de réussite
+              </span>
             </div>
-            <p className={`text-2xl ${overviewColor.text}`} style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{correctRatePct}%</p>
+            <p
+              className={`text-2xl ${overviewColor.text}`}
+              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+            >
+              {correctRatePct}%
+            </p>
           </div>
           <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="flex items-center gap-2 mb-2">
               <Award className="w-5 h-5 text-yellow-400" />
-              <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>Exercices</span>
+              <span
+                className="text-blue-200"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+              >
+                Exercices
+              </span>
             </div>
-            <p className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{overview.distinctExercises}</p>
+            <p
+              className="text-white text-2xl"
+              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+            >
+              {overview.distinctExercises}
+            </p>
           </div>
         </div>
 
@@ -391,9 +620,24 @@ export function ProgressPage() {
                   {data.map((item, index) => {
                     const color = getScoreColor(item.progress);
                     return (
-                      <linearGradient key={index} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color.stroke} stopOpacity={0.8} />
-                        <stop offset="100%" stopColor={color.stroke} stopOpacity={0.3} />
+                      <linearGradient
+                        key={index}
+                        id={`gradient-${index}`}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor={color.stroke}
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={color.stroke}
+                          stopOpacity={0.3}
+                        />
                       </linearGradient>
                     );
                   })}
@@ -433,8 +677,12 @@ export function ProgressPage() {
                   fill="url(#gradient-0)"
                   fillOpacity={0.5}
                   dot={(props: any) => {
-                    const item = data.find((d) => d.subject === props.payload.subject);
-                    const color = item ? getScoreColor(item.progress) : { stroke: "#3b82f6" };
+                    const item = data.find(
+                      (d) => d.subject === props.payload.subject,
+                    );
+                    const color = item
+                      ? getScoreColor(item.progress)
+                      : { stroke: "#3b82f6" };
                     return (
                       <circle
                         cx={props.cx}
@@ -507,4 +755,3 @@ export function ProgressPage() {
     </div>
   );
 }
-

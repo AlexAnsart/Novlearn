@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
-import { LoginForm } from '@/app/components/LoginForm'; 
+import { LoginForm } from "@/app/components/LoginForm";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Connexion | NovLearn',
-  description: 'Connectez-vous pour accéder à vos exercices et suivre votre progression.',
+  title: "Connexion | NovLearn",
+  description:
+    "Connectez-vous pour accéder à vos exercices et suivre votre progression.",
 };
 
 export default function LoginPage() {

@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef } from 'react';
-import { VariableValues } from '../../types/exercise';
+import React, { useEffect, useRef } from "react";
+import { VariableValues } from "../../types/exercise";
 // On pointe vers votre nouveau dossier utils/math créé précédemment
-import { substituteVariables } from '../../utils/math/parsing'; 
-import { getKaTeX } from './katexUtils';
+import { substituteVariables } from "../../utils/math/parsing";
+import { getKaTeX } from "./katexUtils";
 
 interface LatexProps {
   /** Expression LaTeX */
@@ -21,7 +21,7 @@ const Latex: React.FC<LatexProps> = ({
   children,
   variables = {},
   display = false,
-  className = '',
+  className = "",
 }) => {
   const ref = useRef<HTMLSpanElement>(null);
   const substituted = substituteVariables(children, variables);

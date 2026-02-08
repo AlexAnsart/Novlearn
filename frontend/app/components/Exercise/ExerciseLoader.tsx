@@ -1,19 +1,25 @@
-import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
+import { supabase } from "../../lib/supabase";
+import { getCompetenceById } from "../../settings/competenceSettings";
 import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
-import ExerciseRenderer from "./ExerciseRenderer";
-import { supabase } from "../../lib/supabase";
-import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
-import { getCompetenceById } from "../../settings/competenceSettings";
-import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
 import { FeedbackModal } from "../ui/FeedbackModal";
+import ExerciseRenderer from "./ExerciseRenderer";
 
 async function updateCompetenceScore(
   userId: string,
   competenceId: string,
   difficulty: string,
-  isCorrect: boolean
+  isCorrect: boolean,
 ): Promise<void> {
   try {
     const competenceConfig = getCompetenceById(competenceId);
@@ -30,7 +36,12 @@ async function updateCompetenceScore(
 
     const newStreak = isCorrect ? currentStreak + 1 : 0;
     const newPoints = isCorrect
-      ? computeNewScore(currentPoints, maxPoints, difficultyToLevel(difficulty), currentStreak)
+      ? computeNewScore(
+          currentPoints,
+          maxPoints,
+          difficultyToLevel(difficulty),
+          currentStreak,
+        )
       : currentPoints;
 
     await supabase.from("user_competence_scores").upsert(
@@ -41,7 +52,7 @@ async function updateCompetenceScore(
         streak: newStreak,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id,competence_id" }
+      { onConflict: "user_id,competence_id" },
     );
   } catch (e) {
     console.error("[ExerciseLoader] updateCompetenceScore:", e);
@@ -51,7 +62,11 @@ async function updateCompetenceScore(
 interface ExerciseLoaderProps {
   exerciseId?: string;
   onLoad?: (exercise: Exercise) => void;
-  onElementSubmit?: (elementId: number, answer: unknown, isCorrect: boolean) => void;
+  onElementSubmit?: (
+    elementId: number,
+    answer: unknown,
+    isCorrect: boolean,
+  ) => void;
   onError?: (error: Error) => void;
 }
 
@@ -67,31 +82,42 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   // États de données
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [variables, setVariables] = useState<VariableValues>({});
-  
+
   // États de cycle de vie
   const [loading, setLoading] = useState(true);
   const [isTakingLong, setIsTakingLong] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0); 
-  
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // États de progression
-  const [completedElements, setCompletedElements] = useState<Set<number>>(new Set());
+  const [completedElements, setCompletedElements] = useState<Set<number>>(
+    new Set(),
+  );
   const [isExerciseFinished, setIsExerciseFinished] = useState(false);
-  const [hasErrors, setHasErrors] = useState(false); 
+  const [hasErrors, setHasErrors] = useState(false);
 
   // État de la modale de feedback
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [pendingNextAction, setPendingNextAction] = useState<
+    (() => void) | null
+  >(null);
+  const [isFeedbackDifficultyOnly, setIsFeedbackDifficultyOnly] =
+    useState(false);
+
   // Feedback d'enregistrement de la tentative (pour debug / UX)
-  const [lastSaveStatus, setLastSaveStatus] = useState<"idle" | "saved" | "no_session" | "error">("idle");
+  const [lastSaveStatus, setLastSaveStatus] = useState<
+    "idle" | "saved" | "no_session" | "error"
+  >("idle");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalQuestions = useMemo(() => {
     if (!exercise) return 0;
-    return exercise.elements.filter(el => 
-      ['question', 'mcq', 'equation'].includes(el.type) && 
-      (el.type !== 'equation' || (el.content as any).requireAnswer)
+    return exercise.elements.filter(
+      (el) =>
+        ["question", "mcq", "equation"].includes(el.type) &&
+        (el.type !== "equation" || (el.content as any).requireAnswer),
     ).length;
   }, [exercise]);
 
@@ -112,7 +138,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       setIsExerciseFinished(false);
       setCompletedElements(new Set());
       setHasErrors(false);
-      setLastSaveStatus("idle"); 
+      setLastSaveStatus("idle");
 
       slowTimerRef.current = setTimeout(() => {
         if (!abortController.signal.aborted) setIsTakingLong(true);
@@ -137,7 +163,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
           if (countError) throw countError;
           const total = count || 0;
-          
+
           if (total > 0) {
             const randomOffset = Math.floor(Math.random() * total);
             const result = await supabase
@@ -173,7 +199,6 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         setExercise(fullExercise);
         setVariables(generateVariables(fullExercise.variables));
         if (onLoad) onLoad(fullExercise);
-
       } catch (err) {
         if (abortController.signal.aborted) return;
         console.error("[ExerciseLoader] Erreur:", err);
@@ -201,67 +226,108 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   // GESTIONNAIRES D'INTERACTION
   // =========================================================
 
-  const handleElementSubmit = useCallback(async (elementId: number, answer: unknown, isCorrect: boolean) => {
-    if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
-    setLastSaveStatus("idle");
+  const handleElementSubmit = useCallback(
+    async (elementId: number, answer: unknown, isCorrect: boolean) => {
+      if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
+      setLastSaveStatus("idle");
 
-    // Validated user (server check) so insert is accepted by RLS
-    const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-    if (userError) {
-      console.error("[ExerciseLoader] getUser failed:", userError.message);
-      setLastSaveStatus("error");
-    }
-    if (!currentUser || !exercise) {
-      if (!currentUser) {
-        console.warn("[ExerciseLoader] No user: connect to save attempts in Ma progression.");
-        setLastSaveStatus("no_session");
+      const {
+        data: { user: currentUser },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) {
+        console.error("[ExerciseLoader] getUser failed:", userError.message);
+        setLastSaveStatus("error");
       }
-      setCompletedElements(prev => {
-        const next = new Set(prev).add(elementId);
-        if (exercise && next.size >= totalQuestions && totalQuestions > 0) setIsExerciseFinished(true);
-        return next;
-      });
-      if (!isCorrect) setHasErrors(true);
-      return;
-    }
+      if (!currentUser || !exercise) {
+        if (!currentUser) {
+          console.warn(
+            "[ExerciseLoader] No user: connect to save attempts in Ma progression.",
+          );
+          setLastSaveStatus("no_session");
+        }
+        setCompletedElements((prev) => {
+          const next = new Set(prev).add(elementId);
+          if (exercise && next.size >= totalQuestions && totalQuestions > 0)
+            setIsExerciseFinished(true);
+          return next;
+        });
+        if (!isCorrect) setHasErrors(true);
+        return;
+      }
 
-    const exerciseIdNum = Number(exercise.id);
-    if (Number.isNaN(exerciseIdNum)) {
-      console.error("[ExerciseLoader] Invalid exercise.id:", exercise.id);
-      setLastSaveStatus("error");
-    } else {
-      const { error } = await supabase.from("exercise_attempts").insert({
-        user_id: currentUser.id,
-        exercise_id: exerciseIdNum,
-        is_correct: isCorrect,
-        time_spent: null,
-      });
-      if (error) {
-        console.error("[ExerciseLoader] exercise_attempts insert failed:", error.message, error.code);
+      const exerciseIdNum = Number(exercise.id);
+      if (Number.isNaN(exerciseIdNum)) {
+        console.error("[ExerciseLoader] Invalid exercise.id:", exercise.id);
         setLastSaveStatus("error");
       } else {
-        setLastSaveStatus("saved");
+        const { error } = await supabase.from("exercise_attempts").insert({
+          user_id: currentUser.id,
+          exercise_id: exerciseIdNum,
+          is_correct: isCorrect,
+          time_spent: null,
+        });
+        if (error) {
+          console.error(
+            "[ExerciseLoader] exercise_attempts insert failed:",
+            error.message,
+            error.code,
+          );
+          setLastSaveStatus("error");
+        } else {
+          setLastSaveStatus("saved");
+        }
+        if (exercise.competence_id) {
+          updateCompetenceScore(
+            currentUser.id,
+            exercise.competence_id,
+            exercise.difficulty,
+            isCorrect,
+          );
+        }
       }
-      if (exercise.competence_id) {
-        updateCompetenceScore(currentUser.id, exercise.competence_id, exercise.difficulty, isCorrect);
-      }
-    }
 
-    if (!isCorrect) setHasErrors(true);
-    setCompletedElements(prev => {
-      const next = new Set(prev).add(elementId);
-      if (exercise && next.size >= totalQuestions && totalQuestions > 0) setIsExerciseFinished(true);
-      return next;
-    });
-  }, [exercise, totalQuestions, onElementSubmit]);
+      if (!isCorrect) setHasErrors(true);
+      setCompletedElements((prev) => {
+        const next = new Set(prev).add(elementId);
+        if (exercise && next.size >= totalQuestions && totalQuestions > 0)
+          setIsExerciseFinished(true);
+        return next;
+      });
+    },
+    [exercise, totalQuestions, onElementSubmit],
+  );
+
+  const proceedToNext = useCallback(() => {
+    if (exerciseId) {
+      router.push("/exercices");
+    } else {
+      setRefreshTrigger((prev) => prev + 1);
+    }
+    setPendingNextAction(null); // Nettoyage
+  }, [exerciseId, router]);
 
   const handleNextExercise = () => {
-    if (exerciseId) {
-      // Si on a un ID, retour à la liste
-      router.push('/exercices');
+    // Probabilité de 20%
+    const shouldAskFeedback = Math.random() < 0.15;
+
+    if (shouldAskFeedback) {
+      // On sauvegarde l'action "aller au suivant" pour plus tard
+      setPendingNextAction(() => proceedToNext);
+      // On active le mode restreint "Difficulté seule"
+      setIsFeedbackDifficultyOnly(true);
+      // On ouvre la modale
+      setIsFeedbackOpen(true);
     } else {
-      // Si aléatoire, on recharge juste
-      setRefreshTrigger(prev => prev + 1);
+      proceedToNext();
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsFeedbackOpen(false);
+
+    if (pendingNextAction) {
+      pendingNextAction();
     }
   };
 
@@ -291,8 +357,8 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         </div>
         <h3 className="text-red-800 font-bold mb-2">Oups !</h3>
         <p className="text-red-600 mb-4">{error}</p>
-        <button 
-          onClick={() => setRefreshTrigger(p => p + 1)}
+        <button
+          onClick={() => setRefreshTrigger((p) => p + 1)}
           className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50"
         >
           Réessayer
@@ -305,39 +371,48 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      
-      {/* 1. COMPOSANT MODALE (AJOUTÉ) */}
-      <FeedbackModal 
+      {/* 1. COMPOSANT MODALE : On passe la prop onlyDifficulty */}
+      <FeedbackModal
         isOpen={isFeedbackOpen}
-        onClose={() => setIsFeedbackOpen(false)}
+        onClose={handleModalClose}
         exerciseId={exercise.id}
         exerciseTitle={exercise.title}
+        onlyDifficulty={isFeedbackDifficultyOnly}
       />
 
       {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-1">{exercise.title}</h2>
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">
+            {exercise.title}
+          </h2>
           <div className="flex gap-2 text-sm text-gray-500">
             {exercise.chapter && (
               <span className="bg-gray-100 px-2 py-0.5 rounded text-xs uppercase tracking-wide font-semibold">
                 {exercise.chapter}
               </span>
             )}
-            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${
-              exercise.difficulty === 'Difficile' ? 'bg-red-50 text-red-700' :
-              exercise.difficulty === 'Moyen' ? 'bg-yellow-50 text-yellow-700' :
-              'bg-green-50 text-green-700'
-            }`}>
+            <span
+              className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${
+                exercise.difficulty === "Difficile"
+                  ? "bg-red-50 text-red-700"
+                  : exercise.difficulty === "Moyen"
+                    ? "bg-yellow-50 text-yellow-700"
+                    : "bg-green-50 text-green-700"
+              }`}
+            >
               {exercise.difficulty}
             </span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          {/* 2. BOUTON SIGNALEMENT ERREUR (AJOUTÉ) */}
+          {/* Bouton Signalement manuel : DOIT OUVRIR LA MODALE COMPLÈTE */}
           <button
-            onClick={() => setIsFeedbackOpen(true)}
+            onClick={() => {
+              setIsFeedbackDifficultyOnly(false);
+              setIsFeedbackOpen(true);
+            }}
             title="Signaler une erreur"
             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
           >
@@ -346,14 +421,21 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
           {/* Badge de statut */}
           {isExerciseFinished && (
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border animate-in zoom-in
-              ${hasErrors 
-                ? 'text-orange-600 bg-orange-50 border-orange-100' // Terminé avec fautes
-                : 'text-green-600 bg-green-50 border-green-100'   // Perfect
-              }`}>
-              {hasErrors ? <Flag className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border animate-in zoom-in
+              ${
+                hasErrors
+                  ? "text-orange-600 bg-orange-50 border-orange-100" // Terminé avec fautes
+                  : "text-green-600 bg-green-50 border-green-100" // Perfect
+              }`}
+            >
+              {hasErrors ? (
+                <Flag className="w-5 h-5" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5" />
+              )}
               <span className="font-bold text-sm">
-                {hasErrors ? 'Exercice terminé' : 'Exercice validé !'}
+                {hasErrors ? "Exercice terminé" : "Exercice validé !"}
               </span>
             </div>
           )}
@@ -375,31 +457,34 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
               lastSaveStatus === "saved"
                 ? "text-green-600"
                 : lastSaveStatus === "no_session"
-                ? "text-amber-600"
-                : "text-red-600"
+                  ? "text-amber-600"
+                  : "text-red-600"
             }`}
           >
             {lastSaveStatus === "saved"
               ? "Tentative enregistrée dans Ma progression."
               : lastSaveStatus === "no_session"
-              ? "Connecte-toi pour enregistrer tes tentatives dans Ma progression."
-              : "Erreur d'enregistrement (voir la console)."}
+                ? "Connecte-toi pour enregistrer tes tentatives dans Ma progression."
+                : "Erreur d'enregistrement (voir la console)."}
           </p>
         )}
 
         {/* Zone de fin (Boutons Suivant et Feedback) */}
         {isExerciseFinished && (
           <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-6 border-slate-100">
-            
-            {/* 3. BOUTON DONNER AVIS (AJOUTÉ) */}
+            {/* Bouton manuel "Donner avis" : DOIT OUVRIR LA MODALE COMPLÈTE */}
             <button
-              onClick={() => setIsFeedbackOpen(true)}
+              onClick={() => {
+                setIsFeedbackDifficultyOnly(false);
+                setIsFeedbackOpen(true);
+              }}
               className="text-slate-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
               Donner mon avis sur cet exercice
             </button>
 
+            {/* Bouton SUIVANT avec logique aléatoire */}
             <button
               onClick={handleNextExercise}
               className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all"

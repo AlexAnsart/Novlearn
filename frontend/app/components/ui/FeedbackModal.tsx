@@ -9,14 +9,15 @@ import {
   Star,
   X,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
-  exerciseId?: number;
+  exerciseId?: number | string;
   exerciseTitle?: string;
+  onlyDifficulty?: boolean;
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({
@@ -24,30 +25,45 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   onClose,
   exerciseId,
   exerciseTitle,
+  onlyDifficulty = false, // Par défaut c'est faux (mode normal)
 }) => {
-  const [category, setCategory] = useState("content_error");
+  // On initialise la catégorie selon le mode
+  const [category, setCategory] = useState(
+    onlyDifficulty ? "difficulty" : "content_error",
+  );
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [difficultyRating, setDifficultyRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
 
+  // Reset quand la modale s'ouvre ou que le mode change
+  useEffect(() => {
+    if (isOpen) {
+      setCategory(onlyDifficulty ? "difficulty" : "content_error");
+      setMessage("");
+      setDifficultyRating(0);
+    }
+  }, [isOpen, onlyDifficulty]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    // Le message est optionnel en mode difficulté seule si on veut juste les étoiles ?
+    // Ici je le garde obligatoire (!message.trim()) mais vous pouvez l'enlever pour la difficulté.
+    if (!message.trim() && category !== "difficulty") return;
+    if (category === "difficulty" && difficultyRating === 0) return;
 
     setIsSubmitting(true);
 
     try {
-      // Récupération de l'utilisateur courant (si connecté)
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       const { error } = await supabase.from("feedbacks").insert({
-        exercise_id: exerciseId,
+        exercise_id: exerciseId ? Number(exerciseId) : null,
         user_id: user?.id,
         category,
         message,
@@ -61,7 +77,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         setIsSent(false);
         setMessage("");
         onClose();
-      }, 2000); // Fermeture auto après 2s
+      }, 2000);
     } catch (err) {
       console.error("Erreur feedback:", err);
       alert("Erreur lors de l'envoi du feedback.");
@@ -90,7 +106,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
-            <h3 className="text-lg font-bold text-slate-800">Un problème ?</h3>
+            <h3 className="text-lg font-bold text-slate-800">
+              {onlyDifficulty
+                ? "Comment avez-vous trouvé cet exercice ?"
+                : "Donnez nous votre avis !"}
+            </h3>
             {exerciseTitle && (
               <p className="text-xs text-slate-500 truncate max-w-[200px]">
                 Sur : {exerciseTitle}
@@ -107,73 +127,75 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Choix Catégorie */}
-          <div
-            className={`grid gap-2 ${exerciseId ? "grid-cols-4" : "grid-cols-2"}`}
-          >
-            {exerciseId && (
+          {/* 1. Choix Catégorie : CACHÉ si onlyDifficulty est true */}
+          {!onlyDifficulty && (
+            <div
+              className={`grid gap-2 ${exerciseId ? "grid-cols-4" : "grid-cols-2"}`}
+            >
+              {exerciseId && (
+                <button
+                  type="button"
+                  onClick={() => setCategory("content_error")}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
+                    ${
+                      category === "content_error"
+                        ? "bg-red-50 border-red-200 text-red-600"
+                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                    }`}
+                >
+                  <AlertTriangle className="w-5 h-5 mb-1" />
+                  Erreur
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setCategory("content_error")}
+                onClick={() => setCategory("suggestion")}
                 className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
                   ${
-                    category === "content_error"
-                      ? "bg-red-50 border-red-200 text-red-600"
+                    category === "suggestion"
+                      ? "bg-amber-50 border-amber-200 text-amber-600"
                       : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                   }`}
               >
-                <AlertTriangle className="w-5 h-5 mb-1" />
-                Erreur
+                <Lightbulb className="w-5 h-5 mb-1" />
+                Idée
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setCategory("suggestion")}
-              className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
-                ${
-                  category === "suggestion"
-                    ? "bg-amber-50 border-amber-200 text-amber-600"
-                    : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-            >
-              <Lightbulb className="w-5 h-5 mb-1" />
-              Idée
-            </button>
-            <button
-              type="button"
-              onClick={() => setCategory("other")}
-              className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
-                ${
-                  category === "other"
-                    ? "bg-blue-50 border-blue-200 text-blue-600"
-                    : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-            >
-              <Bug className="w-5 h-5 mb-1" />
-              Bug
-            </button>
-            {exerciseId && (
               <button
                 type="button"
-                onClick={() => setCategory("difficulty")}
+                onClick={() => setCategory("other")}
                 className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
                   ${
-                    category === "difficulty"
-                      ? "bg-purple-50 border-purple-200 text-purple-600"
+                    category === "other"
+                      ? "bg-blue-50 border-blue-200 text-blue-600"
                       : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                   }`}
               >
-                <Star className="w-5 h-5 mb-1" />
-                Difficulté
+                <Bug className="w-5 h-5 mb-1" />
+                Bug
               </button>
-            )}
-          </div>
+              {exerciseId && (
+                <button
+                  type="button"
+                  onClick={() => setCategory("difficulty")}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
+                    ${
+                      category === "difficulty"
+                        ? "bg-purple-50 border-purple-200 text-purple-600"
+                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                    }`}
+                >
+                  <Star className="w-5 h-5 mb-1" />
+                  Difficulté
+                </button>
+              )}
+            </div>
+          )}
 
-          {/* Sélecteur d'étoiles pour la difficulté */}
+          {/* 2. Sélecteur d'étoiles (S'affiche si category == difficulty) */}
           {category === "difficulty" && (
-            <div className="bg-purple-50/50 rounded-xl p-4 border border-purple-100">
+            <div className="bg-purple-50/50 rounded-xl p-4 border border-purple-100 animate-in slide-in-from-top-2">
               <p className="text-sm text-purple-700 font-medium mb-3 text-center">
-                Niveau de difficulté ressenti
+                Notez la difficulté
               </p>
               <div className="flex justify-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -183,7 +205,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                     onClick={() => setDifficultyRating(star)}
                     onMouseEnter={() => setHoverRating(star)}
                     onMouseLeave={() => setHoverRating(0)}
-                    className="p-1 transition-transform hover:scale-110"
+                    className="p-1 transition-transform hover:scale-110 focus:outline-none"
                   >
                     <Star
                       className={`w-8 h-8 transition-colors ${
@@ -196,24 +218,25 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                 ))}
               </div>
               <div className="flex justify-between text-xs text-purple-400 mt-2 px-2">
-                <span>Facile</span>
-                <span>Difficile</span>
+                <span>Très Facile</span>
+                <span>Impossible</span>
               </div>
             </div>
           )}
 
-          {/* Message */}
+          {/* 3. Message */}
           <div>
             <textarea
               className="w-full h-32 p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400"
               placeholder={
-                category === "content_error"
-                  ? "Ex: La réponse à la question 2 est fausse..."
+                category === "difficulty"
+                  ? "Un commentaire sur la difficulté ? (Optionnel)"
                   : "Dites-nous tout..."
               }
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              required
+              // Message obligatoire SAUF pour difficulté
+              required={category !== "difficulty"}
             />
           </div>
 
@@ -224,14 +247,14 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
             >
-              Annuler
+              Passer
             </button>
             <button
               type="submit"
               disabled={
                 isSubmitting ||
-                !message.trim() ||
-                (category === "difficulty" && difficultyRating === 0)
+                (category === "difficulty" && difficultyRating === 0) || // Doit noter étoiles
+                (category !== "difficulty" && !message.trim()) // Doit mettre message
               }
               className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >

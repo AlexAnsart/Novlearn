@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef } from 'react';
-import { VariableValues } from '../../types/exercise';
+import React, { useEffect, useRef } from "react";
+import { VariableValues } from "../../types/exercise";
 // Imports depuis vos nouveaux utilitaires math
-import { substituteVariables, parseMathText } from '../../utils/math/parsing';
-import { toLatex } from '../../utils/math/evaluation'; 
-import { getKaTeX } from './katexUtils';
+import { toLatex } from "../../utils/math/evaluation";
+import { parseMathText, substituteVariables } from "../../utils/math/parsing";
+import { getKaTeX } from "./katexUtils";
 
 interface MathTextProps {
   /** Le contenu à afficher (peut contenir $...$ pour les maths) */
@@ -23,7 +23,7 @@ interface MathTextProps {
 const MathText: React.FC<MathTextProps> = ({
   content,
   variables = {},
-  className = '',
+  className = "",
   displayMode = false,
   autoLatex = false,
 }) => {
@@ -37,7 +37,7 @@ const MathText: React.FC<MathTextProps> = ({
 
     const renderMath = () => {
       const katex = getKaTeX();
-      
+
       if (!katex) {
         // KaTeX pas encore chargé, réessayer
         setTimeout(renderMath, 100);
@@ -48,10 +48,12 @@ const MathText: React.FC<MathTextProps> = ({
       if (!container) return;
 
       // Si displayMode forcé et pas de délimiteurs, traiter tout comme du math
-      if (displayMode && !content.includes('$')) {
-        const latex = autoLatex ? toLatex(substitutedContent) : substitutedContent;
+      if (displayMode && !content.includes("$")) {
+        const latex = autoLatex
+          ? toLatex(substitutedContent)
+          : substitutedContent;
         try {
-          container.innerHTML = '';
+          container.innerHTML = "";
           katex.render(latex, container, {
             displayMode: true,
             throwOnError: false,
@@ -64,23 +66,26 @@ const MathText: React.FC<MathTextProps> = ({
 
       // Parser le texte pour trouver les segments math vs texte
       const segments = parseMathText(substitutedContent);
-      
-      container.innerHTML = '';
+
+      container.innerHTML = "";
 
       segments.forEach((segment) => {
-        if (segment.type === 'text') {
-          const textNode = document.createElement('span');
+        if (segment.type === "text") {
+          const textNode = document.createElement("span");
           textNode.textContent = segment.content;
           container.appendChild(textNode);
         } else {
-          const mathSpan = document.createElement('span');
+          const mathSpan = document.createElement("span");
           // Ajout de classes pour le ciblage CSS éventuel
-          mathSpan.className = segment.type === 'display-math' ? 'katex-display-block' : 'katex-inline';
-          
+          mathSpan.className =
+            segment.type === "display-math"
+              ? "katex-display-block"
+              : "katex-inline";
+
           const latex = autoLatex ? toLatex(segment.content) : segment.content;
           try {
             katex.render(latex, mathSpan, {
-              displayMode: segment.type === 'display-math',
+              displayMode: segment.type === "display-math",
               throwOnError: false,
             });
           } catch {
@@ -95,8 +100,8 @@ const MathText: React.FC<MathTextProps> = ({
   }, [substitutedContent, displayMode, autoLatex, content]);
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       className={`math-text ${className}`}
       style={{ fontFamily: "'Fredoka', sans-serif" }}
     />
