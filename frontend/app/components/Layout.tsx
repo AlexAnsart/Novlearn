@@ -41,12 +41,12 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const sidebarContent = (
     <>
       <SidebarIcon
-        emoji={<Home className="w-6 h-6" />}
+        emoji={"🏠"}
         active={isHome}
         onClick={() => router.push("/")}
       />
       <SidebarIcon
-        emoji="📊"
+        emoji="📈"
         active={isProgress}
         onClick={() => router.push("/progression")}
       />
@@ -56,7 +56,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         onClick={() => router.push("/entrainement")}
       />
       <SidebarIcon
-        emoji={<Trophy className="w-6 h-6" />}
+        emoji={"🏆"}
         active={isLeaderboard}
         onClick={() => router.push("/classement")}
       />
@@ -67,7 +67,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
       {/* NOUVEAU : Icône Compte -> Uniquement sur Mobile */}
       {isMobile && (
         <SidebarIcon
-          emoji={<User className="w-6 h-6" />} // Taille adaptée comme Home et Trophy
+          emoji={"👤"} 
           active={isAccount}
           onClick={() => router.push("/compte")}
         />

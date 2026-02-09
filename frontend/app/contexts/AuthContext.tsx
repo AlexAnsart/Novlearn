@@ -231,9 +231,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    // En production, toujours utiliser novlearn.fr pour éviter les redirections vers localhost
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://novlearn.fr";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${siteUrl}/auth/callback` },
     });
     if (error) console.error("Error signing in with Google:", error);
   };

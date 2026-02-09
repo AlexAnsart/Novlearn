@@ -1,6 +1,6 @@
 "use client";
 
-import { Feather, MessageSquare, Play } from "lucide-react";
+import { MessageSquare, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ActionButton } from "./components/ActionButton";
@@ -83,7 +83,7 @@ export default function Home() {
                   <div className="flex justify-center">
                     <div className="relative">
                       <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/40">
-                        <Feather className="w-10 h-10 text-white" />
+                        <span className="text-4xl">🧠</span>
                       </div>
                       <div className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 rounded-full animate-pulse" />
                     </div>
