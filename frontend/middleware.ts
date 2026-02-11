@@ -2,12 +2,6 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  // DEBUG: Log pour voir si le middleware intercepte bizarrement
-  const path = request.nextUrl.pathname;
-  if (path.startsWith('/auth/callback')) {
-    console.log('🛡️ [Middleware] Passing through /auth/callback');
-  }
-
   // 1. On prépare la réponse
   // (C'est nécessaire pour pouvoir y attacher les cookies Supabase)
   let response = NextResponse.next({
