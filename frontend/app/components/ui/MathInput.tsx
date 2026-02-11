@@ -32,6 +32,80 @@ export const MathInput: React.FC<MathInputProps> = ({
   className = "",
 }) => {
   const mfRef = useRef<any>(null);
+  const isKeyboardVisibleRef = useRef(false);
+
+  // Maintenir le focus lors de l'utilisation du clavier virtuel MathLive
+  useEffect(() => {
+    const mf = mfRef.current;
+    if (!mf) return;
+
+    // Écouter les changements de visibilité du clavier virtuel via l'API MathLive
+    const checkKeyboardVisibility = () => {
+      const keyboard = (window as any).mathVirtualKeyboard;
+      if (keyboard) {
+        isKeyboardVisibleRef.current = keyboard.visible;
+      }
+    };
+
+    // Restaurer le focus si le math-field le perd pendant que le clavier virtuel est visible
+    const handleBlur = () => {
+      checkKeyboardVisibility();
+      if (isKeyboardVisibleRef.current) {
+        // Petit délai pour laisser l'événement se terminer
+        setTimeout(() => {
+          checkKeyboardVisibility();
+          if (isKeyboardVisibleRef.current && mf) {
+            mf.focus();
+          }
+        }, 0);
+      }
+    };
+
+    // Observer le clavier virtuel MathLive
+    const keyboard = (window as any).mathVirtualKeyboard;
+    if (keyboard) {
+      keyboard.addEventListener?.("geometrychange", checkKeyboardVisibility);
+    }
+
+    mf.addEventListener("blur", handleBlur);
+
+    // Empêcher la perte de focus sur les clics du clavier (si détectables)
+    const handleGlobalPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      const root = target.getRootNode();
+
+      // Vérifier si le clic vient du shadow DOM du clavier ou d'éléments connus
+      const isKeyboardClick =
+        target.closest(".ML__keyboard") ||
+        target.closest('[part="keyboard"]') ||
+        target.closest('[part="virtual-keyboard-toggle"]') ||
+        target.tagName?.includes("MATH") ||
+        (root instanceof ShadowRoot && root.host?.tagName?.includes("MATH"));
+
+      if (isKeyboardClick) {
+        isKeyboardVisibleRef.current = true;
+        e.preventDefault();
+        requestAnimationFrame(() => mf?.focus());
+      }
+    };
+
+    document.addEventListener("pointerdown", handleGlobalPointerDown, {
+      capture: true,
+    });
+
+    return () => {
+      document.removeEventListener("pointerdown", handleGlobalPointerDown, {
+        capture: true,
+      });
+      mf.removeEventListener("blur", handleBlur);
+      if (keyboard) {
+        keyboard.removeEventListener?.(
+          "geometrychange",
+          checkKeyboardVisibility,
+        );
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const mf = mfRef.current;

@@ -71,6 +71,7 @@ export default function ActiveDuelPage() {
         const fullExercise: Exercise = {
           id: duelData.exercise.id,
           title: duelData.exercise.title,
+          app_title: duelData.exercise.app_title || duelData.exercise.title,
           chapter: duelData.exercise.chapter,
           difficulty: duelData.exercise.difficulty,
           competences: [],
