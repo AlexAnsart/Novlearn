@@ -36,6 +36,9 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const isLeaderboard = pathname === "/classement";
   const isSettings = pathname === "/parametres";
   const isAccount = pathname === "/compte";
+  
+  // Vérification du rôle admin (cast as any si le type n'est pas encore mis à jour partout)
+  const isAdmin = (profile as any)?.role === 'admin';
 
   // Contenu de la barre de navigation (Sidebar Desktop OU Bottom Bar Mobile)
   const sidebarContent = (
@@ -46,7 +49,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         onClick={() => router.push("/")}
       />
       <SidebarIcon
-        emoji="📈"
+        emoji="📊"
         active={isProgress}
         onClick={() => router.push("/progression")}
       />
@@ -63,6 +66,22 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
 
       {/* Espaceur : Uniquement sur Desktop pour pousser les réglages en bas */}
       {!isMobile && <div className="flex-1" />}
+
+      {/* --- SECTION ADMIN (PC UNIQUEMENT) --- */}
+      {!isMobile && isAdmin && (
+        <>
+          <SidebarIcon
+            emoji="📢"
+            active={pathname === "/feedback"}
+            onClick={() => router.push("/feedback")}
+          />
+          <SidebarIcon
+            emoji="🗂️"
+            active={pathname === "/flashcards"}
+            onClick={() => router.push("/flashcards")}
+          />
+        </>
+      )}
 
       {/* NOUVEAU : Icône Compte -> Uniquement sur Mobile */}
       {isMobile && (
