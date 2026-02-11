@@ -1,7 +1,9 @@
-"use client";
-
 import { Layout } from "../components/Layout";
 
+/**
+ * Page Politique de Confidentialité - Server Component
+ * Contenu statique, calcul de date côté serveur.
+ */
 export default function PrivacyPolicyPage() {
   return (
     <Layout>

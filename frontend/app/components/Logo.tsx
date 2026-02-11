@@ -1,7 +1,5 @@
-"use client";
-
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface LogoProps {
   small?: boolean;
@@ -10,15 +8,13 @@ interface LogoProps {
 /**
  * Composant Logo - Affiche le logo NovLearn
  * Utilise la police Fredoka selon la charte graphique
+ *
+ * Optimisé : Server Component (pas de 'use client')
+ * - Utilise Link au lieu de useRouter pour la navigation
  */
 export function Logo({ small = false }: LogoProps) {
-  const router = useRouter();
-
   return (
-    <div
-      className="flex items-center gap-3 cursor-pointer"
-      onClick={() => router.push("/")}
-    >
+    <Link href="/" className="flex items-center gap-3 cursor-pointer">
       {/* Logo NovLearn avec fond transparent */}
       <div className={small ? "w-12 h-12" : "w-16 h-16"}>
         <Image
@@ -53,6 +49,6 @@ export function Logo({ small = false }: LogoProps) {
           </p>
         </div>
       )}
-    </div>
+    </Link>
   );
 }

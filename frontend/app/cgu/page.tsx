@@ -1,8 +1,11 @@
-"use client";
-
 import { Layout } from "../components/Layout";
 
+/**
+ * Page CGU - Conditions Générales d'Utilisation
+ * Optimisé : pas de 'use client' car contenu statique.
+ */
 export default function TermsOfServicePage() {
+  // Date de mise à jour (calculée côté serveur)
   const currentDate = new Date().toLocaleDateString("fr-FR", {
     year: "numeric",
     month: "long",

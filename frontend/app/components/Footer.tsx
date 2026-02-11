@@ -1,8 +1,12 @@
-"use client";
-
 import { Apple, Github, Instagram, Smartphone, Twitter } from "lucide-react";
 import Link from "next/link";
 
+/**
+ * Footer - Pied de page de l'application
+ *
+ * Optimisé : Server Component (pas de 'use client')
+ * - Contenu statique avec des liens
+ */
 export function Footer() {
   const currentYear = new Date().getFullYear();
 

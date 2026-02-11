@@ -1,7 +1,9 @@
-"use client";
-
 import { Database, Eye, Shield } from "lucide-react";
 
+/**
+ * Page Privacy - Server Component
+ * Contenu statique, pas besoin de 'use client'.
+ */
 export default function PrivacyPage() {
   return (
     <div className="flex-1 px-4 md:px-8 py-12">

@@ -1,8 +1,10 @@
-"use client";
-
 import { HelpCircle, Home, User } from "lucide-react";
 import Link from "next/link";
 
+/**
+ * Page Sitemap - Server Component
+ * Contenu statique avec des liens, pas besoin d'interactivité.
+ */
 export default function SitemapPage() {
   return (
     <div className="flex-1 px-4 py-12">

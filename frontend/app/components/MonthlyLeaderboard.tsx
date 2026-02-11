@@ -25,6 +25,10 @@ interface LeaderboardEntry {
 interface MonthlyLeaderboardProps {
   compact?: boolean;
   limit?: number;
+  /** Données pré-chargées côté serveur (optionnel - optimisation SSR) */
+  initialData?: LeaderboardEntry[];
+  /** Tri initial quand des données sont pré-chargées */
+  initialSortBy?: "score" | "streak";
 }
 
 type LeaderboardTab = "score" | "streak";
@@ -32,16 +36,34 @@ type LeaderboardTab = "score" | "streak";
 export function MonthlyLeaderboard({
   compact = false,
   limit = 10,
+  initialData,
+  initialSortBy = "score",
 }: MonthlyLeaderboardProps) {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Utilise les données initiales si fournies (SSR), sinon démarre vide
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(
+    initialData || [],
+  );
+  // Si des données initiales sont fournies, pas de chargement initial
+  const [loading, setLoading] = useState(!initialData);
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
-  const [activeTab, setActiveTab] = useState<LeaderboardTab>("score"); // Nouvel état pour l'onglet
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>(initialSortBy);
 
   const { user } = useAuth();
   const router = useRouter();
 
+  // Initialise le rang utilisateur si données pré-chargées
   useEffect(() => {
+    if (initialData && user) {
+      const currentUserEntry = initialData.find((e) => e.user_id === user.id);
+      setUserRank(currentUserEntry || null);
+    }
+  }, [initialData, user]);
+
+  useEffect(() => {
+    // Skip le premier fetch si on a des données initiales et qu'on est sur le même onglet
+    if (initialData && activeTab === initialSortBy && leaderboard.length > 0) {
+      return;
+    }
     fetchLeaderboard();
   }, [user, activeTab]); // Recharger quand l'onglet change
 

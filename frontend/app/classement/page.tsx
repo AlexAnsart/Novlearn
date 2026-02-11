@@ -1,30 +1,27 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { redirect } from "next/navigation";
 import { Layout } from "../components/Layout";
 import { MonthlyLeaderboard } from "../components/MonthlyLeaderboard";
-import { useAuth } from "../contexts/AuthContext";
+import { getLeaderboardData, getServerUser } from "../lib/supabase-server";
 
-export default function ClassementPage() {
-  const router = useRouter();
-  const { user, loading } = useAuth();
+/**
+ * Page Classement - Optimisée avec données pré-chargées côté serveur
+ *
+ * Avantages de cette approche :
+ * - Les données sont chargées avant que la page n'arrive au client (SSR)
+ * - Pas de "flash" de chargement visible par l'utilisateur
+ * - Meilleur SEO car le contenu est dans le HTML initial
+ * - L'interactivité des onglets reste côté client
+ */
+export default async function ClassementPage() {
+  // Vérification auth côté serveur
+  const user = await getServerUser();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/login");
-    }
-  }, [user, loading, router]);
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-        </div>
-      </Layout>
-    );
+  if (!user) {
+    redirect("/auth/login");
   }
+
+  // Pré-chargement des données du classement (tri par score par défaut)
+  const initialLeaderboard = await getLeaderboardData("score", 50);
 
   return (
     <Layout>
@@ -43,8 +40,12 @@ export default function ClassementPage() {
             </p>
           </div>
 
-          {/* Classement complet */}
-          <MonthlyLeaderboard limit={50} />
+          {/* Classement avec données pré-chargées */}
+          <MonthlyLeaderboard
+            limit={50}
+            initialData={initialLeaderboard}
+            initialSortBy="score"
+          />
 
           {/* Info */}
           <div className="mt-6 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
