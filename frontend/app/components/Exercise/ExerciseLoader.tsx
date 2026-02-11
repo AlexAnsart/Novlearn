@@ -291,6 +291,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           setLastSaveStatus("saved");
         }
         if (exercise.competence_id && shouldCountPoints) {
+          console.log(`[ExerciseLoader] Counting points for exercise ${exercise.id}, competence: ${exercise.competence_id}, correct: ${isCorrect}`);
           updateCompetenceScore(
             currentUser.id,
             exercise.competence_id,
@@ -298,7 +299,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
             isCorrect,
           );
         } else if (exercise.competence_id && !shouldCountPoints) {
-          console.log("[ExerciseLoader] Points not applied (test mode: server handles scoring, or manual selection)");
+          console.log(`[ExerciseLoader] Points NOT counted - exercise ${exercise.id}, shouldCountPoints=${shouldCountPoints}, competence: ${exercise.competence_id}`);
         }
       }
 

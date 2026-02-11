@@ -62,6 +62,14 @@ function ExercisePageContent() {
   }, [idFromUrl, chapterFromUrl]);
 
   const exerciseId = idFromUrl ?? recommendedId;
+  
+  // Debug: log shouldCountPoints value
+  useEffect(() => {
+    if (exerciseId) {
+      const shouldCount = !idFromUrl && (mode === undefined || mode === 'recommendation');
+      console.log(`[ExercisePage] exerciseId=${exerciseId}, idFromUrl=${idFromUrl}, mode=${mode}, shouldCountPoints=${shouldCount}`);
+    }
+  }, [exerciseId, idFromUrl, mode]);
 
   // Fetch next exercise when in test or recommendation mode (no id in URL)
   const handleNextClick = useCallback(
@@ -171,7 +179,7 @@ function ExercisePageContent() {
             onLoad={handleLoad}
             onError={handleError}
             onElementSubmit={handleElementSubmit}
-            shouldCountPoints={!idFromUrl && mode !== 'test'}
+            shouldCountPoints={!idFromUrl && (mode === undefined || mode === 'recommendation')}
             mode={mode}
             onNextClick={!idFromUrl ? handleNextClick : undefined}
           />

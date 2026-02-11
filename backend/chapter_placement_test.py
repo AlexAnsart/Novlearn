@@ -128,14 +128,32 @@ def is_chapter_test_completed(
     supabase_client: Any, user_id: str, chapter: str
 ) -> bool:
     """Check if user has completed the placement test for this chapter."""
-    r = (
-        supabase_client.table("user_chapter_test_completed")
-        .select("chapter")
-        .eq("user_id", user_id)
-        .eq("chapter", chapter)
-        .execute()
-    )
-    return bool(r.data and len(r.data) > 0)
+    try:
+        r = (
+            supabase_client.table("user_chapter_test_completed")
+            .select("chapter")
+            .eq("user_id", user_id)
+            .eq("chapter", chapter)
+            .execute()
+        )
+        completed = bool(r.data and len(r.data) > 0)
+        logger.debug(
+            "[ChapterTest] is_chapter_test_completed: user=%s chapter=%s completed=%s (found %d records)",
+            user_id[:8],
+            chapter,
+            completed,
+            len(r.data) if r.data else 0,
+        )
+        return completed
+    except Exception as e:
+        # If table doesn't exist or any error, consider test as not completed
+        logger.warning(
+            "[ChapterTest] is_chapter_test_completed: table not found or error for user=%s chapter=%s: %s. Treating as not completed.",
+            user_id[:8],
+            chapter,
+            str(e),
+        )
+        return False
 
 
 def get_chapter_for_test(chapter: str | None) -> str:
@@ -156,7 +174,20 @@ def fetch_or_start_test(
     If test already completed, returns None (caller should use normal recommendation).
     """
     ch = get_chapter_for_test(chapter)
-    if is_chapter_test_completed(supabase_client, user_id, ch):
+    test_completed = is_chapter_test_completed(supabase_client, user_id, ch)
+    logger.info(
+        "[ChapterTest] fetch_or_start_test: user=%s chapter=%s (normalized=%s) test_completed=%s",
+        user_id[:8],
+        chapter or "all",
+        ch,
+        test_completed,
+    )
+    if test_completed:
+        logger.info(
+            "[ChapterTest] Test already completed for user=%s chapter=%s, skipping test",
+            user_id[:8],
+            ch,
+        )
         return None
 
     liste_competences = _competences_to_test(ch)
@@ -192,6 +223,7 @@ def fetch_or_start_test(
         result["chapter"] = ch
         result["test_competence_index"] = 0
         result["test_exercise_index"] = 0
+        result["mode"] = "test"  # Explicitly set mode to test
         # Initialize state
         supabase_client.table("user_chapter_test_state").upsert(
             {
@@ -204,10 +236,17 @@ def fetch_or_start_test(
             on_conflict="user_id,chapter",
         ).execute()
         logger.info(
-            "[ChapterTest] Started test for user=%s chapter=%s competence=%s",
+            "[ChapterTest] Started test for user=%s chapter=%s competence=%s exercise_id=%s",
             user_id[:8],
             ch,
             result.get("competence_id"),
+            result.get("exercise_id"),
+        )
+    else:
+        logger.info(
+            "[ChapterTest] No test exercise found for user=%s chapter=%s",
+            user_id[:8],
+            ch,
         )
     return result
 
