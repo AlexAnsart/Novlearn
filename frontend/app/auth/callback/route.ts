@@ -6,11 +6,24 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  console.log('🚀 [Callback Debug] Hit /auth/callback');
+  console.log('   Full URL:', request.url);
+  
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-
-  // On nettoie le paramètre "next" pour éviter les redirections malveillantes
   const next = searchParams.get("next") ?? "/";
+  
+  // Log des headers critiques pour comprendre le proxy
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const host = request.headers.get('host');
+  
+  console.log('   Headers Debug:', {
+    'x-forwarded-host': forwardedHost,
+    'x-forwarded-proto': forwardedProto,
+    'host': host,
+    'origin (from url)': origin
+  });
 
   if (code) {
     const cookieStore = cookies();
@@ -41,13 +54,19 @@ export async function GET(request: Request) {
       const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
       const isLocal = origin.includes('localhost');
       
+      console.log('   Decision Debug:', { isLocal, forwardedHost, forwardedProto });
+
       if (isLocal) {
+        console.log('   👉 Redirecting to Local:', `${origin}${next}`);
         return NextResponse.redirect(`${origin}${next}`);
       } else if (forwardedHost) {
          // Production avec proxy (Apache/Nginx)
-         return NextResponse.redirect(`${forwardedProto}://${forwardedHost}${next}`);
+         const target = `${forwardedProto}://${forwardedHost}${next}`;
+         console.log('   👉 Redirecting to Prod (Proxy):', target);
+         return NextResponse.redirect(target);
       } else {
          // Production directe
+         console.log('   👉 Redirecting to Prod (Direct):', `${origin}${next}`);
          return NextResponse.redirect(`${origin}${next}`);
       }
     }

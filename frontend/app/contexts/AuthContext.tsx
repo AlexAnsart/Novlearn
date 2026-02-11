@@ -231,12 +231,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    // En production, on utilise explicitement la variable d'environnement si elle existe
-    // Sinon on fallback sur window.location.origin (pour le dev local)
+    // --- DEBUG LOGS ---
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const winOrigin = typeof window !== 'undefined' ? window.location.origin : 'server';
+    
+    console.group('🔍 [AuthDebug] signInWithGoogle');
+    console.log('1. Environment:', process.env.NODE_ENV);
+    console.log('2. NEXT_PUBLIC_SITE_URL (env):', siteUrl);
+    console.log('3. window.location.origin:', winOrigin);
+    
+    // Logique de détermination de l'URL
     const redirectTo = siteUrl 
       ? `${siteUrl}/auth/callback`
-      : `${window.location.origin}/auth/callback`;
+      : `${winOrigin}/auth/callback`;
+      
+    console.log('4. 🎯 FINAL redirectTo sent to Supabase:', redirectTo);
+    console.groupEnd();
+    // ------------------
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
