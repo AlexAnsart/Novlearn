@@ -89,7 +89,8 @@ async function updateCompetenceScore(
 
 interface ExerciseLoaderProps {
   exerciseId?: string;
-  competenceId?: string | null; // competence_id from recommendation API (overrides DB value)
+  competenceId?: string | null; // Keep for backward compatibility
+  competences?: string[]; // Array of competences from recommendation API (preferred, overrides DB value)
   onLoad?: (exercise: Exercise) => void;
   onElementSubmit?: (
     elementId: number,
@@ -104,7 +105,8 @@ interface ExerciseLoaderProps {
 
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   exerciseId,
-  competenceId: competenceIdFromProps,
+  competenceId: competenceIdFromProps, // Keep for backward compatibility
+  competences: competencesFromProps, // Array of competences (preferred)
   onLoad,
   onElementSubmit,
   onError,
@@ -135,7 +137,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   // État de la modale de feedback
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [pendingNextAction, setPendingNextAction] = useState<
-    (() => void) | null
+    (() => void | Promise<void>) | null
   >(null);
   const [isFeedbackDifficultyOnly, setIsFeedbackDifficultyOnly] =
     useState(false);
@@ -219,23 +221,29 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         if (!data) throw new Error("Exercice introuvable.");
 
         const content = data.content || {};
-        // Use competence_id from props (recommendation API) if provided, otherwise use DB value
-        const competence_id = competenceIdFromProps !== undefined 
-          ? competenceIdFromProps 
-          : (data.competence_id ?? null);
+        // Use competences array from props (recommendation API) if provided, otherwise use DB value
+        // Prefer competences array over single competence_id
+        const effectiveCompetences = competencesFromProps && Array.isArray(competencesFromProps) && competencesFromProps.length > 0
+          ? competencesFromProps
+          : (competenceIdFromProps !== undefined && competenceIdFromProps !== null
+              ? [competenceIdFromProps]
+              : (data.competences && Array.isArray(data.competences) && data.competences.length > 0
+                  ? data.competences
+                  : (data.competence_id ? [data.competence_id] : [])));
+        
         const fullExercise = {
           ...content,
           id: data.id,
           title: data.title,
           chapter: data.chapter,
           difficulty: data.difficulty,
-          competence_id: competence_id,
-          competences: data.competences || [],
+          competence_id: effectiveCompetences[0] ?? null, // Keep for backward compatibility
+          competences: effectiveCompetences, // Array of competences
           variables: content.variables || [],
           elements: content.elements || [],
         } as unknown as Exercise;
         
-        console.log(`[ExerciseLoader] 📥 Exercise loaded: id=${fullExercise.id}, competence_id=${fullExercise.competence_id}, difficulty=${fullExercise.difficulty}, shouldCountPoints=${shouldCountPoints}`);
+        console.log(`[ExerciseLoader] 📥 Exercise loaded: id=${fullExercise.id}, competences=${JSON.stringify(effectiveCompetences)}, difficulty=${fullExercise.difficulty}, shouldCountPoints=${shouldCountPoints}`);
 
         setExercise(fullExercise);
         setVariables(generateVariables(fullExercise.variables));
@@ -269,7 +277,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   const handleElementSubmit = useCallback(
     async (elementId: number, answer: unknown, isCorrect: boolean) => {
-      console.log(`[ExerciseLoader] 🔵 handleElementSubmit CALLED: elementId=${elementId}, isCorrect=${isCorrect}, exercise=${exercise?.id}, competenceId prop=${competenceIdFromProps}, exercise.competence_id=${exercise?.competence_id}, shouldCountPoints=${shouldCountPoints}`);
+      console.log(`[ExerciseLoader] 🔵 handleElementSubmit CALLED: elementId=${elementId}, isCorrect=${isCorrect}, exercise=${exercise?.id}, competences prop=${JSON.stringify(competencesFromProps)}, exercise.competences=${JSON.stringify(exercise?.competences)}, shouldCountPoints=${shouldCountPoints}`);
       if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
       setLastSaveStatus("idle");
 
@@ -319,35 +327,49 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         } else {
           setLastSaveStatus("saved");
         }
-        // Use competenceId from prop (recommendation API) or fallback to exercise.competence_id
-        const effectiveCompetenceId = competenceIdFromProps ?? exercise.competence_id;
+        // Use competences array from props (recommendation API) or fallback to exercise.competences
+        // Prefer competences array over single competence_id
+        const effectiveCompetences = competencesFromProps && Array.isArray(competencesFromProps) && competencesFromProps.length > 0
+          ? competencesFromProps
+          : (exercise.competences && Array.isArray(exercise.competences) && exercise.competences.length > 0
+              ? exercise.competences
+              : (competenceIdFromProps !== undefined && competenceIdFromProps !== null
+                  ? [competenceIdFromProps]
+                  : (exercise.competence_id ? [exercise.competence_id] : [])));
         
         // Debug: log all relevant values
         console.log(`[ExerciseLoader] handleElementSubmit DEBUG:`, {
           exerciseId: exercise.id,
+          competencesFromProp: competencesFromProps,
           competenceIdFromProp: competenceIdFromProps,
+          competencesFromExercise: exercise.competences,
           competenceIdFromExercise: exercise.competence_id,
-          effectiveCompetenceId,
+          effectiveCompetences,
           shouldCountPoints,
           isCorrect,
-          hasCompetenceId: !!effectiveCompetenceId,
+          hasCompetences: effectiveCompetences.length > 0,
         });
         
-        if (effectiveCompetenceId && shouldCountPoints) {
-          console.log(`[ExerciseLoader] ✅ Counting points for exercise ${exercise.id}, competence: ${effectiveCompetenceId}, correct: ${isCorrect}`);
-          updateCompetenceScore(
-            currentUser.id,
-            effectiveCompetenceId,
-            exercise.difficulty,
-            isCorrect,
-          ).catch((err) => {
-            console.error(`[ExerciseLoader] ❌ Error updating competence score:`, err);
+        // Count points for each competence in the array
+        if (effectiveCompetences.length > 0 && shouldCountPoints) {
+          console.log(`[ExerciseLoader] ✅ Counting points for exercise ${exercise.id}, competences: ${JSON.stringify(effectiveCompetences)}, correct: ${isCorrect}`);
+          // Update score for each competence
+          const updatePromises = effectiveCompetences.map((competenceId) => {
+            return updateCompetenceScore(
+              currentUser.id,
+              competenceId,
+              exercise.difficulty,
+              isCorrect,
+            ).catch((err) => {
+              console.error(`[ExerciseLoader] ❌ Error updating competence score for ${competenceId}:`, err);
+            });
           });
+          await Promise.all(updatePromises);
         } else {
-          if (!effectiveCompetenceId) {
-            console.log(`[ExerciseLoader] ⚠️ Points NOT counted - exercise ${exercise.id} has no competence_id (prop=${competenceIdFromProps}, exercise=${exercise.competence_id})`);
+          if (effectiveCompetences.length === 0) {
+            console.log(`[ExerciseLoader] ⚠️ Points NOT counted - exercise ${exercise.id} has no competences (prop=${JSON.stringify(competencesFromProps)}, exercise=${JSON.stringify(exercise.competences)})`);
           } else if (!shouldCountPoints) {
-            console.log(`[ExerciseLoader] ⚠️ Points NOT counted - exercise ${exercise.id}, shouldCountPoints=${shouldCountPoints}, competence: ${effectiveCompetenceId}`);
+            console.log(`[ExerciseLoader] ⚠️ Points NOT counted - exercise ${exercise.id}, shouldCountPoints=${shouldCountPoints}, competences: ${JSON.stringify(effectiveCompetences)}`);
           }
         }
       }
@@ -360,7 +382,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         return next;
       });
     },
-    [exercise, totalQuestions, onElementSubmit, shouldCountPoints, competenceIdFromProps],
+    [exercise, totalQuestions, onElementSubmit, shouldCountPoints, competencesFromProps, competenceIdFromProps],
   );
 
   const proceedToNext = useCallback(() => {
@@ -373,6 +395,34 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   }, [exerciseId, router]);
 
   const handleNextExercise = async () => {
+    // Probabilité de 15%
+    const shouldAskFeedback = Math.random() < 0.15;
+
+    if (shouldAskFeedback) {
+      // On sauvegarde l'action "aller au suivant" pour plus tard
+      setPendingNextAction(async () => {
+        if (onNextClick) {
+          setIsNextLoading(true);
+          try {
+            await onNextClick(hasErrors);
+            console.log(`[ExerciseLoader] Next requested (hasErrors=${hasErrors}, mode=${mode})`);
+          } catch (e) {
+            console.error('[ExerciseLoader] onNextClick error:', e);
+          } finally {
+            setIsNextLoading(false);
+          }
+        } else {
+          proceedToNext();
+        }
+      });
+      // On active le mode restreint "Difficulté seule"
+      setIsFeedbackDifficultyOnly(true);
+      // On ouvre la modale
+      setIsFeedbackOpen(true);
+      return;
+    }
+
+    // Si pas de feedback demandé, procéder normalement
     if (onNextClick) {
       setIsNextLoading(true);
       try {
@@ -385,11 +435,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       }
       return;
     }
-    if (exerciseId) {
-      router.push('/exercices');
-    } else {
-      setRefreshTrigger(prev => prev + 1);
-    }
+    proceedToNext();
   };
 
   const handleModalClose = () => {

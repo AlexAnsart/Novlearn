@@ -120,7 +120,7 @@ async def recommend_exercise(
     """
     Recommande un exercice pour l'utilisateur connecté.
     chapter (query, optionnel) : limiter au chapitre (streak et exos de ce chapitre).
-    Retourne exercise_id, competence_id, difficulty_level, difficulty, mode (test|recommendation).
+    Retourne exercise_id, competences (array), difficulty_level, difficulty, mode (test|recommendation).
     Si l'utilisateur n'a pas passé le test de placement du chapitre, retourne un exo de test.
     """
     try:
@@ -160,12 +160,20 @@ async def recommend_exercise(
             )
             raise HTTPException(status_code=404, detail="Aucun exercice recommandé")
         result["mode"] = "recommendation"
-        logger.info(
-            "[API] recommend-exercise: serving recommendation for user=%s chapter=%s exercise_id=%s",
-            user_id[:8],
-            chapter or "all",
-            result.get("exercise_id"),
-        )
+            logger.info(
+                "[API] recommend-exercise: serving recommendation for user=%s chapter=%s exercise_id=%s competences=%s",
+                user_id[:8],
+                chapter or "all",
+                result.get("exercise_id"),
+                result.get("competences"),
+            )
+        # Ensure competences array is included in response
+        competences_array = result.get("competences")
+        if not competences_array or not isinstance(competences_array, list) or len(competences_array) == 0:
+            logger.warning(
+                "[API] recommend-exercise: WARNING - competences array is missing or empty for exercise_id=%s",
+                result.get("exercise_id"),
+            )
         return JSONResponse(content=result)
     except HTTPException:
         raise

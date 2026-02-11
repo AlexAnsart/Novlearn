@@ -160,7 +160,8 @@ async function apiRequest<T>(
 
 export interface RecommendExerciseResponse {
   exercise_id: number;
-  competence_id: string | null;
+  competence_id: string | null; // Keep for backward compatibility
+  competences?: string[]; // Array of competences (preferred)
   difficulty_level: number;
   difficulty: string;
   mode?: 'test' | 'recommendation';
@@ -193,6 +194,7 @@ export async function getRecommendedExercise(
 export interface ChapterTestNextResponse {
   exercise_id?: number;
   competence_id?: string;
+  competences?: string[];
   difficulty_level?: number;
   difficulty?: string;
   mode?: 'test';

@@ -18,6 +18,7 @@ function ExercisePageContent() {
     undefined,
   );
   const [recommendedCompetenceId, setRecommendedCompetenceId] = useState<string | null | undefined>(undefined);
+  const [recommendedCompetences, setRecommendedCompetences] = useState<string[] | undefined>(undefined);
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [mode, setMode] = useState<'test' | 'recommendation' | undefined>(undefined);
   const [testChapter, setTestChapter] = useState<string | undefined>(undefined);
@@ -48,13 +49,22 @@ function ExercisePageContent() {
         if (cancelled) return;
         if (res) {
           setRecommendedId(String(res.exercise_id));
-          setRecommendedCompetenceId(res.competence_id ?? null);
+          // Use competences array if available, otherwise fallback to competence_id
+          const competencesArray = res.competences && Array.isArray(res.competences) && res.competences.length > 0
+            ? res.competences
+            : (res.competence_id ? [res.competence_id] : []);
+          setRecommendedCompetences(competencesArray);
+          setRecommendedCompetenceId(competencesArray[0] ?? null); // Keep for backward compatibility
           setMode(res.mode ?? 'recommendation');
           setTestChapter(res.chapter);
-          console.log(`[ExercisePage] Loaded: mode=${res.mode ?? 'recommendation'} chapter=${res.chapter ?? '-'} exo=${res.exercise_id} competence_id=${res.competence_id ?? 'null'}`);
+          console.log(`[ExercisePage] Loaded: mode=${res.mode ?? 'recommendation'} chapter=${res.chapter ?? '-'} exo=${res.exercise_id} competences=${JSON.stringify(competencesArray)}`, res);
+          if (competencesArray.length === 0) {
+            console.warn(`[ExercisePage] ⚠️ WARNING: Backend returned no competences for exercise ${res.exercise_id}. Points will not be counted!`);
+          }
         } else {
           setRecommendedId(undefined);
           setRecommendedCompetenceId(undefined);
+          setRecommendedCompetences(undefined);
         }
       })
       .finally(() => {
@@ -80,9 +90,10 @@ function ExercisePageContent() {
     async (hasErrors: boolean) => {
       if (idFromUrl) return;
       const lastSuccess = !hasErrors;
-      const applyNext = (id: string, m: 'test' | 'recommendation', ch?: string, competenceId?: string | null) => {
+      const applyNext = (id: string, m: 'test' | 'recommendation', ch?: string, competencesArray?: string[]) => {
         setRecommendedId(id);
-        setRecommendedCompetenceId(competenceId);
+        setRecommendedCompetences(competencesArray);
+        setRecommendedCompetenceId(competencesArray?.[0] ?? null); // Keep for backward compatibility
         setMode(m);
         setTestChapter(ch);
         setNextKey((k) => k + 1);
@@ -95,7 +106,10 @@ function ExercisePageContent() {
           if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
           else setNextKey((k) => k + 1);
         } else if (res?.exercise_id) {
-          applyNext(String(res.exercise_id), 'test', res.chapter ?? testChapter, res.competence_id);
+          const competencesArray = res.competences && Array.isArray(res.competences) && res.competences.length > 0
+            ? res.competences
+            : (res.competence_id ? [res.competence_id] : []);
+          applyNext(String(res.exercise_id), 'test', res.chapter ?? testChapter, competencesArray);
         } else {
           const next = await getRecommendedExercise(chapterFromUrl || null);
           if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
@@ -182,6 +196,7 @@ function ExercisePageContent() {
             key={`exo-${exerciseId ?? 'loading'}-${nextKey}`}
             exerciseId={exerciseId}
             competenceId={!idFromUrl ? recommendedCompetenceId : undefined}
+            competences={!idFromUrl ? recommendedCompetences : undefined}
             onLoad={handleLoad}
             onError={handleError}
             onElementSubmit={handleElementSubmit}
