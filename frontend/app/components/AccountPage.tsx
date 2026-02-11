@@ -5,6 +5,7 @@ import {
   Calendar,
   Check,
   Copy,
+  Flame,
   LogOut,
   Mail,
   Trash2,
@@ -39,6 +40,7 @@ interface UserStats {
   correct_answers: number;
   correct_rate_pct: number;
   level: string;
+  best_streak: number;
 }
 
 export function AccountPage() {
@@ -285,6 +287,7 @@ export function AccountPage() {
             correct_answers: 0,
             correct_rate_pct: 0,
             level: "Terminale",
+            best_streak: 0,
           });
         }
       }, 15000);
@@ -298,6 +301,16 @@ export function AccountPage() {
 
       if (abortController.signal.aborted || !isMountedRef.current) return;
 
+      // Récupérer la meilleure streak
+      const { data: streakData } = await supabase
+        .from("user_competence_scores")
+        .select("streak")
+        .eq("user_id", user.id);
+
+      const bestStreak = streakData && streakData.length > 0
+        ? Math.max(...streakData.map((s) => s.streak))
+        : 0;
+
       if (attemptsError || !attemptsData) {
         setStats({
           exercises_completed: 0,
@@ -305,6 +318,7 @@ export function AccountPage() {
           correct_answers: 0,
           correct_rate_pct: 0,
           level: "Terminale",
+          best_streak: bestStreak,
         });
       } else {
         const totalAnswers = attemptsData.length;
@@ -322,6 +336,7 @@ export function AccountPage() {
           correct_answers: correctAnswers,
           correct_rate_pct: correctRatePct,
           level: "Terminale",
+          best_streak: bestStreak,
         });
       }
     } catch (error) {
@@ -333,6 +348,7 @@ export function AccountPage() {
           correct_answers: 0,
           correct_rate_pct: 0,
           level: "Terminale",
+          best_streak: 0,
         });
       }
     } finally {
@@ -730,30 +746,7 @@ export function AccountPage() {
                   </p>
                 </div>
 
-                <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Award className="w-5 h-5 text-green-400" />
-                    <span
-                      className="text-blue-200"
-                      style={{
-                        fontFamily: "'Fredoka', sans-serif",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Réponses
-                    </span>
-                  </div>
-                  <p
-                    className="text-white ml-8"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 500,
-                      fontSize: "1.5rem",
-                    }}
-                  >
-                    {stats?.total_answers ?? 0}
-                  </p>
-                </div>
+
 
                 <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="flex items-center gap-3 mb-2">
@@ -802,6 +795,31 @@ export function AccountPage() {
                     }}
                   >
                     {stats?.level ?? "Terminale"}
+                  </p>
+                </div>
+
+                <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Flame className="w-5 h-5 text-red-500" />
+                    <span
+                      className="text-blue-200"
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Meilleure streak
+                    </span>
+                  </div>
+                  <p
+                    className="text-white ml-8"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                      fontSize: "1.5rem",
+                    }}
+                  >
+                    {stats?.best_streak ?? 0}
                   </p>
                 </div>
               </div>
