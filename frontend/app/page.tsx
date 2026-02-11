@@ -151,7 +151,7 @@ export default function Home() {
               icon="📚"
               onClick={() => router.push("/entrainement")}
             >
-              Réviser le cours
+              Réviser les astuces
             </ActionButton>
           </div>
 

@@ -2,10 +2,13 @@
 Algorithme de recommandation d'exercice selon compétences, points et streak (par chapitre ou global).
 Bon streak → exos sur compétences moins maîtrisées ; mauvais streak → remise en confiance.
 """
+import logging
 import random
 from typing import Any
 
 from settings.competence_settings import get_competences
+
+logger = logging.getLogger(__name__)
 from settings.recommandation_settings import (
     STREAK_VERY_LOW,
     STREAK_LOW,
@@ -71,26 +74,64 @@ def _pick_exercise_id(ids: list[int]) -> int | None:
     return random.choice(ids)
 
 
+def _get_exercise_result(
+    supabase_client: Any, eid: int | None, c: str | None, lvl: int | None
+) -> dict | None:
+    """Get exercise result dict with competences array."""
+    if eid is None or c is None:
+        return None
+    # Get competences array for this exercise
+    ex_data = supabase_client.table("exercises").select("competences").eq("id", eid).maybe_single().execute()
+    exercise_competences = ex_data.data.get("competences") if ex_data.data else []
+    if not isinstance(exercise_competences, list):
+        exercise_competences = [c] if c else []  # Fallback to single competence
+    
+    return {
+        "exercise_id": eid,
+        "competence_id": c,  # Keep for backward compatibility
+        "competences": exercise_competences,  # Array of competences
+        "difficulty_level": lvl,
+        "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
+    }
+
+
 def _fallback_random_exercise(
     supabase_client: Any, chapter: str | None = None
 ) -> dict | None:
-    """Un exercice aléatoire avec competence_id non null si possible ; optionnellement filtré par chapitre."""
-    q = supabase_client.table("exercises").select("id, competence_id, difficulty, chapter")
+    """Un exercice aléatoire avec competences non vide si possible ; optionnellement filtré par chapitre."""
+    q = supabase_client.table("exercises").select("id, competences, difficulty, chapter")
     if chapter:
         q = q.eq("chapter", chapter)
     r = q.limit(200).execute()
     data = r.data or []
-    data = [e for e in data if e.get("competence_id")] or data
-    if not data:
-        return None
-    ex = random.choice(data)
-    level = 0 if ex.get("difficulty") == "easy" else (1 if ex.get("difficulty") == "medium" else 2)
-    return {
-        "exercise_id": ex["id"],
-        "competence_id": ex.get("competence_id"),
-        "difficulty_level": level,
-        "difficulty": ex.get("difficulty"),
-    }
+    # Try to find exercises with competences array (non-empty) first
+    data_with_competences = [
+        e for e in data 
+        if e.get("competences") and isinstance(e.get("competences"), list) and len(e.get("competences", [])) > 0
+    ]
+    if data_with_competences:
+        ex = random.choice(data_with_competences)
+        level = 0 if ex.get("difficulty") == "easy" else (1 if ex.get("difficulty") == "medium" else 2)
+        competences_array = ex.get("competences") or []
+        logger.info(
+            "[Recommandation] Fallback: using exercise %s with competences=%s",
+            ex["id"],
+            competences_array,
+        )
+        return {
+            "exercise_id": ex["id"],
+            "competence_id": competences_array[0] if competences_array else None,  # Keep for backward compatibility
+            "competences": competences_array,  # Array of competences
+            "difficulty_level": level,
+            "difficulty": ex.get("difficulty"),
+        }
+    # If no exercises with competences, log warning and return None
+    logger.warning(
+        "[Recommandation] Fallback: No exercises with competences found for chapter=%s. Total exercises: %d",
+        chapter or "all",
+        len(data),
+    )
+    return None
 
 
 def recommander_exercice(
@@ -118,7 +159,8 @@ def recommander_exercice(
         points_eleve.setdefault(cid, 0)
 
     # Exercices par compétence et difficulté (optionnellement filtrés par chapitre)
-    q_ex = supabase_client.table("exercises").select("id, competence_id, difficulty, chapter")
+    # Use competences (array) instead of competence_id
+    q_ex = supabase_client.table("exercises").select("id, competences, difficulty, chapter")
     if chapter:
         q_ex = q_ex.eq("chapter", chapter)
     r_ex = q_ex.execute()
@@ -127,11 +169,14 @@ def recommander_exercice(
     }
     diff_to_idx = {"easy": 0, "medium": 1, "hard": 2}
     for row in r_ex.data or []:
-        cid = row.get("competence_id")
-        if not cid or cid not in exos_par_comp:
-            continue
-        idx = diff_to_idx.get(row.get("difficulty"), 0)
-        exos_par_comp[cid][idx].append(row["id"])
+        # competences is an array, iterate through it
+        exercise_competences = row.get("competences") or []
+        if not isinstance(exercise_competences, list):
+            exercise_competences = []
+        for cid in exercise_competences:
+            if cid and cid in exos_par_comp:
+                idx = diff_to_idx.get(row.get("difficulty"), 0)
+                exos_par_comp[cid][idx].append(row["id"])
 
     # Ne garder que les compétences qui ont au moins un exo
     competences_avec_exos = {
@@ -139,6 +184,11 @@ def recommander_exercice(
         if any(listes)
     }
     if not competences_avec_exos:
+        logger.warning(
+            "[Recommandation] No exercises found for any competence. Total exercises queried: %d, exercises with valid competence_id: %d",
+            len(r_ex.data or []),
+            sum(len(listes[0]) + len(listes[1]) + len(listes[2]) for listes in exos_par_comp.values()),
+        )
         return _fallback_random_exercise(supabase_client, chapter)
 
     max_points = competences
@@ -166,9 +216,29 @@ def recommander_exercice(
         if not ids:
             for niv in (0, 1, 2):
                 if listes[niv]:
-                    return _pick_exercise_id(listes[niv]), cid, niv
+                    eid = _pick_exercise_id(listes[niv])
+                    logger.debug(
+                        "[Recommandation] choisir: competence=%s niveau=%d -> exercise_id=%s (fallback from niveau %d)",
+                        cid,
+                        niveau,
+                        eid,
+                        niv,
+                    )
+                    return eid, cid, niv
+            logger.warning(
+                "[Recommandation] choisir: No exercises found for competence=%s niveau=%d",
+                cid,
+                niveau,
+            )
             return None, None, None
-        return _pick_exercise_id(ids), cid, niveau
+        eid = _pick_exercise_id(ids)
+        logger.debug(
+            "[Recommandation] choisir: competence=%s niveau=%d -> exercise_id=%s",
+            cid,
+            niveau,
+            eid,
+        )
+        return eid, cid, niveau
 
     # Streak très bas : remettre en confiance
     if streak < STREAK_VERY_LOW:
@@ -177,13 +247,15 @@ def recommander_exercice(
             rnd = random.random()
             niv = _choisir_difficulte(rnd, CONF_EASY_MAX_VERY_LOW, CONF_MEDIUM_MAX_VERY_LOW)
             eid, c, lvl = choisir(cid, niv)
-            if eid is not None:
-                return {
-                    "exercise_id": eid,
-                    "competence_id": c,
-                    "difficulty_level": lvl,
-                    "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
-                }
+            result = _get_exercise_result(supabase_client, eid, c, lvl)
+            if result:
+                return result
+            elif eid is not None:
+                logger.warning(
+                    "[Recommandation] Exercise %s found but competence_id is None for competence %s",
+                    eid,
+                    cid,
+                )
         else:
             if n_non:
                 cid, ratio = non_acquises[n_non - 1]
@@ -191,13 +263,15 @@ def recommander_exercice(
                     ratio, CONF_EASY_MAX_VERY_LOW, CONF_MEDIUM_MAX_VERY_LOW
                 )
                 eid, c, lvl = choisir(cid, niv)
-                if eid is not None:
-                    return {
-                        "exercise_id": eid,
-                        "competence_id": c,
-                        "difficulty_level": lvl,
-                        "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
-                    }
+                result = _get_exercise_result(supabase_client, eid, c, lvl)
+                if result:
+                    return result
+                elif eid is not None:
+                    logger.warning(
+                        "[Recommandation] Exercise %s found but competence_id is None for competence %s",
+                        eid,
+                        cid,
+                    )
 
     # Streak bas : confiance légère
     elif streak < STREAK_LOW:
@@ -207,24 +281,28 @@ def recommander_exercice(
                 rnd = random.random()
                 niv = _choisir_difficulte(rnd, CONF_EASY_MAX_LOW, CONF_MEDIUM_MAX_LOW)
                 eid, c, lvl = choisir(cid, niv)
-                if eid is not None:
-                    return {
-                        "exercise_id": eid,
-                        "competence_id": c,
-                        "difficulty_level": lvl,
-                        "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
-                    }
+                result = _get_exercise_result(supabase_client, eid, c, lvl)
+                if result:
+                    return result
+                elif eid is not None:
+                    logger.warning(
+                        "[Recommandation] Exercise %s found but competence_id is None for competence %s",
+                        eid,
+                        cid,
+                    )
         else:
             cid, ratio = non_acquises[n_non - 1]
             niv = _choisir_difficulte(ratio, CONF_EASY_MAX_LOW, CONF_MEDIUM_MAX_LOW)
             eid, c, lvl = choisir(cid, niv)
-            if eid is not None:
-                return {
-                    "exercise_id": eid,
-                    "competence_id": c,
-                    "difficulty_level": lvl,
-                    "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
-                }
+            result = _get_exercise_result(supabase_client, eid, c, lvl)
+            if result:
+                return result
+            elif eid is not None:
+                logger.warning(
+                    "[Recommandation] Exercise %s found but competence_id is None for competence %s",
+                    eid,
+                    cid,
+                )
 
     # Progression moyenne
     elif streak < STREAK_MID:
@@ -234,24 +312,28 @@ def recommander_exercice(
                 rnd = random.random()
                 niv = _choisir_difficulte(rnd, CONF_EASY_MAX_MID, CONF_MEDIUM_MAX_MID)
                 eid, c, lvl = choisir(cid, niv)
-                if eid is not None:
-                    return {
-                        "exercise_id": eid,
-                        "competence_id": c,
-                        "difficulty_level": lvl,
-                        "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
-                    }
+                result = _get_exercise_result(supabase_client, eid, c, lvl)
+                if result:
+                    return result
+                elif eid is not None:
+                    logger.warning(
+                        "[Recommandation] Exercise %s found but competence_id is None for competence %s",
+                        eid,
+                        cid,
+                    )
         else:
             cid, ratio = non_acquises[n_non // 2]
             niv = _choisir_difficulte(ratio, CONF_EASY_MAX_LOW, CONF_MEDIUM_MAX_LOW)
             eid, c, lvl = choisir(cid, niv)
-            if eid is not None:
-                return {
-                    "exercise_id": eid,
-                    "competence_id": c,
-                    "difficulty_level": lvl,
-                    "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
-                }
+            result = _get_exercise_result(supabase_client, eid, c, lvl)
+            if result:
+                return result
+            elif eid is not None:
+                logger.warning(
+                    "[Recommandation] Exercise %s found but competence_id is None for competence %s",
+                    eid,
+                    cid,
+                )
 
     # Défi : compétence la plus faible (ou acquises en moyen/difficile)
     else:
@@ -261,23 +343,24 @@ def recommander_exercice(
                 rnd = random.random()
                 niv = 1 if rnd < CONF_MEDIUM_MAX_HIGH else 2
                 eid, c, lvl = choisir(cid, niv)
-                if eid is not None:
-                    return {
-                        "exercise_id": eid,
-                        "competence_id": c,
-                        "difficulty_level": lvl,
-                        "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "medium",
-                    }
+                result = _get_exercise_result(supabase_client, eid, c, lvl)
+                if result:
+                    # Override difficulty if needed
+                    if lvl is not None and lvl >= 1:
+                        result["difficulty"] = DIFFICULTY_BY_LEVEL[lvl] if lvl == 1 else "hard"
+                    return result
         else:
             cid, ratio = non_acquises[0]
             niv = _choisir_difficulte(ratio, CONF_EASY_MAX_HIGH, CONF_MEDIUM_MAX_HIGH)
             eid, c, lvl = choisir(cid, niv)
-            if eid is not None:
-                return {
-                    "exercise_id": eid,
-                    "competence_id": c,
-                    "difficulty_level": lvl,
-                    "difficulty": DIFFICULTY_BY_LEVEL[lvl] if lvl is not None else "easy",
-                }
+            result = _get_exercise_result(supabase_client, eid, c, lvl)
+            if result:
+                return result
+            elif eid is not None:
+                logger.warning(
+                    "[Recommandation] Exercise %s found but competence_id is None for competence %s",
+                    eid,
+                    cid,
+                )
 
     return _fallback_random_exercise(supabase_client, chapter)

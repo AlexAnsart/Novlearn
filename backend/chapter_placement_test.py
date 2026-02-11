@@ -74,13 +74,18 @@ def _get_first_test_exercise(
         return None
     ex_id = random.choice(ids)
     diff_to_level = {"easy": 0, "medium": 1, "hard": 2}
-    r = supabase_client.table("exercises").select("id, difficulty").eq("id", ex_id).execute()
+    r = supabase_client.table("exercises").select("id, difficulty, competences").eq("id", ex_id).execute()
     row = (r.data or [{}])[0] if r.data else {}
     diff = row.get("difficulty", "easy")
     level = diff_to_level.get(diff, 0)
+    # Get competences array from exercise
+    exercise_competences = row.get("competences") or []
+    if not isinstance(exercise_competences, list):
+        exercise_competences = [competence] if competence else []
     return {
         "exercise_id": ex_id,
-        "competence_id": competence,
+        "competence_id": competence,  # Keep for backward compatibility
+        "competences": exercise_competences,  # Array of competences
         "difficulty_level": level,
         "difficulty": diff,
         "mode": "test",
@@ -164,6 +169,51 @@ def get_chapter_for_test(chapter: str | None) -> str:
     return unique_chapters[0] if unique_chapters else DEFAULT_CHAPTER
 
 
+def _restore_test_exercise_from_state(
+    supabase_client: Any,
+    user_id: str,
+    chapter: str,
+    competence_index: int,
+    exercise_index: int,
+    exos_par_comp: dict[str, list[list[int]]],
+    liste_competences: list[tuple[str, int]],
+) -> dict | None:
+    """Restore exercise from saved test state."""
+    if competence_index >= len(liste_competences):
+        return None
+    
+    competence = liste_competences[competence_index][0]
+    level, ex_id = _pick_next_exercise(competence, exercise_index, exos_par_comp)
+    
+    if ex_id is None:
+        logger.warning(
+            "[ChapterTest] No exercise found for restored state: competence_index=%s exercise_index=%s",
+            competence_index,
+            exercise_index,
+        )
+        return None
+    
+    r = supabase_client.table("exercises").select("id, difficulty, competences").eq("id", ex_id).execute()
+    row = (r.data or [{}])[0] if r.data else {}
+    diff = row.get("difficulty", "easy")
+    
+    exercise_competences = row.get("competences") or []
+    if not isinstance(exercise_competences, list):
+        exercise_competences = [competence] if competence else []
+    
+    return {
+        "exercise_id": ex_id,
+        "competence_id": competence,
+        "competences": exercise_competences,
+        "difficulty_level": level,
+        "difficulty": diff,
+        "mode": "test",
+        "chapter": chapter,
+        "test_competence_index": competence_index,
+        "test_exercise_index": exercise_index,
+    }
+
+
 def fetch_or_start_test(
     supabase_client: Any,
     user_id: str,
@@ -172,6 +222,7 @@ def fetch_or_start_test(
     """
     Returns first exercise for chapter placement test, or None if test not needed.
     If test already completed, returns None (caller should use normal recommendation).
+    If test is in progress, restores the exercise from saved state.
     """
     ch = get_chapter_for_test(chapter)
     test_completed = is_chapter_test_completed(supabase_client, user_id, ch)
@@ -190,6 +241,15 @@ def fetch_or_start_test(
         )
         return None
 
+    # Check if test is already in progress
+    r_state = (
+        supabase_client.table("user_chapter_test_state")
+        .select("competence_index, exercise_index, last_success")
+        .eq("user_id", user_id)
+        .eq("chapter", ch)
+        .execute()
+    )
+    
     liste_competences = _competences_to_test(ch)
     if not liste_competences:
         logger.warning("[ChapterTest] No competences for chapter %s", ch)
@@ -198,7 +258,7 @@ def fetch_or_start_test(
     competences = get_competences(chapter=ch)
     chapters_to_try = CHAPTER_DB_ALIASES.get(ch, [ch])
     q_ex = supabase_client.table("exercises").select(
-        "id, competence_id, difficulty, chapter"
+        "id, competences, difficulty, chapter"
     )
     if len(chapters_to_try) == 1:
         q_ex = q_ex.eq("chapter", chapters_to_try[0])
@@ -210,12 +270,50 @@ def fetch_or_start_test(
     }
     diff_to_idx = {"easy": 0, "medium": 1, "hard": 2}
     for row in r_ex.data or []:
-        cid = row.get("competence_id")
-        if not cid or cid not in exos_par_comp:
-            continue
-        idx = diff_to_idx.get(row.get("difficulty"), 0)
-        exos_par_comp[cid][idx].append(row["id"])
+        # competences is an array, iterate through it
+        exercise_competences = row.get("competences") or []
+        if not isinstance(exercise_competences, list):
+            exercise_competences = []
+        for cid in exercise_competences:
+            if cid and cid in exos_par_comp:
+                idx = diff_to_idx.get(row.get("difficulty"), 0)
+                exos_par_comp[cid][idx].append(row["id"])
 
+    # If state exists, restore from it
+    if r_state.data and len(r_state.data) > 0:
+        state_row = r_state.data[0]
+        i = int(state_row.get("competence_index", 0))
+        j = int(state_row.get("exercise_index", 0))
+        
+        logger.info(
+            "[ChapterTest] Restoring test state for user=%s chapter=%s competence_index=%s exercise_index=%s",
+            user_id[:8],
+            ch,
+            i,
+            j,
+        )
+        
+        result = _restore_test_exercise_from_state(
+            supabase_client, user_id, ch, i, j, exos_par_comp, liste_competences
+        )
+        
+        if result:
+            logger.info(
+                "[ChapterTest] Restored test exercise for user=%s chapter=%s exercise_id=%s",
+                user_id[:8],
+                ch,
+                result.get("exercise_id"),
+            )
+            return result
+        else:
+            # If restoration failed, start fresh
+            logger.warning(
+                "[ChapterTest] Failed to restore test state, starting fresh for user=%s chapter=%s",
+                user_id[:8],
+                ch,
+            )
+
+    # No existing state or restoration failed - start new test
     result = _get_first_test_exercise(
         supabase_client, user_id, ch, exos_par_comp, liste_competences
     )
@@ -236,10 +334,10 @@ def fetch_or_start_test(
             on_conflict="user_id,chapter",
         ).execute()
         logger.info(
-            "[ChapterTest] Started test for user=%s chapter=%s competence=%s exercise_id=%s",
+            "[ChapterTest] Started new test for user=%s chapter=%s competences=%s exercise_id=%s",
             user_id[:8],
             ch,
-            result.get("competence_id"),
+            result.get("competences"),
             result.get("exercise_id"),
         )
     else:
@@ -284,7 +382,7 @@ def get_next_test_exercise(
 
     chapters_to_try = CHAPTER_DB_ALIASES.get(ch, [ch])
     q_ex = supabase_client.table("exercises").select(
-        "id, competence_id, difficulty, chapter"
+        "id, competences, difficulty, chapter"
     )
     if len(chapters_to_try) == 1:
         q_ex = q_ex.eq("chapter", chapters_to_try[0])
@@ -296,11 +394,14 @@ def get_next_test_exercise(
     }
     diff_to_idx = {"easy": 0, "medium": 1, "hard": 2}
     for r in r_ex.data or []:
-        cid = r.get("competence_id")
-        if not cid or cid not in exos_par_comp:
-            continue
-        idx = diff_to_idx.get(r.get("difficulty"), 0)
-        exos_par_comp[cid][idx].append(r["id"])
+        # competences is an array, iterate through it
+        exercise_competences = r.get("competences") or []
+        if not isinstance(exercise_competences, list):
+            exercise_competences = []
+        for cid in exercise_competences:
+            if cid and cid in exos_par_comp:
+                idx = diff_to_idx.get(r.get("difficulty"), 0)
+                exos_par_comp[cid][idx].append(r["id"])
 
     r_scores = (
         supabase_client.table("user_competence_scores")
@@ -389,9 +490,16 @@ def get_next_test_exercise(
         last_success,
     )
 
+    # Get competences array from exercise
+    ex_data = supabase_client.table("exercises").select("competences").eq("id", ex_id).maybe_single().execute()
+    exercise_competences = ex_data.data.get("competences") if ex_data.data else []
+    if not isinstance(exercise_competences, list):
+        exercise_competences = [competence_next] if competence_next else []
+    
     return {
         "exercise_id": ex_id,
-        "competence_id": competence_next,
+        "competence_id": competence_next,  # Keep for backward compatibility
+        "competences": exercise_competences,  # Array of competences
         "difficulty_level": level,
         "difficulty": diff,
         "mode": "test",

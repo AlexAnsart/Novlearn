@@ -272,7 +272,7 @@ export function TrainingPage() {
   };
 
   // ----------------------------------------------------------------------------------
-  // RENDER : COURS (Flashcards)
+  // RENDER : ASTUCES (Flashcards)
   // ----------------------------------------------------------------------------------
   if (selectedChapter && selectedTab === "course") {
     const currentChapter = chapters.find((c) => c.id === selectedChapter);
@@ -299,14 +299,14 @@ export function TrainingPage() {
               className="text-4xl md:text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
             >
-              Cours - {currentChapter?.name}
+              Astuces - {currentChapter?.name}
             </h2>
           </div>
 
           {flashcardsLoading ? (
             <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 text-center shadow-md">
               <Loader2 className="w-10 h-10 text-blue-400 animate-spin mx-auto" />
-              <p className="text-blue-200 mt-4">Chargement du cours...</p>
+              <p className="text-blue-200 mt-4">Chargement des astuces...</p>
             </div>
           ) : flashcards.length === 0 ? (
             <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-12 md:p-16 text-center shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
@@ -314,7 +314,7 @@ export function TrainingPage() {
                 className="text-blue-200 text-xl md:text-2xl"
                 style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
               >
-                Les fiches de cours pour ce chapitre arrivent bientôt.
+                Les fiches d'astuces pour ce chapitre arrivent bientôt.
               </p>
               <p
                 className="text-slate-400 mt-2"
@@ -579,7 +579,7 @@ export function TrainingPage() {
   }
 
   // ----------------------------------------------------------------------------------
-  // RENDER : SELECTION TAB (Exercices vs Cours)
+  // RENDER : SELECTION TAB (Exercices vs Astuces)
   // ----------------------------------------------------------------------------------
   if (selectedChapter) {
     const currentChapter = chapters.find((c) => c.id === selectedChapter);
@@ -642,7 +642,7 @@ export function TrainingPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Cours
+                  Astuces
                 </h3>
               </div>
             </button>
@@ -693,7 +693,7 @@ export function TrainingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {chapters.map((chapter) => {
             const hasExercises = chapterHasExercises[chapter.id];
-            // On laisse "grisé" visuellement si pas d'exo, mais cliquable pour voir le cours
+            // On laisse "grisé" visuellement si pas d'exo, mais cliquable pour voir les astuces
             const isGrayed = !hasExercises;
             return (
               <button
@@ -717,7 +717,7 @@ export function TrainingPage() {
                   </h3>
                   {!hasExercises && (
                     <p className="text-blue-200/80 text-xs mt-1">
-                      (Cours seulement)
+                      (Astuces seulement)
                     </p>
                   )}
                 </div>
