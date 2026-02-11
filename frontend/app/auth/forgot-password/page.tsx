@@ -17,14 +17,8 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const productionUrl = "https://novlearn.fr";
-      const redirectTo = `${productionUrl}/auth/callback?next=/auth/update-password`;
-
-      console.log("🔗 Envoi du lien de reset vers :", redirectTo);
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo,
-      });
+      const redirectTo = `${window.location.origin}/auth/callback?next=/auth/update-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo, });
 
       if (error) throw error;
       toast.success(

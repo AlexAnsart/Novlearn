@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
+import { computeNewScore, difficultyToLevel, getBonusStreak } from "../../lib/competenceScore";
 import { supabase } from "../../lib/supabase";
 import { getCompetenceById } from "../../settings/competenceSettings";
 import { Exercise, VariableValues } from "../../types/exercise";
@@ -44,6 +44,14 @@ async function updateCompetenceScore(
         )
       : currentPoints;
 
+    // Log points gained for debugging
+    if (isCorrect) {
+      const pointsGained = newPoints - currentPoints;
+      const difficultyLevel = difficultyToLevel(difficulty);
+      const bonusStreak = getBonusStreak(currentStreak);
+      console.log(`[Points] Competence: ${competenceConfig?.name || competenceId}, Points gagnés: ${pointsGained} (difficulté: ${difficultyLevel + 1}, bonus streak: ${bonusStreak}), Total: ${currentPoints} → ${newPoints}/${maxPoints}`);
+    }
+
     await supabase.from("user_competence_scores").upsert(
       {
         user_id: userId,
@@ -68,6 +76,9 @@ interface ExerciseLoaderProps {
     isCorrect: boolean,
   ) => void;
   onError?: (error: Error) => void;
+  shouldCountPoints?: boolean; // If true, points will be counted (only for recommended exercises from home page)
+  mode?: 'test' | 'recommendation'; // Display badge: placement test vs normal recommendation
+  onNextClick?: (hasErrors: boolean) => Promise<void>; // When provided, called on "Next" instead of navigating
 }
 
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
@@ -75,6 +86,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   onLoad,
   onElementSubmit,
   onError,
+  shouldCountPoints = false,
+  mode,
+  onNextClick,
 }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -105,9 +119,8 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
     useState(false);
 
   // Feedback d'enregistrement de la tentative (pour debug / UX)
-  const [lastSaveStatus, setLastSaveStatus] = useState<
-    "idle" | "saved" | "no_session" | "error"
-  >("idle");
+  const [lastSaveStatus, setLastSaveStatus] = useState<"idle" | "saved" | "no_session" | "error">("idle");
+  const [isNextLoading, setIsNextLoading] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -277,13 +290,15 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         } else {
           setLastSaveStatus("saved");
         }
-        if (exercise.competence_id) {
+        if (exercise.competence_id && shouldCountPoints) {
           updateCompetenceScore(
             currentUser.id,
             exercise.competence_id,
             exercise.difficulty,
             isCorrect,
           );
+        } else if (exercise.competence_id && !shouldCountPoints) {
+          console.log("[ExerciseLoader] Points not applied (test mode: server handles scoring, or manual selection)");
         }
       }
 
@@ -295,7 +310,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         return next;
       });
     },
-    [exercise, totalQuestions, onElementSubmit],
+    [exercise, totalQuestions, onElementSubmit, shouldCountPoints],
   );
 
   const proceedToNext = useCallback(() => {
@@ -307,19 +322,23 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
     setPendingNextAction(null); // Nettoyage
   }, [exerciseId, router]);
 
-  const handleNextExercise = () => {
-    // Probabilité de 20%
-    const shouldAskFeedback = Math.random() < 0.15;
-
-    if (shouldAskFeedback) {
-      // On sauvegarde l'action "aller au suivant" pour plus tard
-      setPendingNextAction(() => proceedToNext);
-      // On active le mode restreint "Difficulté seule"
-      setIsFeedbackDifficultyOnly(true);
-      // On ouvre la modale
-      setIsFeedbackOpen(true);
+  const handleNextExercise = async () => {
+    if (onNextClick) {
+      setIsNextLoading(true);
+      try {
+        await onNextClick(hasErrors);
+        console.log(`[ExerciseLoader] Next requested (hasErrors=${hasErrors}, mode=${mode})`);
+      } catch (e) {
+        console.error('[ExerciseLoader] onNextClick error:', e);
+      } finally {
+        setIsNextLoading(false);
+      }
+      return;
+    }
+    if (exerciseId) {
+      router.push('/exercices');
     } else {
-      proceedToNext();
+      setRefreshTrigger(prev => prev + 1);
     }
   };
 
@@ -383,9 +402,19 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-1">
-            {exercise.title}
-          </h2>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h2 className="text-2xl font-bold text-slate-800">{exercise.title}</h2>
+            {mode === 'test' && (
+              <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border border-amber-200">
+                Mode test
+              </span>
+            )}
+            {mode === 'recommendation' && (
+              <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border border-indigo-100">
+                Recommandation
+              </span>
+            )}
+          </div>
           <div className="flex gap-2 text-sm text-gray-500">
             {exercise.chapter && (
               <span className="bg-gray-100 px-2 py-0.5 rounded text-xs uppercase tracking-wide font-semibold">
@@ -487,10 +516,20 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
             {/* Bouton SUIVANT avec logique aléatoire */}
             <button
               onClick={handleNextExercise}
-              className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all"
+              disabled={isNextLoading}
+              className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
-              Exercice Suivant
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {isNextLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Chargement…
+                </>
+              ) : (
+                <>
+                  Exercice Suivant
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </div>
         )}

@@ -225,9 +225,9 @@ export function ProgressPage() {
         const chapterAttempts = byChapter.get(subject) ?? [];
         const history = buildHistory(chapterAttempts);
         const totalAnswers = chapterAttempts.length;
-        const correctAnswers = chapterAttempts.filter(
-          (a) => a.is_correct,
-        ).length;
+        const correctAnswers = chapterAttempts.filter((a) => a.is_correct).length;
+        // Use actual point system: average percentage based on points/max_points for competences
+        // Only use this calculation if competences exist, otherwise show 0 (no points system available)
         const chapterScore =
           competences.length > 0
             ? Math.round(
@@ -236,9 +236,7 @@ export function ProgressPage() {
                   0,
                 ) / competences.length,
               )
-            : totalAnswers > 0
-              ? Math.round((correctAnswers / totalAnswers) * 100)
-              : 0;
+            : 0; // Don't fall back to answer rate - use point system only
         return {
           subject,
           progress: chapterScore,
@@ -400,7 +398,7 @@ export function ProgressPage() {
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-slate-900/40 rounded-xl p-4 text-center">
                   <p
                     className="text-blue-200 mb-1"
@@ -423,46 +421,8 @@ export function ProgressPage() {
                   </p>
                 </div>
                 <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                  <p
-                    className="text-blue-200 mb-1"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Réponses
-                  </p>
-                  <p
-                    className="text-white"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 700,
-                      fontSize: "1.5rem",
-                    }}
-                  >
-                    {selectedSubject.totalAnswers}
-                  </p>
-                </div>
-                <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                  <p
-                    className="text-blue-200 mb-1"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Bonnes réponses
-                  </p>
-                  <p
-                    className="text-white"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 700,
-                      fontSize: "1.5rem",
-                    }}
-                  >
-                    {selectedSubject.correctAnswers}
-                  </p>
+                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Exercices</p>
+                  <p className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.totalAnswers}</p>
                 </div>
               </div>
             )}
@@ -557,24 +517,7 @@ export function ProgressPage() {
         )}
 
         {/* Overview cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="flex items-center gap-2 mb-2">
-              <MessageSquare className="w-5 h-5 text-blue-400" />
-              <span
-                className="text-blue-200"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
-              >
-                Réponses
-              </span>
-            </div>
-            <p
-              className="text-white text-2xl"
-              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
-            >
-              {overview.totalAnswers}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="w-5 h-5 text-green-400" />

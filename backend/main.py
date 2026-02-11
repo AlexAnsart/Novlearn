@@ -14,6 +14,11 @@ import random
 from config import settings
 from auth import verify_token, get_supabase_client
 from recommandation import recommander_exercice
+from chapter_placement_test import (
+    fetch_or_start_test,
+    get_next_test_exercise,
+    is_chapter_test_completed,
+)
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -115,20 +120,84 @@ async def recommend_exercise(
     """
     Recommande un exercice pour l'utilisateur connecté.
     chapter (query, optionnel) : limiter au chapitre (streak et exos de ce chapitre).
-    Retourne exercise_id, competence_id, difficulty_level, difficulty ou 404.
+    Retourne exercise_id, competence_id, difficulty_level, difficulty, mode (test|recommendation).
+    Si l'utilisateur n'a pas passé le test de placement du chapitre, retourne un exo de test.
     """
     try:
         supabase = get_supabase_client()
         user_id = user["user_id"]
+        result = fetch_or_start_test(supabase, user_id, chapter)
+        if result:
+            logger.info(
+                "[API] recommend-exercise: serving chapter test for user=%s chapter=%s",
+                user_id[:8],
+                result.get("chapter", ""),
+            )
+            return JSONResponse(content=result)
         result = recommander_exercice(supabase, user_id, chapter=chapter)
         if not result:
             raise HTTPException(status_code=404, detail="Aucun exercice recommandé")
+        result["mode"] = "recommendation"
         return JSONResponse(content=result)
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("recommend_exercise error: %s", e)
         raise HTTPException(status_code=500, detail="Erreur lors de la recommandation")
+
+
+class ChapterTestNextRequest(BaseModel):
+    chapter: str
+    last_success: bool
+
+
+@app.post("/api/chapter-test/next")
+async def chapter_test_next(
+    body: ChapterTestNextRequest,
+    user: dict = Depends(verify_token),
+):
+    """
+    Returns next exercise for chapter placement test after user completed one.
+    Body: { chapter, last_success }.
+    Returns next exercise or { completed: true } when test is done.
+    """
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        result = get_next_test_exercise(
+            supabase, user_id, body.chapter, body.last_success
+        )
+        if result is None:
+            return JSONResponse(
+                content={"completed": True, "chapter": body.chapter}
+            )
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.exception("chapter_test_next error: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur lors de la récupération du prochain exercice de test",
+        )
+
+
+@app.get("/api/chapter-test/status")
+async def chapter_test_status(
+    user: dict = Depends(verify_token),
+    chapter: Optional[str] = None,
+):
+    """
+    Returns whether the user has completed the placement test for the chapter.
+    """
+    try:
+        from chapter_placement_test import get_chapter_for_test
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        ch = get_chapter_for_test(chapter)
+        completed = is_chapter_test_completed(supabase, user_id, ch)
+        return JSONResponse(content={"completed": completed, "chapter": ch})
+    except Exception as e:
+        logger.exception("chapter_test_status error: %s", e)
+        raise HTTPException(status_code=500, detail="Erreur lors de la vérification")
 
 
 # ============================================
