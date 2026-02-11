@@ -112,6 +112,33 @@ const byId = new Map<string, CompetenceConfig>(
   COMPETENCES.map((c) => [c.id, c]),
 );
 
+const byName = new Map<string, CompetenceConfig>(
+  COMPETENCES.map((c) => [c.name, c]),
+);
+
 export function getCompetenceById(id: string): CompetenceConfig | undefined {
   return byId.get(id);
+}
+
+export function getCompetenceByName(name: string): CompetenceConfig | undefined {
+  return byName.get(name);
+}
+
+/**
+ * Convert competence identifier (ID or name) to ID.
+ * Returns the ID if it's already an ID, or converts name to ID if it's a name.
+ */
+export function normalizeCompetenceId(identifier: string): string | null {
+  // First check if it's already an ID
+  if (byId.has(identifier)) {
+    return identifier;
+  }
+  // Then check if it's a name
+  const competence = byName.get(identifier);
+  if (competence) {
+    return competence.id;
+  }
+  // If neither, return null
+  console.warn(`[normalizeCompetenceId] Unknown competence identifier: "${identifier}"`);
+  return null;
 }

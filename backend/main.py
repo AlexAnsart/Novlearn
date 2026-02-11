@@ -160,13 +160,13 @@ async def recommend_exercise(
             )
             raise HTTPException(status_code=404, detail="Aucun exercice recommandé")
         result["mode"] = "recommendation"
-            logger.info(
-                "[API] recommend-exercise: serving recommendation for user=%s chapter=%s exercise_id=%s competences=%s",
-                user_id[:8],
-                chapter or "all",
-                result.get("exercise_id"),
-                result.get("competences"),
-            )
+        logger.info(
+            "[API] recommend-exercise: serving recommendation for user=%s chapter=%s exercise_id=%s competences=%s",
+            user_id[:8],
+            chapter or "all",
+            result.get("exercise_id"),
+            result.get("competences"),
+        )
         # Ensure competences array is included in response
         competences_array = result.get("competences")
         if not competences_array or not isinstance(competences_array, list) or len(competences_array) == 0:
