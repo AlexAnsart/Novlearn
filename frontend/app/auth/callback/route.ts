@@ -37,14 +37,17 @@ export async function GET(request: Request) {
     if (!error) {
       // Redirection propre vers la page demandée
       // On s'assure que "next" commence bien par un slash
-      const forwardedHost = request.headers.get('x-forwarded-host'); // Pour Vercel/Prod
+      const forwardedHost = request.headers.get('x-forwarded-host');
+      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
       const isLocal = origin.includes('localhost');
       
       if (isLocal) {
          return NextResponse.redirect(`${origin}${next}`);
       } else if (forwardedHost) {
-         return NextResponse.redirect(`https://${forwardedHost}${next}`);
+         // Production avec proxy (Apache/Nginx)
+         return NextResponse.redirect(`${forwardedProto}://${forwardedHost}${next}`);
       } else {
+         // Production directe
          return NextResponse.redirect(`${origin}${next}`);
       }
     }

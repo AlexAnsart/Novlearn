@@ -140,19 +140,60 @@ export interface RecommendExerciseResponse {
   competence_id: string | null;
   difficulty_level: number;
   difficulty: string;
+  mode?: 'test' | 'recommendation';
+  chapter?: string;
 }
 
 /**
  * Recommande un exercice pour l'utilisateur connecté.
  * chapter (optionnel) : limiter au chapitre (streak et exos de ce chapitre).
  * Retourne null si non connecté, 404 ou erreur (fallback = exercice aléatoire côté Loader).
+ * Si test de placement non complété, retourne un exo de test (mode: "test").
  */
 export async function getRecommendedExercise(chapter?: string | null): Promise<RecommendExerciseResponse | null> {
   try {
     const endpoint = chapter
       ? `/api/recommend-exercise?chapter=${encodeURIComponent(chapter)}`
       : '/api/recommend-exercise';
-    return await apiRequest<RecommendExerciseResponse>(endpoint);
+    const res = await apiRequest<RecommendExerciseResponse>(endpoint);
+    if (res?.mode) {
+      console.log(`[Exercise] Recommendation: mode=${res.mode}${res.chapter ? ` chapter=${res.chapter}` : ''} exo=${res.exercise_id}`);
+    }
+    return res;
+  } catch {
+    return null;
+  }
+}
+
+export interface ChapterTestNextResponse {
+  exercise_id?: number;
+  competence_id?: string;
+  difficulty_level?: number;
+  difficulty?: string;
+  mode?: 'test';
+  chapter?: string;
+  completed?: boolean;
+}
+
+/**
+ * Récupère le prochain exercice du test de placement après complétion.
+ * Body: { chapter, last_success }.
+ */
+export async function postChapterTestNext(
+  chapter: string,
+  lastSuccess: boolean
+): Promise<ChapterTestNextResponse | null> {
+  try {
+    const res = await apiRequest<ChapterTestNextResponse>('/api/chapter-test/next', {
+      method: 'POST',
+      body: JSON.stringify({ chapter, last_success: lastSuccess }),
+    });
+    if (res?.completed) {
+      console.log(`[Exercise] Chapter test completed for chapter=${chapter}`);
+    } else if (res?.exercise_id) {
+      console.log(`[Exercise] Chapter test next: exo=${res.exercise_id} (lastSuccess=${lastSuccess})`);
+    }
+    return res;
   } catch {
     return null;
   }

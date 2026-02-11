@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ExerciseLoader } from "../components/Exercise/ExerciseLoader";
 import { Layout } from "../components/Layout";
 import { Exercise } from "../types/exercise";
-import { getRecommendedExercise } from "../lib/api";
+import { getRecommendedExercise, postChapterTestNext } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 
 // Composant qui lit l'URL
@@ -16,6 +16,9 @@ function ExercisePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [recommendedId, setRecommendedId] = useState<string | undefined>(undefined);
   const [recommendLoading, setRecommendLoading] = useState(false);
+  const [mode, setMode] = useState<'test' | 'recommendation' | undefined>(undefined);
+  const [testChapter, setTestChapter] = useState<string | undefined>(undefined);
+  const [nextKey, setNextKey] = useState(0);
 
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("id") || undefined;
@@ -30,6 +33,8 @@ function ExercisePageContent() {
   useEffect(() => {
     if (idFromUrl) {
       setRecommendedId(undefined);
+      setMode(undefined);
+      setTestChapter(undefined);
       return;
     }
     let cancelled = false;
@@ -37,7 +42,14 @@ function ExercisePageContent() {
     getRecommendedExercise(chapterFromUrl || null)
       .then((res) => {
         if (cancelled) return;
-        setRecommendedId(res ? String(res.exercise_id) : undefined);
+        if (res) {
+          setRecommendedId(String(res.exercise_id));
+          setMode(res.mode ?? 'recommendation');
+          setTestChapter(res.chapter);
+          console.log(`[ExercisePage] Loaded: mode=${res.mode ?? 'recommendation'} chapter=${res.chapter ?? '-'} exo=${res.exercise_id}`);
+        } else {
+          setRecommendedId(undefined);
+        }
       })
       .finally(() => {
         if (!cancelled) setRecommendLoading(false);
@@ -49,8 +61,45 @@ function ExercisePageContent() {
 
   const exerciseId = idFromUrl ?? recommendedId;
 
-  // Stabiliser les callbacks pour éviter les re-renders
-  const handleLoad = useCallback((exercise: Exercise) => {
+  // Fetch next exercise when in test or recommendation mode (no id in URL)
+  const handleNextClick = useCallback(
+    async (hasErrors: boolean) => {
+      if (idFromUrl) return;
+      const lastSuccess = !hasErrors;
+      const applyNext = (id: string, m: 'test' | 'recommendation', ch?: string) => {
+        setRecommendedId(id);
+        setMode(m);
+        setTestChapter(ch);
+        setNextKey((k) => k + 1);
+      };
+      if (mode === 'test' && testChapter) {
+        const res = await postChapterTestNext(testChapter, lastSuccess);
+        if (res?.completed) {
+          console.log('[ExercisePage] Chapter test completed, switching to recommendation');
+          const next = await getRecommendedExercise(chapterFromUrl || null);
+          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter);
+          else setNextKey((k) => k + 1);
+        } else if (res?.exercise_id) {
+          applyNext(String(res.exercise_id), 'test', res.chapter ?? testChapter);
+        } else {
+          const next = await getRecommendedExercise(chapterFromUrl || null);
+          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter);
+          else setNextKey((k) => k + 1);
+        }
+      } else {
+        const next = await getRecommendedExercise(chapterFromUrl || null);
+        if (next) {
+          applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter);
+        } else {
+          console.warn('[ExercisePage] getRecommendedExercise returned null, forcing reload');
+          setNextKey((k) => k + 1);
+        }
+      }
+    },
+    [idFromUrl, mode, testChapter, chapterFromUrl]
+  );
+
+  const handleLoad = useCallback((_exercise: Exercise) => {
     // Exercise loaded successfully
   }, []);
 
@@ -59,7 +108,7 @@ function ExercisePageContent() {
     setError(err.message);
   }, []);
 
-  const handleElementSubmit = useCallback((elementId: number, answer: unknown, isCorrect: boolean) => {
+  const handleElementSubmit = useCallback((_elementId: number, _answer: unknown, _isCorrect: boolean) => {
     // Element submitted
   }, []);
 
@@ -111,10 +160,14 @@ function ExercisePageContent() {
             </div>
           ) : (
           <ExerciseLoader
+            key={`exo-${exerciseId ?? 'loading'}-${nextKey}`}
             exerciseId={exerciseId}
             onLoad={handleLoad}
             onError={handleError}
             onElementSubmit={handleElementSubmit}
+            shouldCountPoints={!idFromUrl && mode !== 'test'}
+            mode={mode}
+            onNextClick={!idFromUrl ? handleNextClick : undefined}
           />
           )}
 
@@ -133,9 +186,11 @@ function ExercisePageContent() {
         <div className="flex items-start gap-2">
           <Sparkles className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
           <p className="text-blue-200 text-xs leading-relaxed" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
-            {exerciseId
-              ? `Exercice #${exerciseId} chargé depuis la base de données`
-              : "Mode découverte (exercice aléatoire)"}
+            {mode === 'test'
+              ? "Test de placement : évalue ton niveau pour des recommandations adaptées"
+              : exerciseId
+                ? `Exercice #${exerciseId}${mode === 'recommendation' ? ' (recommandation)' : ''}`
+                : "Mode découverte (exercice aléatoire)"}
           </p>
         </div>
       </div>
