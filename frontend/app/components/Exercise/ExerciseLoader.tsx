@@ -13,7 +13,7 @@ import {
   getBonusStreak,
 } from "../../lib/competenceScore";
 import { supabase } from "../../lib/supabase";
-import { getCompetenceById } from "../../settings/competenceSettings";
+import { getCompetenceById, normalizeCompetenceId } from "../../settings/competenceSettings";
 import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import { FeedbackModal } from "../ui/FeedbackModal";
@@ -359,18 +359,27 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         // Count points for each competence in the array
         if (effectiveCompetences.length > 0 && shouldCountPoints) {
           console.log(`[ExerciseLoader] ✅ Counting points for exercise ${exercise.id}, competences: ${JSON.stringify(effectiveCompetences)}, correct: ${isCorrect}`);
-          // Update score for each competence
-          const updatePromises = effectiveCompetences.map((competenceId) => {
-            return updateCompetenceScore(
-              currentUser.id,
-              competenceId,
-              exercise.difficulty,
-              isCorrect,
-            ).catch((err) => {
-              console.error(`[ExerciseLoader] ❌ Error updating competence score for ${competenceId}:`, err);
+          // Normalize competences (convert names to IDs if needed)
+          const normalizedCompetenceIds = effectiveCompetences
+            .map((comp) => normalizeCompetenceId(comp))
+            .filter((id): id is string => id !== null);
+          
+          if (normalizedCompetenceIds.length === 0) {
+            console.warn(`[ExerciseLoader] ⚠️ No valid competence IDs found after normalization for competences: ${JSON.stringify(effectiveCompetences)}`);
+          } else {
+            // Update score for each competence (using normalized IDs)
+            const updatePromises = normalizedCompetenceIds.map((competenceId) => {
+              return updateCompetenceScore(
+                currentUser.id,
+                competenceId,
+                exercise.difficulty,
+                isCorrect,
+              ).catch((err) => {
+                console.error(`[ExerciseLoader] ❌ Error updating competence score for ${competenceId}:`, err);
+              });
             });
-          });
-          await Promise.all(updatePromises);
+            await Promise.all(updatePromises);
+          }
         } else {
           if (effectiveCompetences.length === 0) {
             console.log(`[ExerciseLoader] ⚠️ Points NOT counted - exercise ${exercise.id} has no competences (prop=${JSON.stringify(competencesFromProps)}, exercise=${JSON.stringify(exercise.competences)})`);
