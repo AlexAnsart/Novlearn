@@ -103,8 +103,12 @@ function ExercisePageContent() {
         if (res?.completed) {
           console.log('[ExercisePage] Chapter test completed, switching to recommendation');
           const next = await getRecommendedExercise(chapterFromUrl || null);
-          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
-          else setNextKey((k) => k + 1);
+          if (next) {
+            const nextCompetences = next.competences && Array.isArray(next.competences) && next.competences.length > 0
+              ? next.competences
+              : (next.competence_id ? [next.competence_id] : []);
+            applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, nextCompetences);
+          } else setNextKey((k) => k + 1);
         } else if (res?.exercise_id) {
           const competencesArray = res.competences && Array.isArray(res.competences) && res.competences.length > 0
             ? res.competences
@@ -112,13 +116,20 @@ function ExercisePageContent() {
           applyNext(String(res.exercise_id), 'test', res.chapter ?? testChapter, competencesArray);
         } else {
           const next = await getRecommendedExercise(chapterFromUrl || null);
-          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
-          else setNextKey((k) => k + 1);
+          if (next) {
+            const nextCompetences = next.competences && Array.isArray(next.competences) && next.competences.length > 0
+              ? next.competences
+              : (next.competence_id ? [next.competence_id] : []);
+            applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, nextCompetences);
+          } else setNextKey((k) => k + 1);
         }
       } else {
         const next = await getRecommendedExercise(chapterFromUrl || null);
         if (next) {
-          applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
+          const nextCompetences = next.competences && Array.isArray(next.competences) && next.competences.length > 0
+            ? next.competences
+            : (next.competence_id ? [next.competence_id] : []);
+          applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, nextCompetences);
         } else {
           console.warn('[ExercisePage] getRecommendedExercise returned null, forcing reload');
           setNextKey((k) => k + 1);
