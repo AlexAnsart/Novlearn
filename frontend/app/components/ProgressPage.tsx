@@ -225,7 +225,6 @@ export function ProgressPage() {
         const chapterAttempts = byChapter.get(subject) ?? [];
         const history = buildHistory(chapterAttempts);
         const totalAnswers = chapterAttempts.length;
-<<<<<<< HEAD
         const correctAnswers = chapterAttempts.filter((a) => a.is_correct).length;
         // Use actual point system: average percentage based on points/max_points for competences
         // Only use this calculation if competences exist, otherwise show 0 (no points system available)
