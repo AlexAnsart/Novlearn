@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { FunctionContent, RendererProps } from '../types/exercise';
-import { MathText } from '../components/ui';
+import React from "react";
+import { MathText } from "../components/ui";
+import { FunctionContent, RendererProps } from "../types/exercise";
 
 const FunctionRenderer: React.FC<RendererProps<FunctionContent>> = ({
   content,
   variables,
 }) => {
-  const funcName = content.name || 'f';
-  const funcVar = content.variable || 'x';
+  const funcName = content.name || "f";
+  const funcVar = content.variable || "x";
   // Construction de la chaîne LaTeX pour MathText
   const functionText = `$${funcName}(${funcVar}) = ${content.expression}$`;
 
@@ -24,7 +24,7 @@ const FunctionRenderer: React.FC<RendererProps<FunctionContent>> = ({
           displayMode={false}
         />
       </div>
-      
+
       {content.domain && (
         <div className="mt-3 ml-10 text-sm text-blue-700">
           <MathText

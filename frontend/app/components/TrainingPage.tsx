@@ -26,13 +26,12 @@ import MathText from "../components/ui/MathText";
 const CHAPTER_EMOJIS: Record<string, string> = {
   "Suites numériques": "📊",
   "Limites et continuité": "➡️",
-  Fonctions: "📈",
-  Dérivabilité: "⚡",
+  "Dérivation et Fonctions": "📈",
   "Logarithme néperien": "📉",
   "Primitives et équadiff": "∫",
-  Convexité: "⌒",
-  Stats: "📊",
-  Probas: "🎲",
+  "Convexité": "⌒",
+  "Stats": "📊",
+  "Probas": "🎲",
 };
 
 interface Chapter {

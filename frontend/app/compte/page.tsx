@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { Layout } from '../components/Layout';
-import { AccountPage } from '../components/AccountPage';
+import { AccountPage } from "../components/AccountPage";
+import { Layout } from "../components/Layout";
 
 // Force dynamic rendering to prevent Next.js cache issues
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default function AccountPageRoute() {
   return (
@@ -13,4 +13,3 @@ export default function AccountPageRoute() {
     </Layout>
   );
 }
-

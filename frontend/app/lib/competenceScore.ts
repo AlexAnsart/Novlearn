@@ -19,7 +19,7 @@ export function computeNewScore(
   currentPoints: number,
   maxPoints: number,
   difficultyLevel: number,
-  streak: number
+  streak: number,
 ): number {
   const bonusStreak = getBonusStreak(streak);
   const pointsToAdd = difficultyLevel + 1 + bonusStreak;

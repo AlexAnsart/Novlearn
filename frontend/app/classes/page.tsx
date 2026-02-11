@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Layout } from '../components/Layout';
-import { ClassesPage } from '../components/ClassesPage';
+import { ClassesPage } from "../components/ClassesPage";
+import { Layout } from "../components/Layout";
 
 export default function ClassesPageRoute() {
   return (
@@ -10,4 +10,3 @@ export default function ClassesPageRoute() {
     </Layout>
   );
 }
-

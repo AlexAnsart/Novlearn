@@ -7,10 +7,10 @@ import {
   Copy,
   LogOut,
   Mail,
+  Trash2,
+  TrendingUp,
   User,
   Users,
-  TrendingUp,
-  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -59,7 +59,7 @@ export function AccountPage() {
   const [friendCodeError, setFriendCodeError] = useState<string | null>(null);
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [friendRequestsError, setFriendRequestsError] = useState<string | null>(
-    null
+    null,
   );
   const [friendCodeLoading, setFriendCodeLoading] = useState(false);
 
@@ -111,17 +111,19 @@ export function AccountPage() {
       console.log("Lancement de la suppression définitive du compte...");
 
       // 1. Récupérer la session actuelle pour avoir le token
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!session) {
         throw new Error("Session introuvable. Veuillez vous reconnecter.");
       }
 
       // 2. Appeler notre route API sécurisée pour supprimer le compte
-      const response = await fetch('/api/delete-account', {
-        method: 'DELETE',
+      const response = await fetch("/api/delete-account", {
+        method: "DELETE",
         headers: {
-          'Authorization': `Bearer ${session.access_token}`, // On envoie le token pour prouver qu'on est bien nous
+          Authorization: `Bearer ${session.access_token}`, // On envoie le token pour prouver qu'on est bien nous
         },
       });
 
@@ -132,10 +134,9 @@ export function AccountPage() {
 
       // 3. Si l'API a réussi, on déconnecte le client localement pour nettoyer le stockage
       await signOut();
-      
+
       // 4. Redirection vers l'accueil
       router.push("/");
-      
     } catch (error: any) {
       console.error("Erreur suppression compte:", error);
       alert(`Impossible de supprimer le compte : ${error.message}`);
@@ -162,7 +163,7 @@ export function AccountPage() {
           memberSince: "2024",
           exercisesCompleted: 0,
           level: "Terminale",
-        }))
+        })),
       );
       setFriendsError(null);
     } catch (error: any) {
@@ -174,7 +175,7 @@ export function AccountPage() {
         errorMessage.includes("fetch") ||
           errorMessage.includes("Failed to fetch")
           ? "Backend non disponible"
-          : errorMessage
+          : errorMessage,
       );
       setFriends([]);
     }
@@ -194,7 +195,7 @@ export function AccountPage() {
           id: r.id,
           from: r.from_user_name,
           fromId: r.from_user_id,
-        }))
+        })),
       );
       setFriendRequestsError(null);
     } catch (error: any) {
@@ -206,7 +207,7 @@ export function AccountPage() {
         errorMessage.includes("fetch") ||
           errorMessage.includes("Failed to fetch")
           ? "Backend non disponible"
-          : errorMessage
+          : errorMessage,
       );
       setFriendRequests([]);
     }
@@ -227,7 +228,9 @@ export function AccountPage() {
     } catch (error: any) {
       if (!isMountedRef.current) return;
       const errorMessage = error?.message || String(error);
-      const displayError = errorMessage.includes('fetch') ? 'Backend non disponible.' : errorMessage;
+      const displayError = errorMessage.includes("fetch")
+        ? "Backend non disponible."
+        : errorMessage;
       setFriendCodeError(displayError);
       setFriendCode(null);
       setInviteLink(null);
@@ -276,7 +279,13 @@ export function AccountPage() {
         if (abortController.signal.aborted || !isMountedRef.current) return;
         if (isMountedRef.current) {
           setLoading(false);
-          setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
+          setStats({
+            exercises_completed: 0,
+            total_answers: 0,
+            correct_answers: 0,
+            correct_rate_pct: 0,
+            level: "Terminale",
+          });
         }
       }, 15000);
 
@@ -290,12 +299,23 @@ export function AccountPage() {
       if (abortController.signal.aborted || !isMountedRef.current) return;
 
       if (attemptsError || !attemptsData) {
-        setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
+        setStats({
+          exercises_completed: 0,
+          total_answers: 0,
+          correct_answers: 0,
+          correct_rate_pct: 0,
+          level: "Terminale",
+        });
       } else {
         const totalAnswers = attemptsData.length;
         const correctAnswers = attemptsData.filter((a) => a.is_correct).length;
-        const distinctExercises = new Set(attemptsData.map((a) => a.exercise_id).filter(Boolean)).size;
-        const correctRatePct = totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) : 0;
+        const distinctExercises = new Set(
+          attemptsData.map((a) => a.exercise_id).filter(Boolean),
+        ).size;
+        const correctRatePct =
+          totalAnswers > 0
+            ? Math.round((correctAnswers / totalAnswers) * 100)
+            : 0;
         setStats({
           exercises_completed: distinctExercises,
           total_answers: totalAnswers,
@@ -307,7 +327,13 @@ export function AccountPage() {
     } catch (error) {
       if (abortController.signal.aborted || !isMountedRef.current) return;
       if (isMountedRef.current) {
-        setStats({ exercises_completed: 0, total_answers: 0, correct_answers: 0, correct_rate_pct: 0, level: "Terminale" });
+        setStats({
+          exercises_completed: 0,
+          total_answers: 0,
+          correct_answers: 0,
+          correct_rate_pct: 0,
+          level: "Terminale",
+        });
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
@@ -340,7 +366,10 @@ export function AccountPage() {
 
     return () => {
       isMountedRef.current = false;
-      if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+      if (
+        abortControllerRef.current &&
+        !abortControllerRef.current.signal.aborted
+      ) {
         abortControllerRef.current.abort();
       }
     };
@@ -369,8 +398,18 @@ export function AccountPage() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const months = [
-      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+      "Janvier",
+      "Février",
+      "Mars",
+      "Avril",
+      "Mai",
+      "Juin",
+      "Juillet",
+      "Août",
+      "Septembre",
+      "Octobre",
+      "Novembre",
+      "Décembre",
     ];
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
@@ -413,11 +452,23 @@ export function AccountPage() {
               <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Calendar className="w-5 h-5 text-blue-400" />
-                  <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
+                  <span
+                    className="text-blue-200"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 600,
+                    }}
+                  >
                     Membre depuis
                   </span>
                 </div>
-                <p className="text-white ml-8" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+                <p
+                  className="text-white ml-8"
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 500,
+                  }}
+                >
                   {selectedFriend.memberSince}
                 </p>
               </div>
@@ -425,11 +476,24 @@ export function AccountPage() {
               <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Award className="w-5 h-5 text-blue-400" />
-                  <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
+                  <span
+                    className="text-blue-200"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 600,
+                    }}
+                  >
                     Exercices réalisés
                   </span>
                 </div>
-                <p className="text-white ml-8" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}>
+                <p
+                  className="text-white ml-8"
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 500,
+                    fontSize: "1.5rem",
+                  }}
+                >
                   {selectedFriend.exercisesCompleted}
                 </p>
               </div>
@@ -437,11 +501,24 @@ export function AccountPage() {
               <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Award className="w-5 h-5 text-yellow-400" />
-                  <span className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}>
+                  <span
+                    className="text-blue-200"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 600,
+                    }}
+                  >
                     Niveau
                   </span>
                 </div>
-                <p className="text-white ml-8" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500, fontSize: "1.5rem" }}>
+                <p
+                  className="text-white ml-8"
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 500,
+                    fontSize: "1.5rem",
+                  }}
+                >
                   {selectedFriend.level}
                 </p>
               </div>
@@ -454,7 +531,6 @@ export function AccountPage() {
 
   return (
     <div className="flex-1 flex items-center justify-center px-4 md:px-8 pb-8 relative">
-      
       {/* --- MODALE DE CONFIRMATION DE SUPPRESSION --- */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -463,15 +539,22 @@ export function AccountPage() {
               <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
                 <Trash2 className="w-8 h-8 text-red-500" />
               </div>
-              <h3 className="text-white text-2xl font-bold mb-4" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+              <h3
+                className="text-white text-2xl font-bold mb-4"
+                style={{ fontFamily: "'Fredoka', sans-serif" }}
+              >
                 Supprimer votre compte ?
               </h3>
               <p className="text-slate-300 mb-8 leading-relaxed">
                 Êtes-vous sûr de vouloir faire ça ? <br />
-                <span className="text-red-400 font-semibold">Cette action est irréversible.</span> <br />
-                Toutes vos données (progression, amis, statistiques) seront définitivement effacées.
+                <span className="text-red-400 font-semibold">
+                  Cette action est irréversible.
+                </span>{" "}
+                <br />
+                Toutes vos données (progression, amis, statistiques) seront
+                définitivement effacées.
               </p>
-              
+
               <div className="flex flex-col gap-3 w-full">
                 <button
                   onClick={handleDeleteAccount}
@@ -727,7 +810,10 @@ export function AccountPage() {
                 <button
                   onClick={() => router.push("/progression")}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-700/50 hover:bg-slate-600/60 text-blue-200 transition-all"
-                  style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 600,
+                  }}
                 >
                   <TrendingUp className="w-5 h-5" />
                   Voir ma progression
@@ -799,7 +885,11 @@ export function AccountPage() {
                       );
                     }
                     if (friendCodeLoading || !friendCode) {
-                      return <p className="text-white text-xl md:text-2xl font-bold">...</p>;
+                      return (
+                        <p className="text-white text-xl md:text-2xl font-bold">
+                          ...
+                        </p>
+                      );
                     }
                     return (
                       <p
@@ -819,12 +909,19 @@ export function AccountPage() {
                   // Mobile : p-4 (carré). Desktop (md) : px-6 py-4 (rectangle)
                   className="p-4 md:px-6 md:py-4 rounded-xl bg-gradient-to-b from-blue-500 to-blue-700 text-white transition-all hover:scale-105 disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
                 >
-                  {copied ? <Check className="w-5 h-5 md:w-6 md:h-6" /> : <Copy className="w-5 h-5 md:w-6 md:h-6" />}
-                  
+                  {copied ? (
+                    <Check className="w-5 h-5 md:w-6 md:h-6" />
+                  ) : (
+                    <Copy className="w-5 h-5 md:w-6 md:h-6" />
+                  )}
+
                   {/* TEXTE : Caché sur mobile (hidden), Visible sur PC (md:block) */}
-                  <span 
+                  <span
                     className="hidden md:block"
-                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                    }}
                   >
                     {copied ? "Copié !" : "Copier le code"}
                   </span>
@@ -867,7 +964,6 @@ export function AccountPage() {
                 </button>
               </div>
             </div>
-          
 
             {/* Demandes d'amis en attente */}
             {(friendRequests.length > 0 || friendRequestsError) && (

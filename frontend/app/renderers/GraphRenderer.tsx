@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef } from 'react';
-import { GraphContent, RendererProps } from '../types/exercise';
-import { substituteVariables } from '../utils/math/parsing';
-import { evaluate } from '../utils/math/evaluation';
+import React, { useEffect, useRef } from "react";
+import { GraphContent, RendererProps } from "../types/exercise";
+import { evaluate } from "../utils/math/evaluation";
+import { substituteVariables } from "../utils/math/parsing";
 
 const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
   content,
@@ -16,7 +16,7 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const { xMin, xMax, yMin, yMax, showGrid, showAxes } = content;
@@ -30,12 +30,12 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     const toCanvasY = (y: number) => height - (y - yMin) * scaleY;
 
     // Fond
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
 
     // Grille
     if (showGrid) {
-      ctx.strokeStyle = '#f3f4f6'; // Gris très clair
+      ctx.strokeStyle = "#f3f4f6"; // Gris très clair
       ctx.lineWidth = 1;
       for (let x = Math.ceil(xMin); x <= xMax; x++) {
         ctx.beginPath();
@@ -53,9 +53,9 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
 
     // Axes
     if (showAxes) {
-      ctx.strokeStyle = '#374151'; // Gris foncé
+      ctx.strokeStyle = "#374151"; // Gris foncé
       ctx.lineWidth = 2;
-      
+
       // Axe X
       const yZero = toCanvasY(0);
       if (yZero >= 0 && yZero <= height) {
@@ -76,10 +76,10 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     }
 
     // Courbe
-    ctx.strokeStyle = '#3b82f6'; // Bleu
+    ctx.strokeStyle = "#3b82f6"; // Bleu
     ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     ctx.beginPath();
 
     let started = false;
@@ -92,12 +92,12 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
       const isValid = !isNaN(y) && isFinite(y);
       // Éviter de dessiner les asymptotes verticales (sauts brutaux)
       // et ne pas dessiner hors limites extrêmes pour éviter les bugs graphiques
-      const inBounds = y >= yMin - (yMax-yMin) && y <= yMax + (yMax-yMin);
+      const inBounds = y >= yMin - (yMax - yMin) && y <= yMax + (yMax - yMin);
 
       if (isValid && inBounds) {
         const canvasX = toCanvasX(x);
         const canvasY = toCanvasY(y);
-        
+
         if (!started) {
           ctx.moveTo(canvasX, canvasY);
           started = true;
@@ -109,7 +109,6 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
       }
     }
     ctx.stroke();
-
   }, [content, variables]);
 
   return (

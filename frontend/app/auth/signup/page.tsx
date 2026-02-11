@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { SignupForm } from '../../components/SignupForm';
+import { SignupForm } from "../../components/SignupForm";
 
 export default function SignupPage() {
   return (
@@ -9,4 +9,3 @@ export default function SignupPage() {
     </div>
   );
 }
-

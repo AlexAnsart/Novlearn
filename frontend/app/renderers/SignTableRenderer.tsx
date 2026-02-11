@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { SignTableContent, RendererProps } from '../types/exercise';
-import { Latex } from '../components/ui';
-import { substituteVariables } from '../utils/math/parsing';
+import React from "react";
+import { Latex } from "../components/ui";
+import { RendererProps, SignTableContent } from "../types/exercise";
+import { substituteVariables } from "../utils/math/parsing";
 
 const SignTableRenderer: React.FC<RendererProps<SignTableContent>> = ({
   content,
@@ -32,12 +32,21 @@ const SignTableRenderer: React.FC<RendererProps<SignTableContent>> = ({
               <Latex>f(x)</Latex>
             </td>
             {points.map((point, i) => (
-              <td key={i} className="border border-gray-300 p-2 text-xl font-bold">
-                {point.sign === '+' && <span className="text-green-600">+</span>}
-                {point.sign === '-' && <span className="text-red-600">−</span>}
-                {point.sign === '0' && <span className="text-slate-800">0</span>}
+              <td
+                key={i}
+                className="border border-gray-300 p-2 text-xl font-bold"
+              >
+                {point.sign === "+" && (
+                  <span className="text-green-600">+</span>
+                )}
+                {point.sign === "-" && <span className="text-red-600">−</span>}
+                {point.sign === "0" && (
+                  <span className="text-slate-800">0</span>
+                )}
                 {/* Double barre pour valeur interdite (ex: ||) */}
-                {point.sign === '||' && <span className="text-slate-800 border-l-2 border-r-2 border-slate-800 h-6 inline-block mx-2"></span>}
+                {point.sign === "||" && (
+                  <span className="text-slate-800 border-l-2 border-r-2 border-slate-800 h-6 inline-block mx-2"></span>
+                )}
               </td>
             ))}
           </tr>

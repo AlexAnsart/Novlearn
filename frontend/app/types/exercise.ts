@@ -3,7 +3,7 @@
 export interface Variable {
   id: number;
   name: string;
-  type: 'integer' | 'decimal' | 'choice' | 'computed';
+  type: "integer" | "decimal" | "choice" | "computed";
   min?: number;
   max?: number;
   decimals?: number;
@@ -26,7 +26,7 @@ export interface FunctionContent {
 export interface VariationPoint {
   x: string;
   value: string;
-  variation: 'croissante' | 'décroissante' | '';
+  variation: "croissante" | "décroissante" | "";
 }
 
 export interface VariationTableContent {
@@ -46,7 +46,7 @@ export interface GraphContent {
 export interface SignPoint {
   x: string;
   // AJOUT DE '||' ICI pour corriger l'erreur TS(2367)
-  sign: '+' | '-' | '0' | '||';
+  sign: "+" | "-" | "0" | "||";
 }
 
 export interface SignTableContent {
@@ -59,7 +59,7 @@ export interface DiscreteGraphContent {
 
 export interface EquationContent {
   latex: string;
-  answerType?: 'numeric' | 'text' | 'expression' | 'set';
+  answerType?: "numeric" | "text" | "expression" | "set";
   correctAnswer?: string;
   requireAnswer?: boolean;
   tolerance?: number;
@@ -67,7 +67,7 @@ export interface EquationContent {
 
 export interface QuestionContent {
   question: string;
-  answerFormat: 'number' | 'text'; 
+  answerFormat: "number" | "text";
   correctAnswer: string;
   points?: number;
   hint?: string;
@@ -85,7 +85,7 @@ export interface MCQContent {
 }
 
 export interface SequenceContent {
-  type: 'explicit' | 'recursive';
+  type: "explicit" | "recursive";
   formula: string;
   u0: string;
   relation?: string;
@@ -95,7 +95,7 @@ export interface SequenceContent {
 }
 
 // Union de tous les types de contenu possibles
-export type ElementContent = 
+export type ElementContent =
   | TextContent
   | FunctionContent
   | VariationTableContent
@@ -108,23 +108,23 @@ export type ElementContent =
   | SequenceContent;
 
 // Union Discriminée pour typage strict
-export type ExerciseElement = 
-  | { id: number; type: 'text'; content: TextContent }
-  | { id: number; type: 'function'; content: FunctionContent }
-  | { id: number; type: 'variation_table'; content: VariationTableContent }
-  | { id: number; type: 'graph'; content: GraphContent }
-  | { id: number; type: 'sign_table'; content: SignTableContent }
-  | { id: number; type: 'discrete_graph'; content: DiscreteGraphContent }
-  | { id: number; type: 'equation'; content: EquationContent }
-  | { id: number; type: 'question'; content: QuestionContent }
-  | { id: number; type: 'mcq'; content: MCQContent }
-  | { id: number; type: 'sequence'; content: SequenceContent };
+export type ExerciseElement =
+  | { id: number; type: "text"; content: TextContent }
+  | { id: number; type: "function"; content: FunctionContent }
+  | { id: number; type: "variation_table"; content: VariationTableContent }
+  | { id: number; type: "graph"; content: GraphContent }
+  | { id: number; type: "sign_table"; content: SignTableContent }
+  | { id: number; type: "discrete_graph"; content: DiscreteGraphContent }
+  | { id: number; type: "equation"; content: EquationContent }
+  | { id: number; type: "question"; content: QuestionContent }
+  | { id: number; type: "mcq"; content: MCQContent }
+  | { id: number; type: "sequence"; content: SequenceContent };
 
 export interface Exercise {
   id: number;
   title: string;
   chapter: string;
-  difficulty: 'Facile' | 'Moyen' | 'Difficile';
+  difficulty: "Facile" | "Moyen" | "Difficile";
   /** Single competence this exercise trains (for score tracking). */
   competence_id?: string | null;
   competences: string[];

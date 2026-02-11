@@ -1,8 +1,8 @@
 "use client";
 
-import { BookOpen, Sparkles, Loader2 } from "lucide-react";
-import { useState, Suspense, useCallback, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { BookOpen, Loader2, Sparkles } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { ExerciseLoader } from "../components/Exercise/ExerciseLoader";
 import { Layout } from "../components/Layout";
 import { Exercise } from "../types/exercise";
@@ -14,7 +14,9 @@ function ExercisePageContent() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [recommendedId, setRecommendedId] = useState<string | undefined>(undefined);
+  const [recommendedId, setRecommendedId] = useState<string | undefined>(
+    undefined,
+  );
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [mode, setMode] = useState<'test' | 'recommendation' | undefined>(undefined);
   const [testChapter, setTestChapter] = useState<string | undefined>(undefined);
@@ -104,7 +106,7 @@ function ExercisePageContent() {
   }, []);
 
   const handleError = useCallback((err: Error) => {
-    console.error('[ExercisePage] Load error:', err.message);
+    console.error("[ExercisePage] Load error:", err.message);
     setError(err.message);
   }, []);
 
@@ -117,7 +119,9 @@ function ExercisePageContent() {
       <div className="flex-1 flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-3 text-blue-200">
           <Loader2 className="w-8 h-8 animate-spin" />
-          <span style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+          <span
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+          >
             {authLoading ? "Chargement…" : "Redirection…"}
           </span>
         </div>
@@ -154,7 +158,9 @@ function ExercisePageContent() {
           {!idFromUrl && recommendLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-blue-200">
               <Loader2 className="w-6 h-6 animate-spin" />
-              <span style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+              <span
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+              >
                 Recommandation en cours…
               </span>
             </div>
@@ -173,7 +179,10 @@ function ExercisePageContent() {
 
           {error && (
             <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
-              <p className="text-red-200 text-sm" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+              <p
+                className="text-red-200 text-sm"
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+              >
                 ❌ {error}
               </p>
             </div>
@@ -196,10 +205,20 @@ function ExercisePageContent() {
       </div>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(51, 65, 85, 0.3); border-radius: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.5); border-radius: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.7); }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(51, 65, 85, 0.3);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(59, 130, 246, 0.5);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(59, 130, 246, 0.7);
+        }
       `}</style>
     </div>
   );
@@ -209,7 +228,13 @@ function ExercisePageContent() {
 export default function ExercicesPage() {
   return (
     <Layout>
-      <Suspense fallback={<div className="text-white text-center p-10">Chargement de la page...</div>}>
+      <Suspense
+        fallback={
+          <div className="text-white text-center p-10">
+            Chargement de la page...
+          </div>
+        }
+      >
         <ExercisePageContent />
       </Suspense>
     </Layout>

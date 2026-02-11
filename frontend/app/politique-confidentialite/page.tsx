@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { Layout } from '../components/Layout';
+import { Layout } from "../components/Layout";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -15,17 +15,29 @@ export default function PrivacyPolicyPage() {
               Politique de Confidentialité - NovLearn
             </h1>
 
-            <div className="space-y-6 text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+            <div
+              className="space-y-6 text-blue-200"
+              style={{ fontFamily: "'Fredoka', sans-serif" }}
+            >
               <p className="text-blue-300 italic mb-6">
-                Dernière mise à jour : {new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                Dernière mise à jour :{" "}
+                {new Date().toLocaleDateString("fr-FR", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
               </p>
-              
+
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   1. Responsable du traitement
                 </h2>
                 <p>
-                  <strong>Responsable du traitement</strong> : École Centrale de Lyon (projet étudiant PE69)
+                  <strong>Responsable du traitement</strong> : École Centrale de
+                  Lyon (projet étudiant PE69)
                 </p>
                 <p>
                   <strong>Contact</strong> : À compléter avec votre email
@@ -33,7 +45,10 @@ export default function PrivacyPolicyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   2. Données collectées
                 </h2>
                 <p>Nous collectons les données suivantes :</p>
@@ -45,34 +60,46 @@ export default function PrivacyPolicyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   3. Finalité
                 </h2>
                 <p>
-                  Apprentissage personnalisé pour la préparation au Baccalauréat spécialité Mathématiques.
+                  Apprentissage personnalisé pour la préparation au Baccalauréat
+                  spécialité Mathématiques.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   4. Base légale
                 </h2>
-                <p>
-                  Consentement de l'utilisateur (article 6.1.a du RGPD).
-                </p>
+                <p>Consentement de l'utilisateur (article 6.1.a du RGPD).</p>
               </section>
 
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   5. Durée de conservation
                 </h2>
                 <p>
-                  Jusqu'à suppression du compte ou fin du projet académique (avril 2026).
+                  Jusqu'à suppression du compte ou fin du projet académique
+                  (avril 2026).
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   6. Hébergement
                 </h2>
                 <p>
@@ -81,15 +108,28 @@ export default function PrivacyPolicyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   7. Vos droits (RGPD)
                 </h2>
                 <p>Vous disposez des droits suivants :</p>
                 <ul className="list-disc list-inside ml-4 space-y-2">
-                  <li><strong>Accès</strong> : exporter vos données</li>
-                  <li><strong>Rectification</strong> : modifier vos informations</li>
-                  <li><strong>Suppression</strong> : supprimer votre compte définitivement</li>
-                  <li><strong>Portabilité</strong> : récupérer vos données en format JSON</li>
+                  <li>
+                    <strong>Accès</strong> : exporter vos données
+                  </li>
+                  <li>
+                    <strong>Rectification</strong> : modifier vos informations
+                  </li>
+                  <li>
+                    <strong>Suppression</strong> : supprimer votre compte
+                    définitivement
+                  </li>
+                  <li>
+                    <strong>Portabilité</strong> : récupérer vos données en
+                    format JSON
+                  </li>
                 </ul>
                 <p className="mt-3">
                   Pour exercer ces droits : À compléter avec votre email
@@ -97,11 +137,15 @@ export default function PrivacyPolicyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl text-white mb-3" style={{ fontWeight: 600 }}>
+                <h2
+                  className="text-2xl text-white mb-3"
+                  style={{ fontWeight: 600 }}
+                >
                   8. Âge minimum
                 </h2>
                 <p>
-                  NovLearn est réservé aux élèves de 15 ans et plus. Si vous avez moins de 15 ans, vous ne pouvez pas créer de compte.
+                  NovLearn est réservé aux élèves de 15 ans et plus. Si vous
+                  avez moins de 15 ans, vous ne pouvez pas créer de compte.
                 </p>
               </section>
             </div>
@@ -111,4 +155,3 @@ export default function PrivacyPolicyPage() {
     </Layout>
   );
 }
-

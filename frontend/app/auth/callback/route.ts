@@ -1,16 +1,16 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 // ⚠️ INDISPENSABLE : Force cette route à ne jamais être mise en cache
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get('code');
-  
+  const code = searchParams.get("code");
+
   // On nettoie le paramètre "next" pour éviter les redirections malveillantes
-  const next = searchParams.get('next') ?? '/';
+  const next = searchParams.get("next") ?? "/";
 
   if (code) {
     const cookieStore = cookies();
@@ -29,11 +29,11 @@ export async function GET(request: Request) {
             cookieStore.delete({ name, ...options });
           },
         },
-      }
+      },
     );
-    
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
+
     if (!error) {
       // Redirection propre vers la page demandée
       // On s'assure que "next" commence bien par un slash
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       const isLocal = origin.includes('localhost');
       
       if (isLocal) {
-         return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${origin}${next}`);
       } else if (forwardedHost) {
          // Production avec proxy (Apache/Nginx)
          return NextResponse.redirect(`${forwardedProto}://${forwardedHost}${next}`);

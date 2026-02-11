@@ -1,18 +1,19 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { VariationTableContent, RendererProps } from '../types/exercise';
-import { Latex } from '../components/ui';
-import { substituteVariables } from '../utils/math/parsing';
+import React from "react";
+import { Latex } from "../components/ui";
+import { RendererProps, VariationTableContent } from "../types/exercise";
+import { substituteVariables } from "../utils/math/parsing";
 
-const VariationTableRenderer: React.FC<RendererProps<VariationTableContent>> = ({
-  content,
-  variables,
-}) => {
+const VariationTableRenderer: React.FC<
+  RendererProps<VariationTableContent>
+> = ({ content, variables }) => {
   const { points } = content;
 
-  const Arrow = ({ direction }: { direction: 'up' | 'down' }) => (
-    <div className={`text-2xl ${direction === 'up' ? 'text-green-500 mb-2 rotate-[-45deg]' : 'text-red-500 mt-2 rotate-[45deg]'}`}>
+  const Arrow = ({ direction }: { direction: "up" | "down" }) => (
+    <div
+      className={`text-2xl ${direction === "up" ? "text-green-500 mb-2 rotate-[-45deg]" : "text-red-500 mt-2 rotate-[45deg]"}`}
+    >
       ➜
     </div>
   );
@@ -27,13 +28,16 @@ const VariationTableRenderer: React.FC<RendererProps<VariationTableContent>> = (
               <Latex>x</Latex>
             </th>
             {points.map((point, i) => (
-              <th key={i} className="border border-gray-300 bg-slate-50 p-2 min-w-[80px]">
+              <th
+                key={i}
+                className="border border-gray-300 bg-slate-50 p-2 min-w-[80px]"
+              >
                 <Latex>{substituteVariables(point.x, variables)}</Latex>
               </th>
             ))}
           </tr>
         </thead>
-        
+
         {/* Ligne des variations de f(x) */}
         <tbody>
           <tr>
@@ -41,27 +45,41 @@ const VariationTableRenderer: React.FC<RendererProps<VariationTableContent>> = (
               <Latex>f(x)</Latex>
             </td>
             {points.map((point, i) => {
-              const val = point.value ? substituteVariables(point.value, variables) : '';
+              const val = point.value
+                ? substituteVariables(point.value, variables)
+                : "";
               const isLast = i === points.length - 1;
 
               return (
-                <td key={i} className="border border-gray-300 p-2 h-24 align-middle relative">
+                <td
+                  key={i}
+                  className="border border-gray-300 p-2 h-24 align-middle relative"
+                >
                   <div className="flex flex-col items-center justify-between h-full w-full">
                     {/* Haut */}
                     <div className="h-6">
-                       {point.variation === 'croissante' && val && <Latex>{val}</Latex>}
-                       {!point.variation && val && <Latex>{val}</Latex>} {/* Cas stable */}
+                      {point.variation === "croissante" && val && (
+                        <Latex>{val}</Latex>
+                      )}
+                      {!point.variation && val && <Latex>{val}</Latex>}{" "}
+                      {/* Cas stable */}
                     </div>
-                    
+
                     {/* Centre (Flèches) */}
                     <div className="absolute inset-0 flex items-center justify-end pr-2 pointer-events-none">
-                       {!isLast && point.variation === 'croissante' && <Arrow direction="up" />}
-                       {!isLast && point.variation === 'décroissante' && <Arrow direction="down" />}
+                      {!isLast && point.variation === "croissante" && (
+                        <Arrow direction="up" />
+                      )}
+                      {!isLast && point.variation === "décroissante" && (
+                        <Arrow direction="down" />
+                      )}
                     </div>
 
                     {/* Bas */}
                     <div className="h-6">
-                       {point.variation === 'décroissante' && val && <Latex>{val}</Latex>}
+                      {point.variation === "décroissante" && val && (
+                        <Latex>{val}</Latex>
+                      )}
                     </div>
                   </div>
                 </td>

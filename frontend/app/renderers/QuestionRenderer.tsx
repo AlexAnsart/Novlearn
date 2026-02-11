@@ -9,12 +9,12 @@ import {
   Lightbulb,
   XCircle,
 } from "lucide-react";
-import React, { useMemo, useState } from "react"; 
+import React, { useMemo, useState } from "react";
 import { MathInput } from "../components/ui/MathInput";
 import MathText from "../components/ui/MathText";
 import { QuestionContent, VariableValues } from "../types/exercise";
 import { checkAnswer } from "../utils/math/evaluation";
-import { simplifyLatexExpression } from "../utils/math/simplication"; 
+import { simplifyLatexExpression } from "../utils/math/simplication";
 
 interface QuestionRendererProps {
   content: QuestionContent;

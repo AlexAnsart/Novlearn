@@ -21,7 +21,8 @@ export const DIFFICULTY_UI_TO_DB: Record<DifficultyUi, DifficultyDb> = {
 export function dbToUiDifficulty(db: string | null): DifficultyUi | null {
   if (!db) return null;
   if (db in DIFFICULTY_DB_TO_UI) return DIFFICULTY_DB_TO_UI[db as DifficultyDb];
-  if (db === "Facile" || db === "Moyen" || db === "Difficile") return db as DifficultyUi;
+  if (db === "Facile" || db === "Moyen" || db === "Difficile")
+    return db as DifficultyUi;
   return null;
 }
 

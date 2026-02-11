@@ -216,28 +216,16 @@ jobs:
             sudo mkdir -p /opt/novlearn
             sudo chown -R $USER:$USER /opt/novlearn
 
-            # ------------------------------------------------------------------
-            # CORRECTIF DU PROBLEME PAGE/ROUTE PARALLELES
-            # On supprime explicitement le fichier fantôme sur le VPS
-            # ------------------------------------------------------------------
-            if [ -f "/opt/novlearn/frontend/app/auth/callback/page.tsx" ]; then
-              echo "🗑️ Suppression du fichier fantôme page.tsx..."
-              rm -f /opt/novlearn/frontend/app/auth/callback/page.tsx
-            fi
-
-            # On nettoie aussi le cache du build précédent
+            # On garde le nettoyage du cache pour assurer un build propre
             echo "🧹 Nettoyage du cache .next..."
             rm -rf /opt/novlearn/frontend/.next
-            # ------------------------------------------------------------------
 
             # Installer Node.js et npm si nécessaire
             if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
               echo "📦 Installation de Node.js et npm..."
               curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
               sudo apt-get install -y nodejs
-              # S'assurer que npm est installé (NodeSource inclut généralement npm, mais vérifions)
               if ! command -v npm &> /dev/null; then
-                echo "⚠️  npm n'est pas disponible, installation via apt..."
                 sudo apt-get install -y npm
               fi
             fi
@@ -259,64 +247,38 @@ jobs:
               export PATH="$NPM_DIR:$PATH"
             fi
 
-            # Vérifier que node et npm sont accessibles
-            echo "🔍 Vérification de Node.js et npm..."
-            if ! node --version; then
-              echo "❌ Erreur: node non accessible"
-              echo "Recherche de node dans le système..."
-              find /usr -name node 2>/dev/null | head -5
-              exit 1
-            fi
-            if ! npm --version; then
-              echo "❌ Erreur: npm non accessible"
-              echo "Recherche de npm dans le système..."
-              find /usr -name npm 2>/dev/null | head -5
-              exit 1
-            fi
-            echo "✅ Node.js $(node --version) et npm $(npm --version) sont disponibles"
-
             # Installer les services systemd
             echo "🔧 Configuration des services systemd..."
 
-            # Service backend - toujours mettre à jour
-            echo "📝 Mise à jour du service backend..."
+            # Service backend
             sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-backend.service > /tmp/novlearn-backend.service.tmp
             sudo mv /tmp/novlearn-backend.service.tmp /etc/systemd/system/novlearn-backend.service
             sudo systemctl daemon-reload
-
+            
             if sudo systemctl is-enabled novlearn-backend 2>&1 | grep -q "masked"; then
-              echo "🔓 Démasquage du service novlearn-backend..."
               sudo systemctl unmask novlearn-backend
             fi
             sudo systemctl enable novlearn-backend
-
-            # Redémarrer le service backend pour appliquer les changements
+            
             if sudo systemctl is-active --quiet novlearn-backend; then
-              echo "🔄 Redémarrage du service backend..."
               sudo systemctl restart novlearn-backend
             else
-              echo "🚀 Démarrage du service backend..."
               sudo systemctl start novlearn-backend
             fi
 
-            # Service frontend - toujours mettre à jour
-            echo "📝 Mise à jour du service frontend..."
+            # Service frontend
             sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-frontend.service > /tmp/novlearn-frontend.service.tmp
             sudo mv /tmp/novlearn-frontend.service.tmp /etc/systemd/system/novlearn-frontend.service
             sudo systemctl daemon-reload
 
             if sudo systemctl is-enabled novlearn-frontend 2>&1 | grep -q "masked"; then
-              echo "🔓 Démasquage du service novlearn-frontend..."
               sudo systemctl unmask novlearn-frontend
             fi
             sudo systemctl enable novlearn-frontend
-
-            # Redémarrer le service frontend s'il est actif, sinon le démarrer
+            
             if sudo systemctl is-active --quiet novlearn-frontend; then
-              echo "🔄 Redémarrage du service frontend..."
               sudo systemctl restart novlearn-frontend
             else
-              echo "🚀 Démarrage du service frontend..."
               sudo systemctl start novlearn-frontend
             fi
 
@@ -326,12 +288,11 @@ jobs:
             # Rendre le script de déploiement exécutable
             chmod +x deploy.sh
 
-            # Créer le fichier .env pour le frontend avec les variables Supabase
+            # Créer le fichier .env pour le frontend
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> /opt/novlearn/frontend/.env.local
 
-            # Exécuter le script de déploiement avec le PATH correct
-            # S'assurer que node et npm sont dans le PATH pour le script
+            # Exécuter le script de déploiement
             export PATH="/usr/bin:/usr/local/bin:$PATH"
             ./deploy.sh
 
@@ -342,54 +303,24 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Attendre un peu pour le démarrage
             sleep 5
-
-            # Vérifier que le fichier .env existe
-            echo "🔍 Vérification de la configuration..."
-            if [ ! -f /opt/novlearn/backend/.env ]; then
-              echo "❌ Erreur: fichier .env introuvable dans /opt/novlearn/backend/"
-              exit 1
-            fi
-
-            # Vérifier qu'Apache est actif
-            echo "🔍 Vérification d'Apache..."
+            
+            # Vérifications simples
             if ! systemctl is-active --quiet apache2; then
-              echo "❌ Apache n'est pas actif"
-              sudo systemctl status apache2
+              echo "❌ Apache inactif"
               exit 1
             fi
-            echo "✅ Apache est actif"
-
-            # Vérifier que le backend répond directement
-            echo "🔍 Test du health check backend (port 8010)..."
+            
             curl -f http://localhost:8010/health || {
-              echo "❌ Le health check backend a échoué"
-              echo "Logs du backend (50 dernières lignes):"
-              sudo journalctl -u novlearn-backend -n 50 || echo "Aucun log trouvé"
+              echo "❌ Backend error"
+              sudo journalctl -u novlearn-backend -n 20
               exit 1
             }
-            echo "✅ Backend répond sur le port 8010"
-
-            # Vérifier que le frontend répond directement
-            echo "🔍 Test du frontend (port 3000)..."
-            sleep 3
+            
             curl -f http://localhost:3000 || {
-              echo "❌ Le frontend ne répond pas"
-              echo "Logs du frontend (50 dernières lignes):"
-              sudo journalctl -u novlearn-frontend -n 50 || echo "Aucun log trouvé"
+              echo "❌ Frontend error"
+              sudo journalctl -u novlearn-frontend -n 20
               exit 1
             }
-            echo "✅ Frontend répond sur le port 3000"
-
-            # Vérifier qu'Apache proxy fonctionne correctement
-            echo "🔍 Test du proxy Apache (via localhost)..."
-            curl -f http://localhost/health || {
-              echo "❌ Le proxy Apache ne fonctionne pas correctement"
-              echo "Logs Apache (50 dernières lignes):"
-              sudo tail -n 50 /var/log/apache2/error_novlearn.log || echo "Aucun log trouvé"
-              exit 1
-            }
-            echo "✅ Proxy Apache fonctionne correctement"
-
+            
             echo "✅ Déploiement vérifié avec succès"

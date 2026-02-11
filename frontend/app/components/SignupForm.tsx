@@ -1,40 +1,40 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../contexts/AuthContext';
-import { Mail, Lock, User, Calendar, AlertCircle } from 'lucide-react';
+import { AlertCircle, Calendar, Lock, Mail, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 export function SignupForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [consent, setConsent] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     // Validations
     if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
+      setError("Les mots de passe ne correspondent pas");
       return;
     }
 
     if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+      setError("Le mot de passe doit contenir au moins 6 caractères");
       return;
     }
 
     if (!consent) {
-      setError('Vous devez accepter la politique de confidentialité');
+      setError("Vous devez accepter la politique de confidentialité");
       return;
     }
 
@@ -43,30 +43,39 @@ export function SignupForm() {
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birth.getDate())
+    ) {
       age--;
     }
 
     if (age < 15) {
-      setError('Vous devez avoir au moins 15 ans pour créer un compte');
+      setError("Vous devez avoir au moins 15 ans pour créer un compte");
       return;
     }
 
     setLoading(true);
 
-    const { error } = await signUp(email, password, firstName, lastName, birthDate);
+    const { error } = await signUp(
+      email,
+      password,
+      firstName,
+      lastName,
+      birthDate,
+    );
 
     if (error) {
-      setError(error.message || 'Erreur lors de l\'inscription');
+      setError(error.message || "Erreur lors de l'inscription");
       setLoading(false);
     } else {
       // Rediriger vers la page de vérification email ou accueil
-      router.push('/auth/verify-email');
+      router.push("/auth/verify-email");
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError('');
+    setError("");
     await signInWithGoogle();
   };
 
@@ -76,7 +85,11 @@ export function SignupForm() {
         <div className="text-center">
           <h2
             className="text-4xl md:text-5xl tracking-tight text-white drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
-            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, marginTop: '25px' }}
+            style={{
+              fontFamily: "'Fredoka', sans-serif",
+              fontWeight: 700,
+              marginTop: "25px",
+            }}
           >
             Inscription
           </h2>
@@ -171,12 +184,21 @@ export function SignupForm() {
                   value={birthDate}
                   onChange={(e) => setBirthDate(e.target.value)}
                   required
-                  max={new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString().split('T')[0]}
+                  max={
+                    new Date(
+                      new Date().setFullYear(new Date().getFullYear() - 15),
+                    )
+                      .toISOString()
+                      .split("T")[0]
+                  }
                   className="w-full pl-12 pr-4 py-3 bg-slate-900/40 backdrop-blur-sm rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   style={{ fontFamily: "'Fredoka', sans-serif" }}
                 />
               </div>
-              <p className="text-xs text-blue-300 mt-1" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+              <p
+                className="text-xs text-blue-300 mt-1"
+                style={{ fontFamily: "'Fredoka', sans-serif" }}
+              >
                 Vous devez avoir au moins 15 ans
               </p>
             </div>
@@ -242,15 +264,15 @@ export function SignupForm() {
                 className="text-blue-200 text-sm"
                 style={{ fontFamily: "'Fredoka', sans-serif" }}
               >
-                J'ai lu et j'accepte la{' '}
+                J'ai lu et j'accepte la{" "}
                 <a
                   href="/politique-confidentialite"
                   target="_blank"
                   className="text-blue-400 hover:text-blue-300 underline"
                 >
                   politique de confidentialité
-                </a>
-                {' '}et les{' '}
+                </a>{" "}
+                et les{" "}
                 <a
                   href="/conditions-utilisation"
                   target="_blank"
@@ -265,7 +287,9 @@ export function SignupForm() {
             {error && (
               <div className="flex items-center gap-2 text-red-400 bg-red-900/20 rounded-xl p-3">
                 <AlertCircle className="w-5 h-5" />
-                <span style={{ fontFamily: "'Fredoka', sans-serif" }}>{error}</span>
+                <span style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                  {error}
+                </span>
               </div>
             )}
 
@@ -274,16 +298,23 @@ export function SignupForm() {
               type="submit"
               disabled={loading}
               className="w-full px-8 py-4 rounded-3xl bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-[0_8px_0_0_rgb(29,78,216),0_13px_20px_rgba(37,99,235,0.3)] active:shadow-[0_4px_0_0_rgb(29,78,216),0_6px_15px_rgba(37,99,235,0.3)] active:translate-y-1 hover:shadow-[0_10px_0_0_rgb(29,78,216),0_15px_25px_rgba(37,99,235,0.4)] transform transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600, fontSize: '1.125rem' }}
+              style={{
+                fontFamily: "'Fredoka', sans-serif",
+                fontWeight: 600,
+                fontSize: "1.125rem",
+              }}
             >
-              {loading ? 'Inscription...' : "S'inscrire"}
+              {loading ? "Inscription..." : "S'inscrire"}
             </button>
           </form>
 
           {/* Divider */}
           <div className="flex items-center my-6">
             <div className="flex-1 border-t border-slate-700"></div>
-            <span className="px-4 text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+            <span
+              className="px-4 text-blue-200"
+              style={{ fontFamily: "'Fredoka', sans-serif" }}
+            >
               ou
             </span>
             <div className="flex-1 border-t border-slate-700"></div>
@@ -293,7 +324,11 @@ export function SignupForm() {
           <button
             onClick={handleGoogleSignIn}
             className="w-full px-8 py-4 rounded-3xl bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20 transition-all duration-200 flex items-center justify-center gap-3"
-            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600, fontSize: '1.125rem' }}
+            style={{
+              fontFamily: "'Fredoka', sans-serif",
+              fontWeight: 600,
+              fontSize: "1.125rem",
+            }}
           >
             <svg className="w-6 h-6" viewBox="0 0 24 24">
               <path
@@ -318,8 +353,11 @@ export function SignupForm() {
 
           {/* Lien connexion */}
           <div className="mt-6 text-center">
-            <p className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-              Déjà un compte ?{' '}
+            <p
+              className="text-blue-200"
+              style={{ fontFamily: "'Fredoka', sans-serif" }}
+            >
+              Déjà un compte ?{" "}
               <a
                 href="/auth/login"
                 className="text-blue-400 hover:text-blue-300 underline"
@@ -334,4 +372,3 @@ export function SignupForm() {
     </div>
   );
 }
-

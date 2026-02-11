@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Layout } from '../components/Layout';
-import { DuelPage } from '../components/DuelPage';
+import { DuelPage } from "../components/DuelPage";
+import { Layout } from "../components/Layout";
 
 export default function DuelPageRoute() {
   return (
@@ -10,4 +10,3 @@ export default function DuelPageRoute() {
     </Layout>
   );
 }
-

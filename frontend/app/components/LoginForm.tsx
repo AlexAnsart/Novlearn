@@ -1,44 +1,43 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useAuth } from '@/app/contexts/AuthContext'; // Vérifiez votre chemin d'import
-import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
+import { useAuth } from "@/app/contexts/AuthContext"; // Vérifiez votre chemin d'import
+import { AlertCircle, Loader2, Lock, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   const { signIn, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message || 'Erreur de connexion');
+      setError(error.message || "Erreur de connexion");
       setLoading(false);
     } else {
-      router.push('/');
+      router.push("/");
       router.refresh();
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError('');
+    setError("");
     await signInWithGoogle();
   };
 
   return (
     <div className="max-w-md w-full space-y-6">
-      
       {/* En-tête */}
       <div className="text-center">
         <h2
@@ -58,7 +57,6 @@ export function LoginForm() {
       {/* Carte du formulaire */}
       <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
         <form onSubmit={handleSubmit} className="space-y-6">
-          
           {/* Champ Email */}
           <div>
             <label
@@ -90,9 +88,9 @@ export function LoginForm() {
               >
                 Mot de passe
               </label>
-              
+
               {/* --- LIEN MOT DE PASSE OUBLIÉ --- */}
-              <Link 
+              <Link
                 href="/auth/forgot-password"
                 className="text-sm text-blue-400 hover:text-blue-300 transition-colors underline-offset-4 hover:underline"
                 style={{ fontFamily: "'Fredoka', sans-serif" }}
@@ -100,7 +98,7 @@ export function LoginForm() {
                 Mot de passe oublié ?
               </Link>
             </div>
-            
+
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-400" />
               <input
@@ -119,7 +117,11 @@ export function LoginForm() {
           {error && (
             <div className="flex items-center gap-2 text-red-400 bg-red-900/20 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
               <AlertCircle className="w-5 h-5 shrink-0" />
-              <span style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>{error}</span>
+              <span
+                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+              >
+                {error}
+              </span>
             </div>
           )}
 
@@ -128,16 +130,23 @@ export function LoginForm() {
             type="submit"
             disabled={loading}
             className="w-full px-8 py-4 rounded-3xl bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-[0_8px_0_0_rgb(29,78,216),0_13px_20px_rgba(37,99,235,0.3)] active:shadow-[0_4px_0_0_rgb(29,78,216),0_6px_15px_rgba(37,99,235,0.3)] active:translate-y-1 hover:shadow-[0_10px_0_0_rgb(29,78,216),0_15px_25px_rgba(37,99,235,0.4)] transform transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600, fontSize: '1.125rem' }}
+            style={{
+              fontFamily: "'Fredoka', sans-serif",
+              fontWeight: 600,
+              fontSize: "1.125rem",
+            }}
           >
-            {loading ? <Loader2 className="animate-spin" /> : 'Se connecter'}
+            {loading ? <Loader2 className="animate-spin" /> : "Se connecter"}
           </button>
         </form>
 
         {/* Séparateur */}
         <div className="flex items-center my-6">
           <div className="flex-1 border-t border-slate-700"></div>
-          <span className="px-4 text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+          <span
+            className="px-4 text-blue-200"
+            style={{ fontFamily: "'Fredoka', sans-serif" }}
+          >
             ou
           </span>
           <div className="flex-1 border-t border-slate-700"></div>
@@ -147,7 +156,11 @@ export function LoginForm() {
         <button
           onClick={handleGoogleSignIn}
           className="w-full px-8 py-4 rounded-3xl bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20 transition-all duration-200 flex items-center justify-center gap-3"
-          style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600, fontSize: '1.125rem' }}
+          style={{
+            fontFamily: "'Fredoka', sans-serif",
+            fontWeight: 600,
+            fontSize: "1.125rem",
+          }}
         >
           <svg className="w-6 h-6" viewBox="0 0 24 24">
             <path
@@ -172,8 +185,11 @@ export function LoginForm() {
 
         {/* Lien Inscription */}
         <div className="mt-6 text-center">
-          <p className="text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-            Pas encore de compte ?{' '}
+          <p
+            className="text-blue-200"
+            style={{ fontFamily: "'Fredoka', sans-serif" }}
+          >
+            Pas encore de compte ?{" "}
             <Link
               href="/auth/signup"
               className="text-blue-400 hover:text-blue-300 underline"
