@@ -26,17 +26,27 @@ async function updateCompetenceScore(
   isCorrect: boolean,
 ): Promise<void> {
   try {
+    console.log(`[updateCompetenceScore] START: userId=${userId.slice(0, 8)}..., competenceId=${competenceId}, difficulty=${difficulty}, isCorrect=${isCorrect}`);
+    
     const competenceConfig = getCompetenceById(competenceId);
     const maxPoints = competenceConfig?.max_points ?? 10;
+    console.log(`[updateCompetenceScore] Competence config:`, { name: competenceConfig?.name, maxPoints });
 
-    const { data: scoreRow } = await supabase
+    const { data: scoreRow, error: selectError } = await supabase
       .from("user_competence_scores")
       .select("points, streak")
       .eq("user_id", userId)
       .eq("competence_id", competenceId)
       .maybeSingle();
+    
+    if (selectError) {
+      console.error(`[updateCompetenceScore] Error selecting score:`, selectError);
+      throw selectError;
+    }
+    
     const currentPoints = scoreRow?.points ?? 0;
     const currentStreak = scoreRow?.streak ?? 0;
+    console.log(`[updateCompetenceScore] Current state: points=${currentPoints}, streak=${currentStreak}`);
 
     const newStreak = isCorrect ? currentStreak + 1 : 0;
     const newPoints = isCorrect
@@ -53,12 +63,12 @@ async function updateCompetenceScore(
       const pointsGained = newPoints - currentPoints;
       const difficultyLevel = difficultyToLevel(difficulty);
       const bonusStreak = getBonusStreak(currentStreak);
-      console.log(
-        `[Points] Competence: ${competenceConfig?.name || competenceId}, Points gagnés: ${pointsGained} (difficulté: ${difficultyLevel + 1}, bonus streak: ${bonusStreak}), Total: ${currentPoints} → ${newPoints}/${maxPoints}`,
-      );
+      console.log(`[Points] ✅ Competence: ${competenceConfig?.name || competenceId}, Points gagnés: ${pointsGained} (difficulté: ${difficultyLevel + 1}, bonus streak: ${bonusStreak}), Total: ${currentPoints} → ${newPoints}/${maxPoints}`);
+    } else {
+      console.log(`[Points] ❌ Answer incorrect, no points gained. Streak reset to 0.`);
     }
 
-    await supabase.from("user_competence_scores").upsert(
+    const { error: upsertError } = await supabase.from("user_competence_scores").upsert(
       {
         user_id: userId,
         competence_id: competenceId,
@@ -68,13 +78,22 @@ async function updateCompetenceScore(
       },
       { onConflict: "user_id,competence_id" },
     );
+    
+    if (upsertError) {
+      console.error(`[updateCompetenceScore] ❌ Error upserting score:`, upsertError);
+      throw upsertError;
+    }
+    
+    console.log(`[updateCompetenceScore] ✅ Successfully updated: points=${newPoints}, streak=${newStreak}`);
   } catch (e) {
-    console.error("[ExerciseLoader] updateCompetenceScore:", e);
+    console.error("[updateCompetenceScore] ❌ ERROR:", e);
+    throw e; // Re-throw to allow caller to handle
   }
 }
 
 interface ExerciseLoaderProps {
   exerciseId?: string;
+  competenceId?: string | null; // competence_id from recommendation API (overrides DB value)
   onLoad?: (exercise: Exercise) => void;
   onElementSubmit?: (
     elementId: number,
@@ -89,6 +108,7 @@ interface ExerciseLoaderProps {
 
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   exerciseId,
+  competenceId: competenceIdFromProps,
   onLoad,
   onElementSubmit,
   onError,
@@ -205,17 +225,23 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         if (!data) throw new Error("Exercice introuvable.");
 
         const content = data.content || {};
+        // Use competence_id from props (recommendation API) if provided, otherwise use DB value
+        const competence_id = competenceIdFromProps !== undefined 
+          ? competenceIdFromProps 
+          : (data.competence_id ?? null);
         const fullExercise = {
           ...content,
           id: data.id,
           title: data.title,
           chapter: data.chapter,
           difficulty: data.difficulty,
-          competence_id: data.competence_id ?? null,
+          competence_id: competence_id,
           competences: data.competences || [],
           variables: content.variables || [],
           elements: content.elements || [],
         } as unknown as Exercise;
+        
+        console.log(`[ExerciseLoader] 📥 Exercise loaded: id=${fullExercise.id}, competence_id=${fullExercise.competence_id}, difficulty=${fullExercise.difficulty}, shouldCountPoints=${shouldCountPoints}`);
 
         setExercise(fullExercise);
         setVariables(generateVariables(fullExercise.variables));
@@ -241,7 +267,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
       abortController.abort();
     };
-  }, [exerciseId, refreshTrigger]);
+  }, [exerciseId, competenceIdFromProps, refreshTrigger]);
 
   // =========================================================
   // GESTIONNAIRES D'INTERACTION
@@ -249,6 +275,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   const handleElementSubmit = useCallback(
     async (elementId: number, answer: unknown, isCorrect: boolean) => {
+      console.log(`[ExerciseLoader] 🔵 handleElementSubmit CALLED: elementId=${elementId}, isCorrect=${isCorrect}, exercise=${exercise?.id}, competenceId prop=${competenceIdFromProps}, exercise.competence_id=${exercise?.competence_id}, shouldCountPoints=${shouldCountPoints}`);
       if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
       setLastSaveStatus("idle");
 
@@ -298,17 +325,36 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         } else {
           setLastSaveStatus("saved");
         }
-        if (exercise.competence_id && shouldCountPoints) {
+        // Use competenceId from prop (recommendation API) or fallback to exercise.competence_id
+        const effectiveCompetenceId = competenceIdFromProps ?? exercise.competence_id;
+        
+        // Debug: log all relevant values
+        console.log(`[ExerciseLoader] handleElementSubmit DEBUG:`, {
+          exerciseId: exercise.id,
+          competenceIdFromProp: competenceIdFromProps,
+          competenceIdFromExercise: exercise.competence_id,
+          effectiveCompetenceId,
+          shouldCountPoints,
+          isCorrect,
+          hasCompetenceId: !!effectiveCompetenceId,
+        });
+        
+        if (effectiveCompetenceId && shouldCountPoints) {
+          console.log(`[ExerciseLoader] ✅ Counting points for exercise ${exercise.id}, competence: ${effectiveCompetenceId}, correct: ${isCorrect}`);
           updateCompetenceScore(
             currentUser.id,
-            exercise.competence_id,
+            effectiveCompetenceId,
             exercise.difficulty,
             isCorrect,
-          );
-        } else if (exercise.competence_id && !shouldCountPoints) {
-          console.log(
-            "[ExerciseLoader] Points not applied (test mode: server handles scoring, or manual selection)",
-          );
+          ).catch((err) => {
+            console.error(`[ExerciseLoader] ❌ Error updating competence score:`, err);
+          });
+        } else {
+          if (!effectiveCompetenceId) {
+            console.log(`[ExerciseLoader] ⚠️ Points NOT counted - exercise ${exercise.id} has no competence_id (prop=${competenceIdFromProps}, exercise=${exercise.competence_id})`);
+          } else if (!shouldCountPoints) {
+            console.log(`[ExerciseLoader] ⚠️ Points NOT counted - exercise ${exercise.id}, shouldCountPoints=${shouldCountPoints}, competence: ${effectiveCompetenceId}`);
+          }
         }
       }
 
@@ -320,7 +366,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         return next;
       });
     },
-    [exercise, totalQuestions, onElementSubmit, shouldCountPoints],
+    [exercise, totalQuestions, onElementSubmit, shouldCountPoints, competenceIdFromProps],
   );
 
   const proceedToNext = useCallback(() => {

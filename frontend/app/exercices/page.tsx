@@ -17,6 +17,7 @@ function ExercisePageContent() {
   const [recommendedId, setRecommendedId] = useState<string | undefined>(
     undefined,
   );
+  const [recommendedCompetenceId, setRecommendedCompetenceId] = useState<string | null | undefined>(undefined);
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [mode, setMode] = useState<'test' | 'recommendation' | undefined>(undefined);
   const [testChapter, setTestChapter] = useState<string | undefined>(undefined);
@@ -35,6 +36,7 @@ function ExercisePageContent() {
   useEffect(() => {
     if (idFromUrl) {
       setRecommendedId(undefined);
+      setRecommendedCompetenceId(undefined);
       setMode(undefined);
       setTestChapter(undefined);
       return;
@@ -46,11 +48,13 @@ function ExercisePageContent() {
         if (cancelled) return;
         if (res) {
           setRecommendedId(String(res.exercise_id));
+          setRecommendedCompetenceId(res.competence_id ?? null);
           setMode(res.mode ?? 'recommendation');
           setTestChapter(res.chapter);
-          console.log(`[ExercisePage] Loaded: mode=${res.mode ?? 'recommendation'} chapter=${res.chapter ?? '-'} exo=${res.exercise_id}`);
+          console.log(`[ExercisePage] Loaded: mode=${res.mode ?? 'recommendation'} chapter=${res.chapter ?? '-'} exo=${res.exercise_id} competence_id=${res.competence_id ?? 'null'}`);
         } else {
           setRecommendedId(undefined);
+          setRecommendedCompetenceId(undefined);
         }
       })
       .finally(() => {
@@ -62,14 +66,23 @@ function ExercisePageContent() {
   }, [idFromUrl, chapterFromUrl]);
 
   const exerciseId = idFromUrl ?? recommendedId;
+  
+  // Debug: log shouldCountPoints value
+  useEffect(() => {
+    if (exerciseId) {
+      const shouldCount = !idFromUrl && (mode === undefined || mode === 'recommendation');
+      console.log(`[ExercisePage] exerciseId=${exerciseId}, idFromUrl=${idFromUrl}, mode=${mode}, shouldCountPoints=${shouldCount}`);
+    }
+  }, [exerciseId, idFromUrl, mode]);
 
   // Fetch next exercise when in test or recommendation mode (no id in URL)
   const handleNextClick = useCallback(
     async (hasErrors: boolean) => {
       if (idFromUrl) return;
       const lastSuccess = !hasErrors;
-      const applyNext = (id: string, m: 'test' | 'recommendation', ch?: string) => {
+      const applyNext = (id: string, m: 'test' | 'recommendation', ch?: string, competenceId?: string | null) => {
         setRecommendedId(id);
+        setRecommendedCompetenceId(competenceId);
         setMode(m);
         setTestChapter(ch);
         setNextKey((k) => k + 1);
@@ -79,19 +92,19 @@ function ExercisePageContent() {
         if (res?.completed) {
           console.log('[ExercisePage] Chapter test completed, switching to recommendation');
           const next = await getRecommendedExercise(chapterFromUrl || null);
-          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter);
+          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
           else setNextKey((k) => k + 1);
         } else if (res?.exercise_id) {
-          applyNext(String(res.exercise_id), 'test', res.chapter ?? testChapter);
+          applyNext(String(res.exercise_id), 'test', res.chapter ?? testChapter, res.competence_id);
         } else {
           const next = await getRecommendedExercise(chapterFromUrl || null);
-          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter);
+          if (next) applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
           else setNextKey((k) => k + 1);
         }
       } else {
         const next = await getRecommendedExercise(chapterFromUrl || null);
         if (next) {
-          applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter);
+          applyNext(String(next.exercise_id), next.mode ?? 'recommendation', next.chapter, next.competence_id);
         } else {
           console.warn('[ExercisePage] getRecommendedExercise returned null, forcing reload');
           setNextKey((k) => k + 1);
@@ -168,10 +181,11 @@ function ExercisePageContent() {
           <ExerciseLoader
             key={`exo-${exerciseId ?? 'loading'}-${nextKey}`}
             exerciseId={exerciseId}
+            competenceId={!idFromUrl ? recommendedCompetenceId : undefined}
             onLoad={handleLoad}
             onError={handleError}
             onElementSubmit={handleElementSubmit}
-            shouldCountPoints={!idFromUrl && mode !== 'test'}
+            shouldCountPoints={!idFromUrl && (mode === undefined || mode === 'recommendation')}
             mode={mode}
             onNextClick={!idFromUrl ? handleNextClick : undefined}
           />

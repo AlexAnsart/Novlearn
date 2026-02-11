@@ -126,18 +126,46 @@ async def recommend_exercise(
     try:
         supabase = get_supabase_client()
         user_id = user["user_id"]
-        result = fetch_or_start_test(supabase, user_id, chapter)
-        if result:
-            logger.info(
-                "[API] recommend-exercise: serving chapter test for user=%s chapter=%s",
+        logger.info(
+            "[API] recommend-exercise: request from user=%s chapter=%s",
+            user_id[:8],
+            chapter or "all",
+        )
+        # Try to fetch test exercise, but don't fail if test system is not available
+        try:
+            result = fetch_or_start_test(supabase, user_id, chapter)
+            if result:
+                result["mode"] = "test"  # Ensure mode is set for test exercises
+                logger.info(
+                    "[API] recommend-exercise: serving chapter test for user=%s chapter=%s exercise_id=%s",
+                    user_id[:8],
+                    result.get("chapter", ""),
+                    result.get("exercise_id"),
+                )
+                return JSONResponse(content=result)
+        except Exception as test_error:
+            # If test system fails (e.g., table doesn't exist), fall back to normal recommendation
+            logger.warning(
+                "[API] recommend-exercise: test system unavailable for user=%s chapter=%s: %s. Falling back to normal recommendation.",
                 user_id[:8],
-                result.get("chapter", ""),
+                chapter or "all",
+                str(test_error),
             )
-            return JSONResponse(content=result)
         result = recommander_exercice(supabase, user_id, chapter=chapter)
         if not result:
+            logger.warning(
+                "[API] recommend-exercise: no exercise found for user=%s chapter=%s",
+                user_id[:8],
+                chapter or "all",
+            )
             raise HTTPException(status_code=404, detail="Aucun exercice recommandé")
         result["mode"] = "recommendation"
+        logger.info(
+            "[API] recommend-exercise: serving recommendation for user=%s chapter=%s exercise_id=%s",
+            user_id[:8],
+            chapter or "all",
+            result.get("exercise_id"),
+        )
         return JSONResponse(content=result)
     except HTTPException:
         raise

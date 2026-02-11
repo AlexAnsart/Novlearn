@@ -30,6 +30,7 @@ jobs:
           NODE_ENV: production
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: https://novlearn.fr
 
       - name: Create .env file for backend
         run: |
@@ -291,6 +292,7 @@ jobs:
             # Créer le fichier .env pour le frontend
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> /opt/novlearn/frontend/.env.local
+            echo "NEXT_PUBLIC_SITE_URL=https://novlearn.fr" >> /opt/novlearn/frontend/.env.local
 
             # Exécuter le script de déploiement
             export PATH="/usr/bin:/usr/local/bin:$PATH"
