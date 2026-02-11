@@ -125,6 +125,7 @@ export type ExerciseElement =
 export interface Exercise {
   id: number;
   title: string;
+  app_title: string;
   chapter: string;
   difficulty: "Facile" | "Moyen" | "Difficile";
   /** Single competence this exercise trains (for score tracking). */

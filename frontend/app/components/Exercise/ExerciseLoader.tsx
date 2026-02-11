@@ -241,6 +241,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           ...content,
           id: data.id,
           title: data.title,
+          app_title: data.app_title,
           chapter: data.chapter,
           difficulty: data.difficulty,
           competence_id: effectiveCompetences[0] ?? null, // Keep for backward compatibility
@@ -508,7 +509,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         isOpen={isFeedbackOpen}
         onClose={handleModalClose}
         exerciseId={exercise.id}
-        exerciseTitle={exercise.title}
+        exerciseTitle={exercise.app_title || exercise.title}
         onlyDifficulty={isFeedbackDifficultyOnly}
       />
 
@@ -517,7 +518,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h2 className="text-2xl font-bold text-slate-800">
-              {exercise.title}
+              {exercise.app_title || exercise.title}
             </h2>
             {mode === "test" && (
               <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border border-amber-200">

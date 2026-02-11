@@ -155,7 +155,7 @@ export const checkAnswer = (
 
   // --- COMPARAISON CLASSIQUE (Nombres Finis) ---
   const TOLERANCE = 0.0001;
-  if (Math.abs(userVal - expectedVal) < TOLERANCE) return true;
+    if (Math.abs(userVal - expectedVal) < TOLERANCE) return true;
 
   // --- MODE FONCTION (Seulement si tout est fini) ---
   // Test avec x aléatoire
@@ -164,12 +164,12 @@ export const checkAnswer = (
   const expectedFunc = evaluate(correctAnswer, varsWithX);
   const userFunc = evaluate(userInput, varsWithX);
 
-  if (
-    !isNaN(expectedFunc) &&
-    !isNaN(userFunc) &&
-    isFinite(expectedFunc) &&
-    isFinite(userFunc)
-  ) {
+    if (
+      !isNaN(expectedFunc) &&
+      !isNaN(userFunc) &&
+      isFinite(expectedFunc) &&
+      isFinite(userFunc)
+    ) {
     return Math.abs(userFunc - expectedFunc) < TOLERANCE;
   }
 
