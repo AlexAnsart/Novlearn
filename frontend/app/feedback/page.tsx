@@ -22,8 +22,8 @@ interface Feedback {
   created_at: string;
   message: string;
   category: string;
-  difficulty_rating?: number | null; // Peut être null
-  exercise_id?: number | null; // Peut être null
+  difficulty_rating?: number | null; 
+  exercise_id?: number | null; 
   user_id: string | null;
   profiles?: {
     email: string;
@@ -32,7 +32,11 @@ interface Feedback {
   };
 }
 
-// Types de filtres possibles
+interface ExerciseInfo {
+  id: number;
+  title: string;
+}
+
 type FilterType =
   | "all"
   | "rating"
@@ -43,6 +47,7 @@ type FilterType =
 
 export default function FeedbackDashboard() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [exercisesMap, setExercisesMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const { user, loading: authLoading } = useAuth();
@@ -75,6 +80,21 @@ export default function FeedbackDashboard() {
 
       if (error) throw error;
       setFeedbacks(data || []);
+
+      // Récupérer les noms des exercices associés
+      const exerciseIds = [...new Set((data || []).filter(f => f.exercise_id).map(f => f.exercise_id))];
+      if (exerciseIds.length > 0) {
+        const { data: exercisesData } = await supabase
+          .from("exercises")
+          .select("id, title")
+          .in("id", exerciseIds);
+        
+        if (exercisesData) {
+          const map = new Map<number, string>();
+          exercisesData.forEach((ex: ExerciseInfo) => map.set(ex.id, ex.title));
+          setExercisesMap(map);
+        }
+      }
     } catch (error) {
       console.error("Erreur chargement feedbacks:", error);
       toast.error("Impossible de charger les feedbacks.");
@@ -98,7 +118,6 @@ export default function FeedbackDashboard() {
     }
   };
 
-  // --- LOGIQUE DE FILTRAGE ---
   const filteredFeedbacks = feedbacks.filter((item) => {
     if (activeFilter === "all") return true;
     if (activeFilter === "rating") return item.difficulty_rating !== null; // On prend tout ce qui a une note
@@ -257,11 +276,11 @@ export default function FeedbackDashboard() {
                       {/* Badge Catégorie */}
                       {getCategoryBadge(item.category)}
 
-                      {/* Badge Exercice ID */}
+                      {/* Badge Exercice ID + Nom */}
                       {item.exercise_id && (
                         <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
                           <BookOpen className="w-3 h-3" />
-                          Exo #{item.exercise_id}
+                          #{item.exercise_id} - {exercisesMap.get(item.exercise_id) || "Exercice inconnu"}
                         </div>
                       )}
 

@@ -15,8 +15,7 @@ export interface CompetenceConfig {
 export const CHAPTER_ORDER: string[] = [
   "Suites numériques",
   "Limites et continuité",
-  "Fonctions",
-  "Dérivabilité",
+  "Dérivation et Fonctions",
   "Logarithme néperien",
   "Primitives et équadiff",
   "Convexité",
