@@ -7,7 +7,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { computeNewScore, difficultyToLevel, getBonusStreak } from "../../lib/competenceScore";
+import {
+  computeNewScore,
+  difficultyToLevel,
+  getBonusStreak,
+} from "../../lib/competenceScore";
 import { supabase } from "../../lib/supabase";
 import { getCompetenceById } from "../../settings/competenceSettings";
 import { Exercise, VariableValues } from "../../types/exercise";
@@ -49,7 +53,9 @@ async function updateCompetenceScore(
       const pointsGained = newPoints - currentPoints;
       const difficultyLevel = difficultyToLevel(difficulty);
       const bonusStreak = getBonusStreak(currentStreak);
-      console.log(`[Points] Competence: ${competenceConfig?.name || competenceId}, Points gagnés: ${pointsGained} (difficulté: ${difficultyLevel + 1}, bonus streak: ${bonusStreak}), Total: ${currentPoints} → ${newPoints}/${maxPoints}`);
+      console.log(
+        `[Points] Competence: ${competenceConfig?.name || competenceId}, Points gagnés: ${pointsGained} (difficulté: ${difficultyLevel + 1}, bonus streak: ${bonusStreak}), Total: ${currentPoints} → ${newPoints}/${maxPoints}`,
+      );
     }
 
     await supabase.from("user_competence_scores").upsert(
@@ -77,7 +83,7 @@ interface ExerciseLoaderProps {
   ) => void;
   onError?: (error: Error) => void;
   shouldCountPoints?: boolean; // If true, points will be counted (only for recommended exercises from home page)
-  mode?: 'test' | 'recommendation'; // Display badge: placement test vs normal recommendation
+  mode?: "test" | "recommendation"; // Display badge: placement test vs normal recommendation
   onNextClick?: (hasErrors: boolean) => Promise<void>; // When provided, called on "Next" instead of navigating
 }
 
@@ -119,7 +125,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
     useState(false);
 
   // Feedback d'enregistrement de la tentative (pour debug / UX)
-  const [lastSaveStatus, setLastSaveStatus] = useState<"idle" | "saved" | "no_session" | "error">("idle");
+  const [lastSaveStatus, setLastSaveStatus] = useState<
+    "idle" | "saved" | "no_session" | "error"
+  >("idle");
   const [isNextLoading, setIsNextLoading] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -298,7 +306,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
             isCorrect,
           );
         } else if (exercise.competence_id && !shouldCountPoints) {
-          console.log("[ExerciseLoader] Points not applied (test mode: server handles scoring, or manual selection)");
+          console.log(
+            "[ExerciseLoader] Points not applied (test mode: server handles scoring, or manual selection)",
+          );
         }
       }
 
@@ -323,22 +333,52 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   }, [exerciseId, router]);
 
   const handleNextExercise = async () => {
+    // 15% de chance d'afficher le feedback de difficulté
+    const shouldShowDifficultyFeedback = Math.random() < 0.15;
+
+    if (shouldShowDifficultyFeedback) {
+      // Stocker l'action à effectuer après la fermeture de la modale
+      setPendingNextAction(() => async () => {
+        if (onNextClick) {
+          setIsNextLoading(true);
+          try {
+            await onNextClick(hasErrors);
+            console.log(
+              `[ExerciseLoader] Next requested (hasErrors=${hasErrors}, mode=${mode})`,
+            );
+          } catch (e) {
+            console.error("[ExerciseLoader] onNextClick error:", e);
+          } finally {
+            setIsNextLoading(false);
+          }
+        } else {
+          proceedToNext();
+        }
+      });
+      setIsFeedbackDifficultyOnly(true);
+      setIsFeedbackOpen(true);
+      return;
+    }
+
+    // Pas de feedback, continuer normalement
     if (onNextClick) {
       setIsNextLoading(true);
       try {
         await onNextClick(hasErrors);
-        console.log(`[ExerciseLoader] Next requested (hasErrors=${hasErrors}, mode=${mode})`);
+        console.log(
+          `[ExerciseLoader] Next requested (hasErrors=${hasErrors}, mode=${mode})`,
+        );
       } catch (e) {
-        console.error('[ExerciseLoader] onNextClick error:', e);
+        console.error("[ExerciseLoader] onNextClick error:", e);
       } finally {
         setIsNextLoading(false);
       }
       return;
     }
     if (exerciseId) {
-      router.push('/exercices');
+      router.push("/exercices");
     } else {
-      setRefreshTrigger(prev => prev + 1);
+      setRefreshTrigger((prev) => prev + 1);
     }
   };
 
@@ -403,13 +443,15 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h2 className="text-2xl font-bold text-slate-800">{exercise.title}</h2>
-            {mode === 'test' && (
+            <h2 className="text-2xl font-bold text-slate-800">
+              {exercise.title}
+            </h2>
+            {mode === "test" && (
               <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border border-amber-200">
                 Mode test
               </span>
             )}
-            {mode === 'recommendation' && (
+            {mode === "recommendation" && (
               <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border border-indigo-100">
                 Recommandation
               </span>

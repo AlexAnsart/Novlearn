@@ -82,6 +82,8 @@ export interface MCQOption {
 export interface MCQContent {
   question: string;
   options: MCQOption[];
+  multipleChoice?: boolean;
+  explanation?: string;
 }
 
 export interface SequenceContent {

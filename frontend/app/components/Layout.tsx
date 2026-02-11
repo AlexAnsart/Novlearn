@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Trophy, User } from "lucide-react";
+import { User } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
