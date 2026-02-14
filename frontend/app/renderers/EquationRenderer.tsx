@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { MathText } from "../components/ui";
 import { EquationContent, RendererProps } from "../types/exercise";
 import { checkAnswer } from "../utils/math/evaluation";
-import { substituteVariables } from "../utils/math/parsing";
+import { simplifyLatexExpression } from "../utils/math/simplication";
 
 interface EquationRendererProps extends RendererProps<EquationContent> {
   onSubmit?: (answer: string, isCorrect: boolean) => void;
@@ -21,11 +21,19 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
     message: string;
   } | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+
+  // Réponse attendue simplifiée (pour l'affichage)
+  const simplifiedCorrectAnswer = useMemo(() => {
+    if (!content.correctAnswer) return "";
+    return simplifyLatexExpression(content.correctAnswer, variables);
+  }, [content.correctAnswer, variables]);
 
   useEffect(() => {
     setAnswer("");
     setFeedback(null);
     setIsSubmitted(false);
+    setIsCorrect(false);
   }, [variables]);
 
   const handleSubmit = useCallback(() => {
@@ -35,31 +43,21 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
     }
 
     if (content.requireAnswer && content.correctAnswer) {
-      // 1. Calculer la réponse attendue en substituant les variables
-      const expectedAnswer = substituteVariables(
-        content.correctAnswer,
-        variables,
-      );
-
-      // 2. Vérification (Numeric ou Textuelle)
-      // Note: Pour les équations complexes (ensembles {x,y}), checkAnswer gère le basique.
-      // Si vous avez besoin de vérifier des ensembles, la logique précédente peut être réintégrée dans checkAnswer.
-      // Ici on utilise une comparaison souple.
-      const isCorrect = checkAnswer(
+      // Vérification (Numeric ou Textuelle)
+      const correct = checkAnswer(
         answer,
-        expectedAnswer,
+        content.correctAnswer,
         variables,
         content.answerType === "numeric" ? "number" : "text",
       );
 
+      setIsCorrect(correct);
       setFeedback({
-        type: isCorrect ? "success" : "error",
-        message: isCorrect
-          ? "✓ Bravo ! Bonne réponse !"
-          : `✗ Incorrect. La réponse était : ${expectedAnswer}`,
+        type: correct ? "success" : "error",
+        message: correct ? "✓ Bravo ! Bonne réponse !" : "✗ Incorrect.",
       });
       setIsSubmitted(true);
-      onSubmit?.(answer, isCorrect);
+      onSubmit?.(answer, correct);
     } else {
       setFeedback({ type: "info", message: "Réponse enregistrée." });
       onSubmit?.(answer, true);
@@ -114,7 +112,22 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
                     : "bg-blue-50 border-blue-200 text-blue-800"
               }`}
             >
-              {feedback.message}
+              <p>{feedback.message}</p>
+              {/* Affichage de la réponse attendue si incorrect */}
+              {feedback.type === "error" && simplifiedCorrectAnswer && (
+                <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="font-bold text-sm uppercase text-slate-500 tracking-wider">
+                    Réponse attendue :
+                  </span>
+                  <span className="ml-2 font-bold text-lg text-slate-800">
+                    <MathText
+                      content={`$${simplifiedCorrectAnswer}$`}
+                      variables={{}}
+                      displayMode={false}
+                    />
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </>

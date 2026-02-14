@@ -1,5 +1,5 @@
 import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import React, {
   useCallback,
   useEffect,
@@ -7,11 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  computeNewScore,
-  difficultyToLevel,
-  getBonusStreak,
-} from "../../lib/competenceScore";
+import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
 import { supabase } from "../../lib/supabase";
 import {
   getCompetenceById,
@@ -110,20 +106,28 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const [completedElements, setCompletedElements] = useState<Set<number>>(new Set());
+  const [completedElements, setCompletedElements] = useState<Set<number>>(
+    new Set(),
+  );
   const [isExerciseFinished, setIsExerciseFinished] = useState(false);
   const [hasErrors, setHasErrors] = useState(false);
 
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [pendingNextAction, setPendingNextAction] = useState<(() => void | Promise<void>) | null>(null);
-  const [isFeedbackDifficultyOnly, setIsFeedbackDifficultyOnly] = useState(false);
+  const [pendingNextAction, setPendingNextAction] = useState<
+    (() => void | Promise<void>) | null
+  >(null);
+  const [isFeedbackDifficultyOnly, setIsFeedbackDifficultyOnly] =
+    useState(false);
 
-  const [lastSaveStatus, setLastSaveStatus] = useState<"idle" | "saved" | "no_session" | "error">("idle");
+  const [lastSaveStatus, setLastSaveStatus] = useState<
+    "idle" | "saved" | "no_session" | "error"
+  >("idle");
   const [isNextLoading, setIsNextLoading] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
   const feedbackPendingRef = useRef(false);
+  const exerciseSavedRef = useRef(false); // Empêche les doubles sauvegardes
 
   const totalQuestions = useMemo(() => {
     if (!exercise) return 0;
@@ -151,6 +155,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       setCompletedElements(new Set());
       setHasErrors(false);
       setLastSaveStatus("idle");
+      exerciseSavedRef.current = false; // Réinitialiser pour le nouvel exercice
 
       slowTimerRef.current = setTimeout(() => {
         if (!abortController.signal.aborted) setIsTakingLong(true);
@@ -161,17 +166,27 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         let dbError = null;
 
         if (exerciseId) {
-          const result = await supabase.from("exercises").select("*").eq("id", exerciseId).maybeSingle();
+          const result = await supabase
+            .from("exercises")
+            .select("*")
+            .eq("id", exerciseId)
+            .maybeSingle();
           data = result.data;
           dbError = result.error;
         } else {
-          const { count, error: countError } = await supabase.from("exercises").select("*", { count: "exact", head: true });
+          const { count, error: countError } = await supabase
+            .from("exercises")
+            .select("*", { count: "exact", head: true });
           if (countError) throw countError;
           const total = count || 0;
 
           if (total > 0) {
             const randomOffset = Math.floor(Math.random() * total);
-            const result = await supabase.from("exercises").select("*").range(randomOffset, randomOffset).maybeSingle();
+            const result = await supabase
+              .from("exercises")
+              .select("*")
+              .range(randomOffset, randomOffset)
+              .maybeSingle();
             data = result.data;
             dbError = result.error;
           } else {
@@ -185,9 +200,14 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         if (!data) throw new Error("Exercice introuvable.");
 
         const content = data.content || {};
-        const effectiveCompetences = competencesFromProps && Array.isArray(competencesFromProps) && competencesFromProps.length > 0
+        const effectiveCompetences =
+          competencesFromProps &&
+          Array.isArray(competencesFromProps) &&
+          competencesFromProps.length > 0
             ? competencesFromProps
-            : competenceIdFromProps ? [competenceIdFromProps] : data.competences ?? [];
+            : competenceIdFromProps
+              ? [competenceIdFromProps]
+              : (data.competences ?? []);
 
         const fullExercise = {
           ...content,
@@ -223,50 +243,86 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   }, [exerciseId, competenceIdFromProps, refreshTrigger]);
 
   const handleElementSubmit = useCallback(
-    async (elementId: number, answer: unknown, isCorrect: boolean) => {
+    (elementId: number, answer: unknown, isCorrect: boolean) => {
+      // Callback externe pour le parent (si besoin)
       if (onElementSubmit) onElementSubmit(elementId, answer, isCorrect);
+
+      // Marquer si erreur
+      if (!isCorrect) setHasErrors(true);
+
+      // Ajouter l'élément à la liste des complétés et vérifier si exercice terminé
+      setCompletedElements((prev) => {
+        const next = new Set(prev).add(elementId);
+        if (exercise && next.size >= totalQuestions && totalQuestions > 0) {
+          setIsExerciseFinished(true);
+        }
+        return next;
+      });
+    },
+    [exercise, totalQuestions, onElementSubmit],
+  );
+
+  // Sauvegarde finale de l'exercice en BDD (une seule ligne par exercice)
+  useEffect(() => {
+    if (!isExerciseFinished || exerciseSavedRef.current || !exercise) return;
+
+    const saveExerciseAttempt = async () => {
+      exerciseSavedRef.current = true;
       setLastSaveStatus("idle");
 
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      
-      if (!currentUser || !exercise) {
-        if (!currentUser) setLastSaveStatus("no_session");
-        setCompletedElements((prev) => {
-          const next = new Set(prev).add(elementId);
-          if (exercise && next.size >= totalQuestions && totalQuestions > 0) setIsExerciseFinished(true);
-          return next;
-        });
-        if (!isCorrect) setHasErrors(true);
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      if (!currentUser) {
+        setLastSaveStatus("no_session");
         return;
       }
 
       const exerciseIdNum = Number(exercise.id);
-      if (!Number.isNaN(exerciseIdNum)) {
-        const { error } = await supabase.from("exercise_attempts").insert({
-          user_id: currentUser.id,
-          exercise_id: exerciseIdNum,
-          is_correct: isCorrect,
-          time_spent: null,
-        });
-        setLastSaveStatus(error ? "error" : "saved");
-        
-        const effectiveCompetences = competencesFromProps?.length ? competencesFromProps : exercise.competences ?? [];
+      if (Number.isNaN(exerciseIdNum)) return;
 
-        if (effectiveCompetences.length > 0 && shouldCountPoints) {
-          const normalizedIds = effectiveCompetences.map(c => normalizeCompetenceId(c)).filter((id): id is string => id !== null);
-          await Promise.all(normalizedIds.map(id => updateCompetenceScore(currentUser.id, id, exercise.difficulty, isCorrect)));
-        }
-      }
+      // L'exercice est correct uniquement si TOUTES les questions sont justes
+      const isExerciseCorrect = !hasErrors;
 
-      if (!isCorrect) setHasErrors(true);
-      setCompletedElements((prev) => {
-        const next = new Set(prev).add(elementId);
-        if (exercise && next.size >= totalQuestions && totalQuestions > 0) setIsExerciseFinished(true);
-        return next;
+      const { error } = await supabase.from("exercise_attempts").insert({
+        user_id: currentUser.id,
+        exercise_id: exerciseIdNum,
+        is_correct: isExerciseCorrect,
+        time_spent: null,
       });
-    },
-    [exercise, totalQuestions, onElementSubmit, shouldCountPoints, competencesFromProps, competenceIdFromProps],
-  );
+      setLastSaveStatus(error ? "error" : "saved");
+
+      // Mise à jour des scores de compétences (une seule fois, à la fin)
+      const effectiveCompetences = competencesFromProps?.length
+        ? competencesFromProps
+        : (exercise.competences ?? []);
+
+      if (effectiveCompetences.length > 0 && shouldCountPoints) {
+        const normalizedIds = effectiveCompetences
+          .map((c) => normalizeCompetenceId(c))
+          .filter((id): id is string => id !== null);
+        await Promise.all(
+          normalizedIds.map((id) =>
+            updateCompetenceScore(
+              currentUser.id,
+              id,
+              exercise.difficulty,
+              isExerciseCorrect,
+            ),
+          ),
+        );
+      }
+    };
+
+    saveExerciseAttempt();
+  }, [
+    isExerciseFinished,
+    exercise,
+    hasErrors,
+    shouldCountPoints,
+    competencesFromProps,
+  ]);
 
   const proceedToNext = useCallback(() => {
     feedbackPendingRef.current = false; // Libération du verrou
@@ -309,16 +365,16 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   const handleModalClose = () => {
     setIsFeedbackOpen(false);
-    
+
     // On n'exécute l'action de suite pour éviter un conflit de rendu
     if (pendingNextAction) {
-        // Un petit délai assure que l'état de la modale est bien traité par React
-        setTimeout(() => {
-            pendingNextAction();
-            setPendingNextAction(null);
-        }, 100);
+      // Un petit délai assure que l'état de la modale est bien traité par React
+      setTimeout(() => {
+        pendingNextAction();
+        setPendingNextAction(null);
+      }, 100);
     } else {
-        feedbackPendingRef.current = false;
+      feedbackPendingRef.current = false;
     }
   };
 
@@ -336,7 +392,12 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       <div className="p-8 flex flex-col items-center justify-center text-center bg-red-50 border border-red-100 rounded-xl min-h-[300px]">
         <h3 className="text-red-800 font-bold mb-2">Oups !</h3>
         <p className="text-red-600 mb-4">{error}</p>
-        <button onClick={() => setRefreshTrigger((p) => p + 1)} className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg">Réessayer</button>
+        <button
+          onClick={() => setRefreshTrigger((p) => p + 1)}
+          className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg"
+        >
+          Réessayer
+        </button>
       </div>
     );
   }
@@ -356,41 +417,94 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h2 className="text-2xl font-bold text-slate-800">{exercise.app_title || exercise.title}</h2>
+            <h2 className="text-2xl font-bold text-slate-800">
+              {exercise.app_title || exercise.title}
+            </h2>
             {mode && (
-              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border ${mode === 'test' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
-                {mode === 'test' ? 'Mode test' : 'Recommandation'}
+              <span
+                className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border ${mode === "test" ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-100"}`}
+              >
+                {mode === "test" ? "Mode test" : "Recommandation"}
               </span>
             )}
           </div>
           <div className="flex gap-2 text-sm text-gray-500">
-            {exercise.chapter && <span className="bg-gray-100 px-2 py-0.5 rounded text-xs uppercase tracking-wide font-semibold">{exercise.chapter}</span>}
-            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${exercise.difficulty === "Difficile" ? "bg-red-50 text-red-700" : exercise.difficulty === "Moyen" ? "bg-yellow-50 text-yellow-700" : "bg-green-50 text-green-700"}`}>{exercise.difficulty}</span>
+            {exercise.chapter && (
+              <span className="bg-gray-100 px-2 py-0.5 rounded text-xs uppercase tracking-wide font-semibold">
+                {exercise.chapter}
+              </span>
+            )}
+            <span
+              className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${exercise.difficulty === "Difficile" ? "bg-red-50 text-red-700" : exercise.difficulty === "Moyen" ? "bg-yellow-50 text-yellow-700" : "bg-green-50 text-green-700"}`}
+            >
+              {exercise.difficulty}
+            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => { setIsFeedbackDifficultyOnly(false); setIsFeedbackOpen(true); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Flag className="w-5 h-5" /></button>
+          <button
+            onClick={() => {
+              setIsFeedbackDifficultyOnly(false);
+              setIsFeedbackOpen(true);
+            }}
+            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Flag className="w-5 h-5" />
+          </button>
           {isExerciseFinished && (
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border animate-in zoom-in ${hasErrors ? "text-orange-600 bg-orange-50 border-orange-100" : "text-green-600 bg-green-50 border-green-100"}`}>
-              {hasErrors ? <Flag className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-              <span className="font-bold text-sm">{hasErrors ? "Exercice terminé" : "Exercice validé !"}</span>
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border animate-in zoom-in ${hasErrors ? "text-orange-600 bg-orange-50 border-orange-100" : "text-green-600 bg-green-50 border-green-100"}`}
+            >
+              {hasErrors ? (
+                <Flag className="w-5 h-5" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5" />
+              )}
+              <span className="font-bold text-sm">
+                {hasErrors ? "Exercice terminé" : "Exercice validé !"}
+              </span>
             </div>
           )}
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-100 relative">
-        <ExerciseRenderer exercise={exercise} preGeneratedVariables={variables} onElementSubmit={handleElementSubmit} />
+        <ExerciseRenderer
+          exercise={exercise}
+          preGeneratedVariables={variables}
+          onElementSubmit={handleElementSubmit}
+        />
 
         {isExerciseFinished && (
           <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-6 border-slate-100">
-            <button onClick={() => { setIsFeedbackDifficultyOnly(false); setIsFeedbackOpen(true); }} className="text-slate-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors">
-              <MessageSquare className="w-4 h-4" /> Donner mon avis sur cet exercice
+            <button
+              onClick={() => {
+                setIsFeedbackDifficultyOnly(false);
+                setIsFeedbackOpen(true);
+              }}
+              className="text-slate-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" /> Donner mon avis sur cet
+              exercice
             </button>
 
-            <button onClick={handleNextExercise} disabled={isNextLoading || isFeedbackOpen} className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70">
-              {isNextLoading ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Chargement…</> : <>Exercice Suivant <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>}
+            <button
+              onClick={handleNextExercise}
+              disabled={isNextLoading || isFeedbackOpen}
+              className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+            >
+              {isNextLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+                  Chargement…
+                </>
+              ) : (
+                <>
+                  Exercice Suivant{" "}
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </div>
         )}

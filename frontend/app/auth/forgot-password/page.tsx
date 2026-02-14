@@ -18,9 +18,26 @@ export default function ForgotPasswordPage() {
 
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-      const origin = siteUrl || window.location.origin;
+      const hostname = window.location.hostname;
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+      
+      // ✅ Si pas localhost ET qu'on a NEXT_PUBLIC_SITE_URL, on l'utilise
+      const origin = !isLocalhost && siteUrl 
+        ? siteUrl 
+        : window.location.origin;
+        
       const redirectTo = `${origin}/auth/callback?next=/auth/update-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo, });
+      
+      console.log('🔐 [Password Reset]', {
+        hostname,
+        isLocalhost,
+        siteUrl,
+        redirectTo
+      });
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { 
+        redirectTo,
+      });
 
       if (error) throw error;
       toast.success(

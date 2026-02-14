@@ -9,6 +9,8 @@ export interface Variable {
   decimals?: number;
   choices?: string[];
   expression?: string;
+  /** Valeurs interdites (nombres ou expressions avec variables, ex: "0", "@a", "@a+1") */
+  exclusions?: (string | number)[];
 }
 
 export interface TextContent {

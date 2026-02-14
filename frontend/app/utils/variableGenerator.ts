@@ -6,8 +6,102 @@ import { Variable, VariableValues } from '../types/exercise';
 import { evaluate } from './math/evaluation';
 
 /**
+ * Évalue une exclusion (peut être un nombre ou une expression avec variables)
+ */
+function evaluateExclusion(
+  exclusion: string | number,
+  currentValues: VariableValues
+): number | null {
+  if (typeof exclusion === 'number') {
+    return exclusion;
+  }
+  
+  // Si c'est une chaîne, essayer de l'évaluer comme expression
+  try {
+    const numericValues: Record<string, number> = {};
+    for (const [name, value] of Object.entries(currentValues)) {
+      const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+      if (!isNaN(numValue)) {
+        numericValues[name] = numValue;
+      }
+    }
+    
+    const result = evaluate(exclusion, numericValues);
+    if (!isNaN(result) && isFinite(result)) {
+      return result;
+    }
+  } catch {
+    // Si l'évaluation échoue (variable pas encore définie), retourner null
+  }
+  
+  return null;
+}
+
+/**
+ * Vérifie si une valeur est exclue
+ */
+function isValueExcluded(
+  value: number,
+  exclusions: (string | number)[] | undefined,
+  currentValues: VariableValues
+): boolean {
+  if (!exclusions || exclusions.length === 0) return false;
+  
+  for (const exclusion of exclusions) {
+    const excludedValue = evaluateExclusion(exclusion, currentValues);
+    if (excludedValue !== null && Math.abs(value - excludedValue) < 0.0001) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Génère un entier aléatoire en évitant les exclusions
+ */
+function generateIntegerWithExclusions(
+  min: number,
+  max: number,
+  exclusions: (string | number)[] | undefined,
+  currentValues: VariableValues,
+  maxAttempts: number = 100
+): number {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const value = randomInteger(min, max);
+    if (!isValueExcluded(value, exclusions, currentValues)) {
+      return value;
+    }
+  }
+  // Fallback: retourner une valeur même si elle est exclue (éviter boucle infinie)
+  console.warn(`Could not find non-excluded value after ${maxAttempts} attempts`);
+  return randomInteger(min, max);
+}
+
+/**
+ * Génère un décimal aléatoire en évitant les exclusions
+ */
+function generateDecimalWithExclusions(
+  min: number,
+  max: number,
+  decimals: number,
+  exclusions: (string | number)[] | undefined,
+  currentValues: VariableValues,
+  maxAttempts: number = 100
+): number {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const value = randomDecimal(min, max, decimals);
+    if (!isValueExcluded(value, exclusions, currentValues)) {
+      return value;
+    }
+  }
+  console.warn(`Could not find non-excluded decimal after ${maxAttempts} attempts`);
+  return randomDecimal(min, max, decimals);
+}
+
+/**
  * Génère des valeurs aléatoires pour les variables d'un exercice
- * Gère aussi les variables calculées (computed)
+ * Gère aussi les variables calculées (computed) et les exclusions
  */
 export function generateVariables(variables: Variable[]): VariableValues {
   const values: VariableValues = {};
@@ -21,7 +115,12 @@ export function generateVariables(variables: Variable[]): VariableValues {
     switch (variable.type) {
       case 'integer':
         if (variable.min !== undefined && variable.max !== undefined) {
-          values[variable.name] = randomInteger(variable.min, variable.max);
+          values[variable.name] = generateIntegerWithExclusions(
+            variable.min,
+            variable.max,
+            variable.exclusions,
+            values
+          );
         }
         break;
 
@@ -31,17 +130,32 @@ export function generateVariables(variables: Variable[]): VariableValues {
           variable.max !== undefined &&
           variable.decimals !== undefined
         ) {
-          values[variable.name] = randomDecimal(
+          values[variable.name] = generateDecimalWithExclusions(
             variable.min,
             variable.max,
-            variable.decimals
+            variable.decimals,
+            variable.exclusions,
+            values
           );
         }
         break;
 
       case 'choice':
         if (variable.choices && variable.choices.length > 0) {
-          values[variable.name] = randomChoice(variable.choices);
+          // Pour choice, filtrer les choix exclus
+          const availableChoices = variable.choices.filter(choice => {
+            const numValue = parseFloat(choice);
+            if (!isNaN(numValue)) {
+              return !isValueExcluded(numValue, variable.exclusions, values);
+            }
+            return true; // Garder les choix non-numériques
+          });
+          
+          if (availableChoices.length > 0) {
+            values[variable.name] = randomChoice(availableChoices);
+          } else {
+            values[variable.name] = randomChoice(variable.choices);
+          }
         }
         break;
     }

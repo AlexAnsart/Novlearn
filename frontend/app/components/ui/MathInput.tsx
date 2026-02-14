@@ -34,12 +34,10 @@ export const MathInput: React.FC<MathInputProps> = ({
   const mfRef = useRef<any>(null);
   const isKeyboardVisibleRef = useRef(false);
 
-  // Maintenir le focus lors de l'utilisation du clavier virtuel MathLive
   useEffect(() => {
     const mf = mfRef.current;
     if (!mf) return;
 
-    // Écouter les changements de visibilité du clavier virtuel via l'API MathLive
     const checkKeyboardVisibility = () => {
       const keyboard = (window as any).mathVirtualKeyboard;
       if (keyboard) {
@@ -47,21 +45,19 @@ export const MathInput: React.FC<MathInputProps> = ({
       }
     };
 
-    // Restaurer le focus si le math-field le perd pendant que le clavier virtuel est visible
     const handleBlur = () => {
       checkKeyboardVisibility();
       if (isKeyboardVisibleRef.current) {
-        // Petit délai pour laisser l'événement se terminer
         setTimeout(() => {
-          checkKeyboardVisibility();
-          if (isKeyboardVisibleRef.current && mf) {
+          // IMPORTANT: On ne redonne le focus que si l'élément actif est toujours le clavier 
+          // ou si aucun autre input n'a pris le focus entre temps
+          if (isKeyboardVisibleRef.current && mf && document.activeElement?.tagName !== 'MATH-FIELD') {
             mf.focus();
           }
         }, 0);
       }
     };
 
-    // Observer le clavier virtuel MathLive
     const keyboard = (window as any).mathVirtualKeyboard;
     if (keyboard) {
       keyboard.addEventListener?.("geometrychange", checkKeyboardVisibility);
@@ -69,40 +65,30 @@ export const MathInput: React.FC<MathInputProps> = ({
 
     mf.addEventListener("blur", handleBlur);
 
-    // Empêcher la perte de focus sur les clics du clavier (si détectables)
     const handleGlobalPointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
-      const root = target.getRootNode();
+      
+      // Vérifier si le clic est sur le clavier
+      const isKeyboardClick = target.closest(".ML__keyboard") || 
+                             target.closest('[part="keyboard"]');
 
-      // Vérifier si le clic vient du shadow DOM du clavier ou d'éléments connus
-      const isKeyboardClick =
-        target.closest(".ML__keyboard") ||
-        target.closest('[part="keyboard"]') ||
-        target.closest('[part="virtual-keyboard-toggle"]') ||
-        target.tagName?.includes("MATH") ||
-        (root instanceof ShadowRoot && root.host?.tagName?.includes("MATH"));
-
-      if (isKeyboardClick) {
+      // IMPORTANT : On ne déclenche le refocus que si cet input précis est l'élément "actif"
+      // ou si l'utilisateur clique sur le clavier virtuel
+      if (isKeyboardClick && mf === (window as any).mathVirtualKeyboard.targetElement) {
         isKeyboardVisibleRef.current = true;
         e.preventDefault();
         requestAnimationFrame(() => mf?.focus());
       }
     };
 
-    document.addEventListener("pointerdown", handleGlobalPointerDown, {
-      capture: true,
-    });
+    // On utilise l'option { capture: true } pour intercepter le clic avant les autres
+    document.addEventListener("pointerdown", handleGlobalPointerDown, { capture: true });
 
     return () => {
-      document.removeEventListener("pointerdown", handleGlobalPointerDown, {
-        capture: true,
-      });
+      document.removeEventListener("pointerdown", handleGlobalPointerDown, { capture: true });
       mf.removeEventListener("blur", handleBlur);
       if (keyboard) {
-        keyboard.removeEventListener?.(
-          "geometrychange",
-          checkKeyboardVisibility,
-        );
+        keyboard.removeEventListener?.("geometrychange", checkKeyboardVisibility);
       }
     };
   }, []);
