@@ -1,5 +1,15 @@
 // Types pour les exercices mathématiques NovLearn
 
+// Types de format de réponse supportés
+export type AnswerFormat =
+  | "number" // Valeur numérique simple (3, -2.5, 1/2)
+  | "text" // Texte simple (comparaison exacte)
+  | "expression" // Expression mathématique (dérivée, suite)
+  | "interval" // Intervalle (]-∞;2], [1;5[, ]-3;+∞[)
+  | "set" // Ensemble de valeurs ({-1, 2, 5})
+  | "fraction" // Fraction irréductible
+  | "complex"; // Nombre complexe
+
 export interface Variable {
   id: number;
   name: string;
@@ -61,7 +71,7 @@ export interface DiscreteGraphContent {
 
 export interface EquationContent {
   latex: string;
-  answerType?: "numeric" | "text" | "expression" | "set";
+  answerType?: AnswerFormat;
   correctAnswer?: string;
   requireAnswer?: boolean;
   tolerance?: number;
@@ -69,7 +79,7 @@ export interface EquationContent {
 
 export interface QuestionContent {
   question: string;
-  answerFormat: "number" | "text";
+  answerFormat: AnswerFormat;
   correctAnswer: string;
   points?: number;
   hint?: string;

@@ -2,7 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { MathText } from "../components/ui";
-import { EquationContent, RendererProps } from "../types/exercise";
+import {
+  AnswerFormat,
+  EquationContent,
+  RendererProps,
+} from "../types/exercise";
 import { checkAnswer } from "../utils/math/evaluation";
 import { simplifyLatexExpression } from "../utils/math/simplication";
 
@@ -43,12 +47,16 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
     }
 
     if (content.requireAnswer && content.correctAnswer) {
-      // Vérification (Numeric ou Textuelle)
+      // Mapping de l'ancien format "numeric" vers "number" pour rétrocompatibilité
+      let format: AnswerFormat = content.answerType || "number";
+      if ((format as string) === "numeric") format = "number";
+
+      // Vérification avec le format approprié
       const correct = checkAnswer(
         answer,
         content.correctAnswer,
         variables,
-        content.answerType === "numeric" ? "number" : "text",
+        format,
       );
 
       setIsCorrect(correct);
@@ -90,7 +98,15 @@ const EquationRenderer: React.FC<EquationRendererProps> = ({
                          focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200
                          disabled:opacity-50 transition-all"
               placeholder={
-                content.answerType === "set" ? "Ex: {1; 2}" : "Votre réponse..."
+                content.answerType === "set"
+                  ? "Ex: {1; 2}"
+                  : content.answerType === "interval"
+                    ? "Ex: ]-∞; 2] ou [1; 5["
+                    : content.answerType === "expression"
+                      ? "Ex: 2x + 1"
+                      : content.answerType === "fraction"
+                        ? "Ex: 3/4"
+                        : "Votre réponse..."
               }
             />
             <button

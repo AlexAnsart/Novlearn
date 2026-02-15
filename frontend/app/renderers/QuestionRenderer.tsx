@@ -41,6 +41,25 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     return simplifyLatexExpression(content.correctAnswer, variables);
   }, [content.correctAnswer, variables]);
 
+  // Génère le placeholder adapté au format de réponse
+  const getPlaceholder = (): string => {
+    if (isFinished) {
+      return status === "correct" ? "Réponse validée" : "Terminé";
+    }
+    switch (content.answerFormat) {
+      case "interval":
+        return "Ex: ]-∞; 2] ou [1; 5[";
+      case "set":
+        return "Ex: {-1; 2; 5}";
+      case "expression":
+        return "Ex: 2x + 1";
+      case "fraction":
+        return "Ex: 3/4";
+      default:
+        return "Votre réponse...";
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!value.trim() || isFinished) return;
@@ -117,13 +136,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 setValue(val);
                 if (!isFinished && status === "incorrect") setStatus("idle");
               }}
-              placeholder={
-                isFinished
-                  ? status === "correct"
-                    ? "Réponse validée"
-                    : "Terminé"
-                  : "Votre réponse..."
-              }
+              placeholder={getPlaceholder()}
               disabled={isFinished}
               className="w-full"
             />
