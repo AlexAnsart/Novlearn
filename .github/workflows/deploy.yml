@@ -31,6 +31,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SITE_URL: https://novlearn.fr
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_API_SECRET: ${{ secrets.ADMIN_API_SECRET }}
 
       - name: Create .env file for backend
         run: |
@@ -255,12 +257,12 @@ jobs:
             sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-backend.service > /tmp/novlearn-backend.service.tmp
             sudo mv /tmp/novlearn-backend.service.tmp /etc/systemd/system/novlearn-backend.service
             sudo systemctl daemon-reload
-            
+
             if sudo systemctl is-enabled novlearn-backend 2>&1 | grep -q "masked"; then
               sudo systemctl unmask novlearn-backend
             fi
             sudo systemctl enable novlearn-backend
-            
+
             if sudo systemctl is-active --quiet novlearn-backend; then
               sudo systemctl restart novlearn-backend
             else
@@ -276,7 +278,7 @@ jobs:
               sudo systemctl unmask novlearn-frontend
             fi
             sudo systemctl enable novlearn-frontend
-            
+
             if sudo systemctl is-active --quiet novlearn-frontend; then
               sudo systemctl restart novlearn-frontend
             else
@@ -293,6 +295,8 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_SITE_URL=https://novlearn.fr" >> /opt/novlearn/frontend/.env.local
+            echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> /opt/novlearn/frontend/.env.local
+            echo "ADMIN_API_SECRET=${{ secrets.ADMIN_API_SECRET }}" >> /opt/novlearn/frontend/.env.local
 
             # Exécuter le script de déploiement
             export PATH="/usr/bin:/usr/local/bin:$PATH"
@@ -306,23 +310,23 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             sleep 5
-            
+
             # Vérifications simples
             if ! systemctl is-active --quiet apache2; then
               echo "❌ Apache inactif"
               exit 1
             fi
-            
+
             curl -f http://localhost:8010/health || {
               echo "❌ Backend error"
               sudo journalctl -u novlearn-backend -n 20
               exit 1
             }
-            
+
             curl -f http://localhost:3000 || {
               echo "❌ Frontend error"
               sudo journalctl -u novlearn-frontend -n 20
               exit 1
             }
-            
+
             echo "✅ Déploiement vérifié avec succès"
