@@ -1,4 +1,10 @@
-import { ArrowRight, CheckCircle2, Flag, MessageSquare } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Flag,
+  HelpCircle,
+  MessageSquare,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, {
   useCallback,
@@ -16,6 +22,7 @@ import {
 import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import { FeedbackModal } from "../ui/FeedbackModal";
+import { HelpModal } from "../ui/HelpModal";
 import ExerciseRenderer from "./ExerciseRenderer";
 
 async function updateCompetenceScore(
@@ -113,6 +120,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   const [hasErrors, setHasErrors] = useState(false);
 
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [pendingNextAction, setPendingNextAction] = useState<
     (() => void | Promise<void>) | null
   >(null);
@@ -414,6 +422,8 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         onlyDifficulty={isFeedbackDifficultyOnly}
       />
 
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+
       <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -444,11 +454,19 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsHelpOpen(true)}
+            className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
+            title="Aide - Comment répondre ?"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+          <button
             onClick={() => {
               setIsFeedbackDifficultyOnly(false);
               setIsFeedbackOpen(true);
             }}
             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            title="Signaler un problème"
           >
             <Flag className="w-5 h-5" />
           </button>

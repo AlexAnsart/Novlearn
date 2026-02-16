@@ -7,6 +7,7 @@ import { ActionButton } from "./components/ActionButton";
 import { Layout } from "./components/Layout";
 import { MonthlyLeaderboard } from "./components/MonthlyLeaderboard";
 import { FeedbackModal } from "./components/ui/FeedbackModal";
+import { InteractiveTutorial } from "./components/ui/InteractiveTutorial";
 import { useAuth } from "./contexts/AuthContext";
 
 export default function Home() {
@@ -28,6 +29,9 @@ export default function Home() {
 
   return (
     <Layout>
+      {/* Tutoriel interactif pour la première connexion */}
+      <InteractiveTutorial />
+
       {/* 1. La Modale (Invisible par défaut) */}
       <FeedbackModal
         isOpen={isFeedbackOpen}
@@ -114,6 +118,7 @@ export default function Home() {
                   {/* Bouton principal */}
                   <button
                     className="
+                    tour-start-test
                     relative inline-flex items-center gap-3 px-10 py-5 rounded-2xl
                     bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white 
                     shadow-[0_8px_0_0_rgba(67,56,202,1),0_15px_25px_rgba(99,102,241,0.4)]
@@ -142,6 +147,7 @@ export default function Home() {
               variant="primary"
               icon="⚔️"
               onClick={() => router.push("/duel")}
+              className="tour-duels"
             >
               1VS1
             </ActionButton>

@@ -36,9 +36,9 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const isLeaderboard = pathname === "/classement";
   const isSettings = pathname === "/parametres";
   const isAccount = pathname === "/compte";
-  
+
   // Vérification du rôle admin (cast as any si le type n'est pas encore mis à jour partout)
-  const isAdmin = (profile as any)?.role === 'admin';
+  const isAdmin = (profile as any)?.role === "admin";
 
   // Contenu de la barre de navigation (Sidebar Desktop OU Bottom Bar Mobile)
   const sidebarContent = (
@@ -52,16 +52,19 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         emoji="📊"
         active={isProgress}
         onClick={() => router.push("/progression")}
+        className="tour-progress"
       />
       <SidebarIcon
         emoji="🏋️"
         active={isTraining}
         onClick={() => router.push("/entrainement")}
+        className="tour-training"
       />
       <SidebarIcon
         emoji={"🏆"}
         active={isLeaderboard}
         onClick={() => router.push("/classement")}
+        className="tour-leaderboard"
       />
 
       {/* Espaceur : Uniquement sur Desktop pour pousser les réglages en bas */}
@@ -86,9 +89,10 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
       {/* NOUVEAU : Icône Compte -> Uniquement sur Mobile */}
       {isMobile && (
         <SidebarIcon
-          emoji={"👤"} 
+          emoji={"👤"}
           active={isAccount}
           onClick={() => router.push("/compte")}
+          className="tour-account"
         />
       )}
 
@@ -96,6 +100,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         emoji="⚙️"
         active={isSettings}
         onClick={() => router.push("/parametres")}
+        className="tour-settings"
       />
     </>
   );
@@ -124,7 +129,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                 {user ? (
                   <button
                     onClick={() => router.push("/compte")}
-                    className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer relative"
+                    className="tour-account flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer relative"
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
                       <User className="w-7 h-7 text-white" />

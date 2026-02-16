@@ -10,12 +10,14 @@ interface SidebarIconProps {
   emoji: string | ReactNode;
   active?: boolean;
   onClick?: () => void;
+  className?: string;
 }
 
 export function SidebarIcon({
   emoji,
   active = false,
   onClick,
+  className = "",
 }: SidebarIconProps) {
   return (
     <button
@@ -30,6 +32,7 @@ export function SidebarIcon({
             ? "bg-blue-600/80 shadow-lg shadow-blue-500/30"
             : "bg-slate-700/50 hover:bg-slate-600/60"
         }
+        ${className}
       `}
     >
       {typeof emoji === "string" ? (
