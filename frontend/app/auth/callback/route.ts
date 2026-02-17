@@ -6,24 +6,13 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  console.log('🚀 [Callback Debug] Hit /auth/callback');
-  console.log('   Full URL:', request.url);
-  
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
-  
-  // Log des headers critiques pour comprendre le proxy
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const host = request.headers.get('host');
-  
-  console.log('   Headers Debug:', {
-    'x-forwarded-host': forwardedHost,
-    'x-forwarded-proto': forwardedProto,
-    'host': host,
-    'origin (from url)': origin
-  });
+
+  // Utilisation de la variable d'environnement garantie par le deploy.yml
+  // Si elle n'existe pas (sur ton PC), on garde l'origin (http://localhost:3000)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin;
 
   if (code) {
     const cookieStore = cookies();
@@ -48,30 +37,11 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Redirection propre vers la page demandée
-      // On s'assure que "next" commence bien par un slash
-      const forwardedHost = request.headers.get('x-forwarded-host');
-      const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
-      const isLocal = origin.includes('localhost');
-      
-      console.log('   Decision Debug:', { isLocal, forwardedHost, forwardedProto });
-
-      if (isLocal) {
-        console.log('   👉 Redirecting to Local:', `${origin}${next}`);
-        return NextResponse.redirect(`${origin}${next}`);
-      } else if (forwardedHost) {
-         // Production avec proxy (Apache/Nginx)
-         const target = `${forwardedProto}://${forwardedHost}${next}`;
-         console.log('   👉 Redirecting to Prod (Proxy):', target);
-         return NextResponse.redirect(target);
-      } else {
-         // Production directe
-         console.log('   👉 Redirecting to Prod (Direct):', `${origin}${next}`);
-         return NextResponse.redirect(`${origin}${next}`);
-      }
+      // ✅ Redirection 100% fiable
+      return NextResponse.redirect(`${siteUrl}${next}`);
     }
   }
 
   // Erreur : on renvoie vers le login avec un message
-  return NextResponse.redirect(`${origin}/auth/login?error=auth-code-error`);
+  return NextResponse.redirect(`${siteUrl}/auth/login?error=auth-code-error`);
 }
