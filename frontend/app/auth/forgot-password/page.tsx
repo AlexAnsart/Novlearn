@@ -94,7 +94,7 @@ export default function ForgotPasswordPage() {
             ) : (
               <Send size={20} />
             )}
-            Envoyer le lien (V2)
+            Envoyer le lien
           </button>
         </form>
 
