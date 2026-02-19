@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fredoka } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -13,12 +13,26 @@ const fredoka = Fredoka({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#6366f1",
+};
+
 export const metadata: Metadata = {
   title: "Novlearn",
   description:
     "Plateforme d'entraînement ludique et personnalisée pour le Bac de mathématiques",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Novlearn",
+  },
   icons: {
     icon: "/favicon.ico",
+    apple: "/icons/icon-192x192.png",
   },
 };
 
