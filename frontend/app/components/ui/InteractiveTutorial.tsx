@@ -113,6 +113,17 @@ export const InteractiveTutorial = () => {
         "Maintenant, à toi de jouer ! Clique ici pour lancer ton premier exercice. Il s'agit d'un test de positionnement qui nous aidera à adapter la difficulté rien que pour toi. 🚀 Tu trouveras un bouton ? d'aide pour comprendre comment répondre.",
       placement: "bottom",
     },
+    // Étape PWA (mobile uniquement)
+    ...(isMobile
+      ? [
+          {
+            target: "body",
+            content:
+              "Astuce : Tu peux installer Novlearn comme une vraie application sur ton téléphone ! Clique sur le bouton 'Partager' ou le menu de ton navigateur, puis choisis 'Ajouter à l'écran d'accueil' pour profiter du mode plein écran et des notifications.",
+            placement: "center" as const,
+          },
+        ]
+      : []),
   ];
 
   const handleJoyrideCallback = async (data: CallBackProps) => {

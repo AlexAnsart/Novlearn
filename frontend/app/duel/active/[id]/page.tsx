@@ -10,6 +10,7 @@ import { Duel, duelsApi } from "../../../lib/api";
 import { supabase } from "../../../lib/supabase";
 import QuestionRenderer from "../../../renderers/QuestionRenderer";
 import { Exercise, TextContent, VariableValues } from "../../../types/exercise";
+import { evaluate } from "../../../utils/math/evaluation";
 
 export default function ActiveDuelPage() {
   const params = useParams();
@@ -23,43 +24,7 @@ export default function ActiveDuelPage() {
   const [loading, setLoading] = useState(true);
   const [startTime] = useState(Date.now());
 
-  // Load duel data
-  useEffect(() => {
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
-
-    loadDuel();
-  }, [duelId, user]);
-
-  // Subscribe to realtime updates
-  useEffect(() => {
-    if (!duel) return;
-
-    const channel = supabase
-      .channel(`duel:${duelId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "duels",
-          filter: `id=eq.${duelId}`,
-        },
-        (payload) => {
-          console.log("Duel updated:", payload);
-          setDuel(payload.new as Duel);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [duelId, duel]);
-
-  const loadDuel = async () => {
+  const loadDuel = useCallback(async () => {
     try {
       setLoading(true);
       const { duel: duelData } = await duelsApi.getDuel(duelId);
@@ -92,7 +57,43 @@ export default function ActiveDuelPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [duelId, router]);
+
+  // Load duel data
+  useEffect(() => {
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
+    loadDuel();
+  }, [duelId, user, router, loadDuel]);
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    if (!duel) return;
+
+    const channel = supabase
+      .channel(`duel:${duelId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "duels",
+          filter: `id=eq.${duelId}`,
+        },
+        (payload) => {
+          console.log("Duel updated:", payload);
+          setDuel(payload.new as Duel);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [duelId, duel]);
 
   const handleAnswerSubmit = useCallback(
     async (answer: string, isCorrect: boolean) => {
@@ -122,7 +123,7 @@ export default function ActiveDuelPage() {
         alert(error.message || "Erreur lors de la soumission de la réponse");
       }
     },
-    [exercise, duel, duelId, startTime],
+    [exercise, duel, duelId, startTime, loadDuel],
   );
 
   if (loading) {
@@ -310,18 +311,21 @@ export default function ActiveDuelPage() {
                     questionContent.answerType === "numeric" &&
                     questionContent.answer
                   ) {
-                    // Replace variables in answer expression
-                    let answerExpr = questionContent.answer;
-                    Object.keys(variables).forEach((varName) => {
-                      answerExpr = answerExpr.replace(
-                        new RegExp(`\\{${varName}\\}`, "g"),
-                        String(variables[varName]),
-                      );
-                    });
-
                     try {
-                      // Simple evaluation (for now, just handle basic arithmetic)
-                      correctAnswer = eval(answerExpr);
+                      // Évaluation sécurisée avec mathjs (évite l'injection de code)
+                      // Convert VariableValues to Record<string, number> for evaluate
+                      const numericVars: Record<string, number> = {};
+                      Object.keys(variables).forEach((varName) => {
+                        const val = variables[varName];
+                        numericVars[varName] =
+                          typeof val === "number"
+                            ? val
+                            : parseFloat(String(val));
+                      });
+                      correctAnswer = evaluate(
+                        questionContent.answer,
+                        numericVars,
+                      );
                     } catch (e) {
                       console.error("Error evaluating answer:", e);
                     }
