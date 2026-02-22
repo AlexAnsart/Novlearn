@@ -1,4 +1,6 @@
-const withSerwist = require("@serwist/next").default({
+import withSerwist from "@serwist/next";
+
+const withSerwistConfig = withSerwist({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
   disable: process.env.NODE_ENV === "development",
@@ -14,7 +16,7 @@ const nextConfig = {
       return [
         {
           source: "/api/:path*",
-          destination: "http://localhost:8010/api/:path*",
+          destination: "http://localhost:8000/api/:path*",
         },
       ];
     }
@@ -23,4 +25,4 @@ const nextConfig = {
   },
 };
 
-module.exports = withSerwist(nextConfig);
+export default withSerwistConfig(nextConfig);
