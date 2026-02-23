@@ -58,12 +58,10 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4">Support</h3>
             <ul className="space-y-2 text-sm">
               <FooterLink href="/cgu">Conditions d'utilisation</FooterLink>
-              <FooterLink href="/privacy">
-                Politique de confidentialité
-              </FooterLink>
-              <FooterLink href="mailto:contact@novlearn.fr">
-                Nous contacter
-              </FooterLink>
+              <FooterLink href="/privacy">Politique de confidentialité</FooterLink>
+              <FooterLink href="/support/besoin-aide">Besoin d'aide</FooterLink>
+              <FooterLink href="/support/forum">Forum / FAQ</FooterLink>
+              <FooterLink href="mailto:support@novlearn.fr">Nous contacter</FooterLink>
             </ul>
           </div>
 

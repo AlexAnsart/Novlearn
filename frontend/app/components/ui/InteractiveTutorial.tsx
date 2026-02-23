@@ -195,7 +195,7 @@ export const InteractiveTutorial = () => {
         last: "C'est parti !",
         next: "Suivant",
         skip: "Passer le tutoriel",
-        nextLabelWithProgress: isMobile? "Suivant ({step}/8)" : "Suivant ({step}/9)",
+        nextLabelWithProgress: "Suivant ({step}/8)",
       }}
     />
   );

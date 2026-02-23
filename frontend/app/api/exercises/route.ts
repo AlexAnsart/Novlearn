@@ -13,6 +13,7 @@ const ALLOWED_ORIGINS = [
   "https://www.novlearn.fr",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "https://novlearn-exercice-builder.vercel.app",
 ];
 
 function getCorsHeaders(request?: Request): HeadersInit {
