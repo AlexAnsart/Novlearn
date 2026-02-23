@@ -48,6 +48,20 @@ jobs:
           echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr" >> backend/.env
           echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
 
+      # --- 🧹 AJOUT : NETTOYAGE AVANT COPIE ---
+      - name: Clean up ghost config file on VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "🧹 Nettoyage de l'ancien fichier de config Next.js..."
+            # On supprime l'ancien .js pour qu'il ne rentre pas en conflit 
+            # avec la nouvelle configuration Serwist !
+            rm -f /opt/novlearn/frontend/next.config.js
+      # -----------------------------------------
+
       - name: Deploy frontend code to VPS
         uses: appleboy/scp-action@master
         with:
