@@ -419,8 +419,8 @@ export const checkExpression = (
 // ==========================================
 
 interface ParsedInterval {
-  leftOpen: boolean; // true si ] ou (
-  rightOpen: boolean; // true si [ ou )
+  leftOpen: boolean; // true si crochet gauche ouvert (]
+  rightOpen: boolean; // true si crochet droit ouvert ([)
   left: number; // -Infinity si -∞
   right: number; // Infinity si +∞
 }
@@ -437,23 +437,36 @@ const parseInterval = (
 
   let str = intervalStr.trim();
 
-  // Normaliser les infinis LaTeX
-  str = str.replace(/\\infty/g, "∞");
+  // 1. Nettoyer tous les espaces superflus
+  str = str.replace(/\s+/g, "");
+
+  // 2. NETTOYAGE SPÉCIFIQUE MATHLIVE / LATEX
+  // On retire les balises de dimensionnement dynamique
+  str = str.replace(/\\left/g, "");
+  str = str.replace(/\\right\./g, ""); // On retire le point invisible
+  str = str.replace(/\\right/g, "");
+  // On traduit les commandes de crochets LaTeX en vrais caractères
+  str = str.replace(/\\lbrack/g, "[");
+  str = str.replace(/\\rbrack/g, "]");
+
+  // 3. Normaliser les infinis
+  str = str.replace(/\\infty|infty|∞/gi, "∞");
   str = str.replace(/\+∞/g, "∞");
   str = str.replace(/-∞/g, "-∞");
 
-  // Détecter le type de crochet gauche
-  const leftOpen = str.startsWith("]") || str.startsWith("(");
-  const rightOpen = str.endsWith("[") || str.endsWith(")");
+  // 4. Détecter le sens des crochets
+  // Seuls [ et ] sont considérés comme crochets, jamais ()
+  const leftOpen = str.startsWith("]"); // intervalle ouvert à gauche
+  const rightOpen = str.endsWith("["); // intervalle ouvert à droite
 
-  // Extraire le contenu entre crochets
-  const content = str.replace(/^[\[\]\(\)]+/, "").replace(/[\[\]\(\)]+$/, "");
+  // 5. Extraire le contenu entre crochets
+  const content = str.replace(/^[\[\]]+/, "").replace(/[\[\]]+$/, "");
 
-  // Séparer par ; ou ,
+  // 6. Séparer par ; ou ,
   const parts = content.split(/[;,]/);
   if (parts.length !== 2) return null;
 
-  // Parser les bornes
+  // 7. Parser les bornes
   const parseValue = (val: string): number => {
     const trimmed = val.trim();
     if (trimmed === "∞" || trimmed === "+∞") return Infinity;
