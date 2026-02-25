@@ -1,21 +1,22 @@
 """
-Competence metadata (id, chapter, max_points). Single source of truth for backend.
-Keep in sync with frontend/app/settings/competenceSettings.ts.
+Competence metadata loaded from shared/competences.json (single source of truth).
+Both backend and frontend use this file.
 """
+import json
+from pathlib import Path
 
-COMPETENCES = [
-    {"id": "limites_de_suites_usuelles", "chapter": "Suites numériques", "max_points": 10},
-    {"id": "somme_des_termes_d_une_suite", "chapter": "Suites numériques", "max_points": 20},
-    {"id": "suites_croissantes_decroissantes", "chapter": "Suites numériques", "max_points": 15},
-]
+# Path to shared config (backend/settings/ -> project root -> shared/)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_COMPETENCES_PATH = _PROJECT_ROOT / "shared" / "competences.json"
 
-# Chapters used for placement test (first chapter for new users)
-DEFAULT_CHAPTER = "Suites numériques"
+with open(_COMPETENCES_PATH, encoding="utf-8") as f:
+    _DATA = json.load(f)
 
-# Mapping: frontend chapter name -> possible DB values (exercises.chapter may vary)
-CHAPTER_DB_ALIASES: dict[str, list[str]] = {
-    "Suites numériques": ["Suites numériques", "Suites et limites"],
-}
+COMPETENCES = _DATA["competences"]
+CHAPTER_ORDER = _DATA["chapterOrder"]
+CHAPTER_DB_ALIASES: dict[str, list[str]] = _DATA.get("chapterDbAliases", {})
+
+DEFAULT_CHAPTER = CHAPTER_ORDER[0] if CHAPTER_ORDER else "Suites numériques"
 
 
 def get_competences(chapter: str | None = None) -> dict[str, int]:
@@ -25,3 +26,8 @@ def get_competences(chapter: str | None = None) -> dict[str, int]:
         if chapter is None or c["chapter"] == chapter:
             out[c["id"]] = c["max_points"]
     return out
+
+
+def get_chapters_with_competences() -> list[str]:
+    """Return list of chapters that have competences defined."""
+    return list(dict.fromkeys(c["chapter"] for c in COMPETENCES))

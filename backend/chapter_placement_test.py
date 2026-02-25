@@ -10,10 +10,9 @@ import random
 from typing import Any
 
 from settings.competence_settings import (
-    COMPETENCES,
     CHAPTER_DB_ALIASES,
-    DEFAULT_CHAPTER,
     get_competences,
+    get_chapters_with_competences,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,8 +164,8 @@ def get_chapter_for_test(chapter: str | None) -> str:
     """Return chapter to use for test (default first chapter if none)."""
     if chapter and chapter.strip():
         return chapter.strip()
-    unique_chapters = list(dict.fromkeys(c["chapter"] for c in COMPETENCES))
-    return unique_chapters[0] if unique_chapters else DEFAULT_CHAPTER
+    chapters = get_chapters_with_competences()
+    return chapters[0] if chapters else "Suites numériques"
 
 
 def _restore_test_exercise_from_state(

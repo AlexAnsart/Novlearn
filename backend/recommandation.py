@@ -6,7 +6,7 @@ import logging
 import random
 from typing import Any
 
-from settings.competence_settings import get_competences
+from settings.competence_settings import get_competences, CHAPTER_DB_ALIASES
 
 logger = logging.getLogger(__name__)
 from settings.recommandation_settings import (
@@ -101,7 +101,11 @@ def _fallback_random_exercise(
     """Un exercice aléatoire avec competences non vide si possible ; optionnellement filtré par chapitre."""
     q = supabase_client.table("exercises").select("id, competences, difficulty, chapter")
     if chapter:
-        q = q.eq("chapter", chapter)
+        chapters_to_try = CHAPTER_DB_ALIASES.get(chapter, [chapter])
+        if len(chapters_to_try) == 1:
+            q = q.eq("chapter", chapters_to_try[0])
+        else:
+            q = q.in_("chapter", chapters_to_try)
     r = q.limit(200).execute()
     data = r.data or []
     # Try to find exercises with competences array (non-empty) first
@@ -159,10 +163,13 @@ def recommander_exercice(
         points_eleve.setdefault(cid, 0)
 
     # Exercices par compétence et difficulté (optionnellement filtrés par chapitre)
-    # Use competences (array) instead of competence_id
     q_ex = supabase_client.table("exercises").select("id, competences, difficulty, chapter")
     if chapter:
-        q_ex = q_ex.eq("chapter", chapter)
+        chapters_to_try = CHAPTER_DB_ALIASES.get(chapter, [chapter])
+        if len(chapters_to_try) == 1:
+            q_ex = q_ex.eq("chapter", chapters_to_try[0])
+        else:
+            q_ex = q_ex.in_("chapter", chapters_to_try)
     r_ex = q_ex.execute()
     exos_par_comp: dict[str, list[list[int]]] = {
         cid: [[], [], []] for cid in competences

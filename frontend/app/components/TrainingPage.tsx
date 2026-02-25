@@ -232,37 +232,35 @@ export function TrainingPage() {
     setIsSearchingExercise(true);
 
     try {
-      const chapterNameInDb = selectedChapter; // id = name
-
-      let query = supabase
-        .from("exercises")
-        .select("id")
-        .eq("chapter", chapterNameInDb);
-
       if (selectedDifficulty) {
+        // Difficulty selected: random exercise in that level
+        const chapterNameInDb = selectedChapter;
+        let query = supabase
+          .from("exercises")
+          .select("id")
+          .eq("chapter", chapterNameInDb);
+
         const dbDiff = uiToDbDifficulty(selectedDifficulty);
         query = query.or(
           `difficulty.eq.${dbDiff},difficulty.eq.${selectedDifficulty}`,
         );
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          alert(`Aucun exercice ${selectedDifficulty} pour ce chapitre.`);
+          setIsSearchingExercise(false);
+          return;
+        }
+
+        const randomIndex = Math.floor(Math.random() * data.length);
+        const randomExerciseId = data[randomIndex].id;
+        router.push(`/exercices?id=${randomExerciseId}`);
+      } else {
+        // No difficulty: use recommendation (placement test + adaptive exo)
+        router.push(`/exercices?chapter=${encodeURIComponent(selectedChapter)}`);
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        alert(
-          selectedDifficulty
-            ? `Aucun exercice ${selectedDifficulty} pour ce chapitre.`
-            : "Aucun exercice disponible pour ce chapitre.",
-        );
-        setIsSearchingExercise(false);
-        return;
-      }
-
-      const randomIndex = Math.floor(Math.random() * data.length);
-      const randomExerciseId = data[randomIndex].id;
-      router.push(`/exercices?id=${randomExerciseId}`);
     } catch (err) {
       console.error("Erreur lors de la recherche d'exercice :", err);
       alert("Impossible de charger un exercice pour le moment.");
