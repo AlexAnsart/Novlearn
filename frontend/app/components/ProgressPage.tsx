@@ -226,20 +226,14 @@ export function ProgressPage() {
         const history = buildHistory(chapterAttempts);
         const totalAnswers = chapterAttempts.length;
         const correctAnswers = chapterAttempts.filter((a) => a.is_correct).length;
-        // Use actual point system: average percentage based on points/max_points for competences
-        // Only use this calculation if competences exist, otherwise show 0 (no points system available)
-        const chapterScore =
-          competences.length > 0
-            ? Math.round(
-                competences.reduce(
-                  (sum, c) => sum + (c.points / c.max_points) * 100,
-                  0,
-                ) / competences.length,
-              )
-            : 0; // Don't fall back to answer rate - use point system only
+        // Radar shows success rate (% correct answers), not exercise count
+        const successRate =
+          totalAnswers > 0
+            ? Math.round((correctAnswers / totalAnswers) * 100)
+            : 0;
         return {
           subject,
-          progress: chapterScore,
+          progress: successRate,
           history,
           totalAnswers,
           correctAnswers,
