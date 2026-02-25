@@ -1,313 +1,258 @@
-import { evaluate, parse, simplify } from "mathjs";
+import { evaluate as mathEvaluate, parse, simplify, fraction } from "mathjs";
 import { VariableValues } from "../../types/exercise";
 import { toMathJsSyntax } from "./evaluation";
+import { substituteVariables } from "./parsing";
 
-// Liste des fonctions à ne PAS évaluer numériquement
+// ==========================================
+// OUTILS ET CONSTANTES
+// ==========================================
+
 const PRESERVE_FUNCTIONS = [
-  "ln",
-  "log",
-  "exp",
-  "sqrt",
-  "sin",
-  "cos",
-  "tan",
-  "arcsin",
-  "arccos",
-  "arctan",
-  "pi",
-  "e",
+  "ln", "log", "exp", "sqrt", "sin", "cos", "tan", 
+  "arcsin", "arccos", "arctan", "pi", "e"
 ];
 
-/**
- * Vérifie si une expression contient des fonctions transcendantes à préserver
- */
 const containsPreservedFunction = (expr: string): boolean => {
-  const lowerExpr = expr.toLowerCase();
   return PRESERVE_FUNCTIONS.some((fn) => {
-    // Vérifier les versions LaTeX et texte
-    const patterns = [
-      new RegExp(`\\\\${fn}\\b`, "i"),
-      new RegExp(`\\b${fn}\\s*\\(`, "i"),
-      new RegExp(`\\b${fn}\\b`, "i"),
-    ];
-    return patterns.some((p) => p.test(expr));
+    return new RegExp(`\\\\${fn}\\b|\\b${fn}\\s*\\(|\\b${fn}\\b`, "i").test(expr);
   });
 };
 
 /**
- * Évalue une expression purement numérique
- * Retourne le nombre ou null si l'expression contient des variables/fonctions
+ * Calcule le Plus Grand Commun Diviseur (PGCD)
  */
+const gcd = (a: number, b: number): number => {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  return b === 0 ? a : gcd(b, a % b);
+};
+
+// ==========================================
+// ÉVALUATION NUMÉRIQUE EXACTE
+// ==========================================
+
 const evaluateNumericOnly = (expr: string): number | null => {
   try {
-    // Vérifier qu'il n'y a pas de fonctions à préserver
     if (containsPreservedFunction(expr)) return null;
-
     const mathJsExpr = toMathJsSyntax(expr);
-
-    // Vérifier qu'il n'y a pas de variables (lettres isolées)
-    if (
-      /[a-df-hj-oq-wyzA-DF-HJ-OQ-WYZ]/.test(
-        mathJsExpr.replace(/log10|Infinity|sqrt|nthRoot/g, ""),
-      )
-    ) {
+    if (/[a-df-hj-oq-wyzA-DF-HJ-OQ-WYZ]/.test(mathJsExpr.replace(/log10|Infinity|sqrt|nthRoot/g, ""))) {
       return null;
     }
-
-    const result = evaluate(mathJsExpr);
-
-    if (typeof result !== "number" || !isFinite(result)) return null;
-
-    return result;
+    const result = mathEvaluate(mathJsExpr);
+    return (typeof result === "number" && isFinite(result)) ? result : null;
   } catch {
     return null;
   }
 };
 
 /**
- * Formate un nombre pour l'affichage LaTeX
+ * Convertit un nombre décimal en fraction irréductible grâce à MathJs
  */
+const toSimpleFraction = (num: number): string | null => {
+  try {
+    const f = fraction(num) as any; 
+    
+    // On augmente la limite à 1000 pour accepter des dénominateurs comme 7 ou 13
+    if (f.d > 1000) return null; 
+    
+    if (f.d === 1) return String(f.s * f.n);
+    
+    const sign = f.s < 0 ? "-" : "";
+    return `${sign}\\frac{${f.n}}{${f.d}}`;
+  } catch {
+    return null;
+  }
+};
+
 const formatNumberForLatex = (num: number): string => {
   if (num === Infinity) return "+\\infty";
   if (num === -Infinity) return "-\\infty";
+  
+  // 1. On tente d'abord la fraction sur le nombre BRUT (très important !)
+  const frac = toSimpleFraction(num);
+  if (frac) return frac;
 
-  // Arrondir pour éviter les erreurs de virgule flottante
-  const rounded = Math.round(num * 1000000) / 1000000;
-
-  // Si c'est un entier, pas de décimales
-  if (Number.isInteger(rounded)) {
-    return String(rounded);
-  }
-
-  // Vérifier si c'est une fraction simple
-  const fraction = toSimpleFraction(rounded);
-  if (fraction) {
-    return fraction;
-  }
-
-  // Sinon, arrondir à 4 décimales max
+  // 2. Si ce n'est pas une fraction, on arrondit pour l'affichage décimal
+  const rounded = Math.round(num * 10000000) / 10000000;
+  if (Number.isInteger(rounded)) return String(rounded);
+  
   return parseFloat(rounded.toFixed(4)).toString();
 };
 
-/**
- * Convertit un nombre décimal en fraction simple si possible
- */
-const toSimpleFraction = (num: number): string | null => {
-  const tolerance = 0.0001;
+// ==========================================
+// SIMPLIFICATION INTERNE
+// ==========================================
 
-  // Tableau des dénominateurs courants à tester
-  const denominators = [2, 3, 4, 5, 6, 8, 10, 12];
-
-  for (const denom of denominators) {
-    const numer = Math.round(num * denom);
-    if (Math.abs(numer / denom - num) < tolerance) {
-      // Simplifier la fraction
-      const gcd = (a: number, b: number): number =>
-        b === 0 ? Math.abs(a) : gcd(b, a % b);
-      const divisor = gcd(numer, denom);
-      const simplifiedNum = numer / divisor;
-      const simplifiedDenom = denom / divisor;
-
-      if (simplifiedDenom === 1) {
-        return String(simplifiedNum);
-      }
-
-      if (simplifiedNum < 0) {
-        return `-\\frac{${Math.abs(simplifiedNum)}}{${simplifiedDenom}}`;
-      }
-      return `\\frac{${simplifiedNum}}{${simplifiedDenom}}`;
-    }
-  }
-
-  return null;
-};
-
-/**
- * Simplifie les expressions numériques simples dans une expression plus complexe
- * Exemples: "8/2" -> "4", "3*4" -> "12", mais "ln(2)" reste "ln(2)"
- */
 const simplifyNumericParts = (expr: string): string => {
-  // Pattern pour trouver les fractions numériques simples: nombre/nombre
-  expr = expr.replace(
-    /(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/g,
-    (match, num, denom) => {
-      const result = parseFloat(num) / parseFloat(denom);
-      if (isFinite(result)) {
-        return formatNumberForLatex(result);
-      }
-      return match;
-    },
-  );
+  // Gérer explicitement a / b pour préserver les fractions
+  let result = expr.replace(/(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/g, (match, numStr, denomStr) => {
+    const num = parseFloat(numStr);
+    const denom = parseFloat(denomStr);
+    if (denom === 0) return match;
 
-  // Pattern pour trouver les multiplications numériques: nombre*nombre
-  expr = expr.replace(
-    /(-?\d+(?:\.\d+)?)\s*\*\s*(-?\d+(?:\.\d+)?)/g,
-    (match, a, b) => {
-      const result = parseFloat(a) * parseFloat(b);
-      if (isFinite(result)) {
-        return formatNumberForLatex(result);
-      }
-      return match;
-    },
-  );
+    // Si ce sont des entiers, on fait une vraie simplification de fraction via PGCD
+    if (Number.isInteger(num) && Number.isInteger(denom)) {
+      const gcdVal = gcd(num, denom);
+      const sNum = num / gcdVal;
+      const sDenom = denom / gcdVal;
 
-  return expr;
+      if (sDenom === 1) return String(sNum);
+      
+      const sign = (sNum < 0) !== (sDenom < 0) ? "-" : "";
+      return `${sign}\\frac{${Math.abs(sNum)}}{${Math.abs(sDenom)}}`;
+    }
+
+    const res = num / denom;
+    return isFinite(res) ? formatNumberForLatex(res) : match;
+  });
+
+  result = result.replace(/(-?\d+(?:\.\d+)?)\s*\*\s*(-?\d+(?:\.\d+)?)/g, (match, a, b) => {
+    const res = parseFloat(a) * parseFloat(b);
+    return isFinite(res) ? formatNumberForLatex(res) : match;
+  });
+
+  return result;
 };
 
-/**
- * Vérifie si un nombre est un carré parfait et retourne sa racine
- */
 const getPerfectSquareRoot = (num: number): number | null => {
   if (num < 0) return null;
   const sqrt = Math.sqrt(num);
-  if (Number.isInteger(sqrt)) return sqrt;
-  return null;
+  return Number.isInteger(sqrt) ? sqrt : null;
 };
 
-/**
- * Simplifie une expression interne (calcule les opérations numériques)
- */
 const simplifyInnerExpression = (expr: string): string => {
-  // Nettoyer l'expression
-  let cleaned = expr.trim();
-
-  // Essayer d'évaluer numériquement
+  const cleaned = expr.trim();
   const numResult = evaluateNumericOnly(cleaned);
-  if (numResult !== null) {
-    return formatNumberForLatex(numResult);
-  }
-
-  // Sinon simplifier les parties numériques
+  if (numResult !== null) return formatNumberForLatex(numResult);
   return simplifyNumericParts(cleaned);
 };
 
-/**
- * Simplifie les arguments à l'intérieur des fonctions (ln, sqrt, exp, etc.)
- * Exemples: \ln(8/2) -> \ln(4), \sqrt{16/4} -> 2, \exp(6/2) -> \exp(3)
- */
 const simplifyFunctionArguments = (expr: string): string => {
   let result = expr;
 
-  // 1. Simplifier \sqrt{...} - avec accolades
+  // 1. \sqrt{...}
   result = result.replace(/\\sqrt\s*\{([^{}]+)\}/g, (match, innerContent) => {
     const simplified = simplifyInnerExpression(innerContent);
     const numValue = evaluateNumericOnly(simplified);
 
     if (numValue !== null) {
-      // Vérifier si c'est un carré parfait
       const sqrtValue = getPerfectSquareRoot(numValue);
-      if (sqrtValue !== null) {
-        return String(sqrtValue);
-      }
+      if (sqrtValue !== null) return String(sqrtValue);
       return `\\sqrt{${formatNumberForLatex(numValue)}}`;
     }
     return `\\sqrt{${simplified}}`;
   });
 
-  // 2. Simplifier \ln(...) - avec parenthèses
-  result = result.replace(/\\ln\s*\(([^()]+)\)/g, (match, innerContent) => {
-    const simplified = simplifyInnerExpression(innerContent);
-    const numValue = evaluateNumericOnly(simplified);
-
-    if (numValue !== null) {
-      return `\\ln(${formatNumberForLatex(numValue)})`;
-    }
-    return `\\ln(${simplified})`;
-  });
-
-  // 3. Simplifier \exp(...) - avec parenthèses
-  result = result.replace(/\\exp\s*\(([^()]+)\)/g, (match, innerContent) => {
-    const simplified = simplifyInnerExpression(innerContent);
-    const numValue = evaluateNumericOnly(simplified);
-
-    if (numValue !== null) {
-      return `\\exp(${formatNumberForLatex(numValue)})`;
-    }
-    return `\\exp(${simplified})`;
-  });
-
-  // 4. Simplifier \sin, \cos, \tan, etc.
-  const trigFunctions = ["sin", "cos", "tan", "arcsin", "arccos", "arctan"];
-  for (const fn of trigFunctions) {
-    const regex = new RegExp(`\\\\${fn}\\s*\\(([^()]+)\\)`, "g");
-    result = result.replace(regex, (match, innerContent) => {
+  // 2. ln(...) et exp(...)
+  ['ln', 'exp'].forEach(fn => {
+    result = result.replace(new RegExp(`(?:\\\\)?${fn}\\s*\\(([^()]+)\\)`, "g"), (match, innerContent) => {
       const simplified = simplifyInnerExpression(innerContent);
       const numValue = evaluateNumericOnly(simplified);
-
-      if (numValue !== null) {
-        return `\\${fn}(${formatNumberForLatex(numValue)})`;
-      }
-      return `\\${fn}(${simplified})`;
+      return numValue !== null ? `\\${fn}(${formatNumberForLatex(numValue)})` : `\\${fn}(${simplified})`;
     });
-  }
+  });
 
-  // 5. Simplifier les puissances ^{...}
+  // 3. Fonctions Trigonométriques
+  ["sin", "cos", "tan", "arcsin", "arccos", "arctan"].forEach((fn) => {
+    result = result.replace(new RegExp(`(?:\\\\)?${fn}\\s*\\(([^()]+)\\)`, "g"), (match, innerContent) => {
+      const simplified = simplifyInnerExpression(innerContent);
+      const numValue = evaluateNumericOnly(simplified);
+      return numValue !== null ? `\\${fn}(${formatNumberForLatex(numValue)})` : `\\${fn}(${simplified})`;
+    });
+  });
+
+  // 4. Puissances ^{...}
   result = result.replace(/\^\{([^{}]+)\}/g, (match, innerContent) => {
     const simplified = simplifyInnerExpression(innerContent);
     const numValue = evaluateNumericOnly(simplified);
-
-    if (numValue !== null) {
-      return `^{${formatNumberForLatex(numValue)}}`;
-    }
-    return `^{${simplified}}`;
+    return numValue !== null ? `^{${formatNumberForLatex(numValue)}}` : `^{${simplified}}`;
   });
 
-  // 6. Simplifier les fractions \frac{...}{...}
-  result = result.replace(
-    /\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g,
-    (match, num, denom) => {
-      const simplifiedNum = simplifyInnerExpression(num);
-      const simplifiedDenom = simplifyInnerExpression(denom);
+  // 5. Fractions \frac{...}{...}
+  result = result.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, (match, num, denom) => {
+    const simplifiedNum = simplifyInnerExpression(num);
+    const simplifiedDenom = simplifyInnerExpression(denom);
 
-      const numValue = evaluateNumericOnly(simplifiedNum);
-      const denomValue = evaluateNumericOnly(simplifiedDenom);
+    const numValue = evaluateNumericOnly(simplifiedNum);
+    const denomValue = evaluateNumericOnly(simplifiedDenom);
 
-      if (numValue !== null && denomValue !== null && denomValue !== 0) {
-        const divResult = numValue / denomValue;
-        // Si c'est un entier, retourner directement le nombre
-        if (Number.isInteger(divResult)) {
-          return String(divResult);
-        }
-        // Sinon garder la fraction mais simplifiée
-        return `\\frac{${formatNumberForLatex(numValue)}}{${formatNumberForLatex(denomValue)}}`;
+    if (numValue !== null && denomValue !== null && denomValue !== 0) {
+      // Conservation pure de la fraction si ce sont des entiers !
+      if (Number.isInteger(numValue) && Number.isInteger(denomValue)) {
+        const gcdVal = gcd(numValue, denomValue);
+        const sNum = numValue / gcdVal;
+        const sDenom = denomValue / gcdVal;
+
+        if (sDenom === 1) return String(sNum);
+        
+        const sign = (sNum < 0) !== (sDenom < 0) ? "-" : "";
+        return `${sign}\\frac{${Math.abs(sNum)}}{${Math.abs(sDenom)}}`;
       }
 
-      return `\\frac{${simplifiedNum}}{${simplifiedDenom}}`;
-    },
-  );
+      const divResult = numValue / denomValue;
+      if (Number.isInteger(divResult)) return String(divResult);
+      
+      return `\\frac{${formatNumberForLatex(numValue)}}{${formatNumberForLatex(denomValue)}}`;
+    }
+    return `\\frac{${simplifiedNum}}{${simplifiedDenom}}`;
+  });
 
   return result;
 };
 
-/**
- * Uniformise le format LaTeX pour l'affichage
- */
+// ==========================================
+// RENDU FINAL
+// ==========================================
+
 const uniformizeLatex = (latex: string): string => {
   let result = latex;
 
-  // Uniformiser les multiplications en \cdot (plus élégant)
   result = result.replace(/\s*\*\s*/g, " \\cdot ");
   result = result.replace(/\\times/g, "\\cdot");
-
-  // Nettoyer les espaces multiples
   result = result.replace(/\s+/g, " ").trim();
+  
+  // Nettoyage des balises de taille mathlive
+  result = result.replace(/\\left\./g, "");
+  result = result.replace(/\\right\./g, "");
+  result = result.replace(/\\left\s*\\?lbrack/g, "\\lbrack");
+  result = result.replace(/\\right\s*\\?rbrack/g, "\\rbrack");
+  result = result.replace(/\\left\s*\\?rbrack/g, "\\rbrack");
+  result = result.replace(/\\right\s*\\?lbrack/g, "\\lbrack");
 
-  // Supprimer les \cdot inutiles devant les parenthèses ou variables
-  result = result.replace(/\\cdot\s*\\left/g, "\\left");
-  result = result.replace(/1\s*\\cdot\s*/g, "");
+  // === LA SEULE NOUVEAUTÉ : Suppression des divisions par 1 ===
+  
+  // 1. Supprime les \frac{numérateur}{1} pour ne garder que le numérateur
+  // La regex gère jusqu'à un niveau d'accolades imbriquées dans le numérateur
+  let prev = "";
+  while (result !== prev) {
+    prev = result;
+    result = result.replace(/\\(?:d|c|t)?frac\s*\{((?:[^{}]|\{[^{}]*\})*)\}\s*\{1\}/g, "$1");
+  }
+  
+  // 2. Supprime les divisions en ligne : / 1
+  result = result.replace(/\/\s*1(?![0-9.])/g, "");
+  
+  // ============================================================
+
+  // Le reste du code d'origine (nettoyage standard post-MathJs)
+  result = result.replace(/(?<![\d.])1\s*\\cdot\s*/g, "");
   result = result.replace(/\\cdot\s*1(?![0-9])/g, "");
 
-  // Nettoyer les doubles négations
+  result = result.replace(/[+-]\s*0(?![0-9.])/g, "");
+  result = result.replace(/^\s*0\s*([+-])/, "$1"); 
+
   result = result.replace(/--/g, "+");
   result = result.replace(/\+-/g, "-");
   result = result.replace(/-\+/g, "-");
+  result = result.replace(/^\s*\+/, "");
 
-  // Format correct pour ln et exp
-  result = result.replace(/\\ln\s*\(/g, "\\ln(");
-  result = result.replace(/\\exp\s*\(/g, "\\exp(");
-  result = result.replace(/\\sqrt\s*\{/g, "\\sqrt{");
+  result = result.replace(/\\?ln\s*\(/g, "\\ln(");
+  result = result.replace(/\\?exp\s*\(/g, "\\exp(");
+  result = result.replace(/\\?sqrt\s*\{/g, "\\sqrt{");
 
-  return result;
+  if (latex.trim() !== "" && result.trim() === "") return "0";
+
+  return result.trim();
 };
 
 export const simplifyLatexExpression = (
@@ -316,48 +261,50 @@ export const simplifyLatexExpression = (
 ): string => {
   if (!latex) return "";
 
-  // 1. Substitution des variables (ex: @a -> 4, @b -> 2)
-  let safeExpr = latex;
-  const sortedKeys = Object.keys(variables).sort((a, b) => b.length - a.length);
+  let safeExpr = substituteVariables(latex, variables).replace(/\$/g, "");
 
-  for (const key of sortedKeys) {
-    const value = variables[key];
-    safeExpr = safeExpr.replace(
-      new RegExp(`@${key}(?![a-zA-Z0-9])`, "g"),
-      String(value),
-    );
-    safeExpr = safeExpr.replace(new RegExp(`\\{${key}\\}`, "g"), String(value));
+  const intervalRegex = /^\s*([\]\[])\s*(.+?)\s*[;,]\s*(.+?)\s*([\]\[])\s*$/;
+  const intervalMatch = safeExpr.match(intervalRegex);
+  if (intervalMatch) {
+    const leftBracket = intervalMatch[1];
+    const leftVal = simplifyLatexExpression(intervalMatch[2], {}); 
+    const rightVal = simplifyLatexExpression(intervalMatch[3], {});
+    const rightBracket = intervalMatch[4];
+    return `${leftBracket}${leftVal}; ${rightVal}${rightBracket}`;
   }
 
-  // 2. Nettoyage des $ (si présents)
-  safeExpr = safeExpr.replace(/\$/g, "");
+  if (safeExpr.includes(';')) {
+    const parts = safeExpr.split(/\s*;\s*/);
+    const simplifiedParts = parts.map(p => simplifyLatexExpression(p, {}));
+    return simplifiedParts.join(' ; ');
+  }
 
-  // 3. Vérifier si c'est une expression purement numérique
+  const setRegex = /^\s*\\?\{\s*(.*?)\s*\\?\}\s*$/;
+  const setMatch = safeExpr.match(setRegex);
+  if (setMatch) {
+    const content = setMatch[1].trim();
+    if (content === "") return "\\emptyset";
+    return `\\{${simplifyLatexExpression(content, {})}\\}`;
+  }
+
   const numericResult = evaluateNumericOnly(safeExpr);
   if (numericResult !== null) {
     return formatNumberForLatex(numericResult);
   }
 
-  // 4. Si l'expression contient des fonctions à préserver, simplifier les arguments internes
   if (containsPreservedFunction(safeExpr)) {
-    // D'abord simplifier les arguments des fonctions
     let result = simplifyFunctionArguments(safeExpr);
-    // Puis simplifier les parties numériques restantes
     result = simplifyNumericParts(result);
     return uniformizeLatex(result);
   }
 
-  // 5. Pour les autres expressions, utiliser la simplification symbolique de mathjs
   try {
     const mathJsSyntax = toMathJsSyntax(safeExpr);
     const node = parse(mathJsSyntax);
     const simplifiedNode = simplify(node);
-
-    let resultLatex = simplifiedNode.toTex();
-
-    return uniformizeLatex(resultLatex);
+    
+    return uniformizeLatex(simplifiedNode.toTex());
   } catch {
-    // Si l'expression est trop complexe ou invalide, on renvoie la version substituée avec simplification partielle
     return uniformizeLatex(simplifyNumericParts(safeExpr));
   }
 };

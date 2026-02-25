@@ -248,6 +248,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
     loadExercise();
     return () => abortController.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exerciseId, competenceIdFromProps, refreshTrigger]);
 
   const handleElementSubmit = useCallback(

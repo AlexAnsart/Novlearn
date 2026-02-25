@@ -1,63 +1,8 @@
 import { VariableValues } from "../../types/exercise";
+import { formatValue, cleanMathExpression } from "./formatting"; 
 
 // ==========================================
-// 1. FORMATAGE DES NOMBRES
-// ==========================================
-
-export const formatValue = (
-  value: number | string | null | undefined
-): string => {
-  if (value === null || value === undefined) return "";
-  const numValue =
-    typeof value === "number" ? value : parseFloat(value as string);
-
-  if (isNaN(numValue)) return String(value);
-
-  return Number.isInteger(numValue)
-    ? numValue.toString()
-    : parseFloat(numValue.toFixed(4)).toString();
-};
-
-// ==========================================
-// 2. NETTOYAGE MATHÉMATIQUE (Style 'src')
-// ==========================================
-
-export const cleanMathExpression = (expression: string): string => {
-  let cleaned = expression;
-
-  // 1. Gérer le coefficient 0 (0x, 0\pi...) -> "0"
-  cleaned = cleaned.replace(/(?<![\d.])0\s*[a-zA-Z\\][a-zA-Z0-9^_{}\\]*/g, "0");
-
-  // 2. Gérer le coefficient 1 (1x -> x, 1\pi -> \pi)
-  cleaned = cleaned.replace(/(?<![\d.])1\s*([a-zA-Z\\])/g, "$1");
-
-  // 3. NETTOYAGE DES ZÉROS
-  cleaned = cleaned.replace(/[+-]\s*0(?![0-9.])/g, "");
-  cleaned = cleaned.replace(/^\s*0\s*([+-])/, "$1");
-
-  // 4. GESTION DES SIGNES
-  cleaned = cleaned.replace(/\+\s*-/g, "-");
-  cleaned = cleaned.replace(/-\s*-/g, "+");
-  cleaned = cleaned.replace(/\+\s*\+/g, "+");
-  cleaned = cleaned.replace(/\+ -/g, "-");
-  cleaned = cleaned.replace(/\+-/g, "-");
-  cleaned = cleaned.replace(/--/g, "+");
-
-  // 5. NETTOYAGE DÉBUT DE LIGNE
-  cleaned = cleaned.replace(/^\s*\+/, "");
-
-  // 6. Parenthèses inutiles
-  cleaned = cleaned.replace(/\((\d+\.?\d*)\)/g, "$1");
-
-  if (expression.trim() !== "" && cleaned.trim() === "") {
-    return "0";
-  }
-
-  return cleaned.replace(/\s+/g, " ").trim();
-};
-
-// ==========================================
-// 3. SUBSTITUTION DES VARIABLES (@variable)
+// 1. SUBSTITUTION DES VARIABLES (@variable)
 // ==========================================
 
 export const substituteVariables = (
@@ -74,13 +19,10 @@ export const substituteVariables = (
 
   sortedKeys.forEach((key) => {
     const value = variables[key];
-    const numValue =
-      typeof value === "number" ? value : parseFloat(value as string);
+    const numValue = typeof value === "number" ? value : parseFloat(value as string);
     const formattedValue = formatValue(value);
 
-    // CORRECTION ICI : J'ai retiré le "_" du lookahead négatif (?![...])
-    // Avant : (?![a-zA-Z0-9_]) => Bloquait sur @a_
-    // Après : (?![a-zA-Z0-9])  => Autorise @a_ mais bloque @ab
+    // Permet @a_ mais bloque @ab
     const regex = new RegExp(`([+\\-]?)(\\s*)@${key}(?![a-zA-Z0-9])`, "g");
 
     result = result.replace(regex, (match, sign, space) => {
@@ -103,14 +45,19 @@ export const substituteVariables = (
 
       return (sign || "") + (space || "") + formattedValue;
     });
+
+    // Optionnel : remplace aussi la syntaxe LaTeX {variable} 
+    result = result.replace(new RegExp(`\\{${key}\\}`, "g"), `(${value})`);
   });
 
   result = result.replace(/##ESCAPED_AT##/g, "@");
+  
+  // On passe le résultat à cleanMathExpression pour nettoyer les "+ -" générés
   return cleanMathExpression(result);
 };
 
 // ==========================================
-// 4. PARSING TEXTE / MATHS
+// 2. PARSING TEXTE / MATHS
 // ==========================================
 
 export interface TextSegment {

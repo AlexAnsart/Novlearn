@@ -65,6 +65,7 @@ export function MonthlyLeaderboard({
       return;
     }
     fetchLeaderboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]); // Recharger quand l'onglet change
 
   const fetchLeaderboard = async () => {

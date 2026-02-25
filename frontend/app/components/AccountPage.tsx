@@ -238,6 +238,7 @@ export function AccountPage() {
       setInviteLink(null);
       setFriendCodeLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
 
   const handleCopyFriendCode = () => {
