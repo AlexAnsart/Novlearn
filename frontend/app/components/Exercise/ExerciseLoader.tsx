@@ -454,6 +454,32 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Bouton Passer visible tant que l'exercice n'est pas fini */}
+          {!isExerciseFinished && (
+            <button
+              onClick={async () => {
+                // Passe à l'exercice suivant sans compter faux
+                if (onNextClick) {
+                  setIsNextLoading(true);
+                  try {
+                    await onNextClick(hasErrors); // conserve l'état actuel
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setIsNextLoading(false);
+                    feedbackPendingRef.current = false;
+                  }
+                } else {
+                  proceedToNext();
+                }
+              }}
+              disabled={isNextLoading || isFeedbackOpen}
+              className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-xl font-bold shadow hover:shadow-lg transition-all disabled:opacity-70 text-sm"
+              style={{ minHeight: 0 }}
+            >
+              Passer
+            </button>
+          )}
           <button
             onClick={() => setIsHelpOpen(true)}
             className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -461,6 +487,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           >
             <HelpCircle className="w-5 h-5" />
           </button>
+
           <button
             onClick={() => {
               setIsFeedbackDifficultyOnly(false);
@@ -508,23 +535,47 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
               exercice
             </button>
 
-            <button
-              onClick={handleNextExercise}
-              disabled={isNextLoading || isFeedbackOpen}
-              className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-            >
-              {isNextLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
-                  Chargement…
-                </>
-              ) : (
-                <>
-                  Exercice Suivant{" "}
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  // Compte comme faux et passe à l'exercice suivant
+                  if (onNextClick) {
+                    setIsNextLoading(true);
+                    try {
+                      await onNextClick(true); // true = hasErrors
+                    } catch (e) {
+                      console.error(e);
+                    } finally {
+                      setIsNextLoading(false);
+                      feedbackPendingRef.current = false;
+                    }
+                  } else {
+                    proceedToNext();
+                  }
+                }}
+                disabled={isNextLoading || isFeedbackOpen}
+                className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+              >
+                Passer
+              </button>
+              <button
+                onClick={handleNextExercise}
+                disabled={isNextLoading || isFeedbackOpen}
+                className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+              >
+                {isNextLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />{" "}
+                    Chargement…
+                  </>
+                ) : (
+                  <>
+                    Exercice Suivant{" "}
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>
