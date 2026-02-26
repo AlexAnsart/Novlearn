@@ -3,6 +3,7 @@
 import "mathlive";
 import React, { useEffect, useRef } from "react";
 
+// On ajoute inputMode et les attributs MathLive au typage pour éviter les erreurs TypeScript
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -11,6 +12,8 @@ declare global {
         HTMLElement
       > & {
         ref?: React.RefObject<any>;
+        inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+        "math-virtual-keyboard-policy"?: "auto" | "manual";
       };
     }
   }
@@ -34,6 +37,7 @@ export const MathInput: React.FC<MathInputProps> = ({
   const mfRef = useRef<any>(null);
   const isKeyboardVisibleRef = useRef(false);
 
+  // === 1. LOGIQUE DE FOCUS (PC & VIRTUAL KEYBOARD) - INTACTE ===
   useEffect(() => {
     const mf = mfRef.current;
     if (!mf) return;
@@ -70,7 +74,7 @@ export const MathInput: React.FC<MathInputProps> = ({
       
       // Vérifier si le clic est sur le clavier
       const isKeyboardClick = target.closest(".ML__keyboard") || 
-                             target.closest('[part="keyboard"]');
+                              target.closest('[part="keyboard"]');
 
       // IMPORTANT : On ne déclenche le refocus que si cet input précis est l'élément "actif"
       // ou si l'utilisateur clique sur le clavier virtuel
@@ -93,14 +97,14 @@ export const MathInput: React.FC<MathInputProps> = ({
     };
   }, []);
 
+  // === 2. CONFIGURATION DU CLAVIER ===
   useEffect(() => {
     const mf = mfRef.current;
     if (!mf) return;
 
-    // --- CONFIGURATION DU CLAVIER ---
     mf.setOptions({
       smartMode: true,
-      virtualKeyboardMode: "manual", // ou 'onfocus' pour qu'il s'ouvre direct sur mobile
+      virtualKeyboardMode: "manual", // On garde ton mode manuel
 
       // Définition des touches personnalisées
       virtualKeyboardLayout: {
@@ -113,7 +117,7 @@ export const MathInput: React.FC<MathInputProps> = ({
             { label: "÷", latex: "\\div" },
             { label: "×", latex: "\\times" },
             { class: "separator w-5" },
-            { label: "x", key: "x", class: "font-bold text-blue-500" }, // Variable x mise en avant
+            { label: "x", key: "x", class: "font-bold text-blue-500" }, 
             { label: "y", key: "y" },
           ],
           // Rangée 2 : Chiffres 4-6 et Fonctions usuelles
@@ -124,8 +128,8 @@ export const MathInput: React.FC<MathInputProps> = ({
             { label: "-", key: "-" },
             { label: "+", key: "+" },
             { class: "separator w-5" },
-            { latex: "\\frac{#@}{#?}", label: "▢/▢" }, // Fraction
-            { latex: "#@^{#?}", label: "▢^n" }, // Puissance
+            { latex: "\\frac{#@}{#?}", label: "▢/▢" }, 
+            { latex: "#@^{#?}", label: "▢^n" }, 
           ],
           // Rangée 3 : Chiffres 1-3 et Fonctions Lycée
           [
@@ -144,9 +148,9 @@ export const MathInput: React.FC<MathInputProps> = ({
             { label: ",", key: "," },
             { label: "=", key: "=" },
             { latex: "e^{#0}", label: "e^x" },
-            { latex: "\\lim_{x \\to \\infty}", label: "lim" }, // Raccourci limite
+            { latex: "\\lim_{x \\to \\infty}", label: "lim" }, 
             { class: "separator w-5" },
-            { command: 'performWithFeedback("deleteBackward")', label: "⌫" }, // Backspace
+            { command: 'performWithFeedback("deleteBackward")', label: "⌫" }, 
             {
               command: 'performWithFeedback("commit")',
               label: "OK",
@@ -157,7 +161,6 @@ export const MathInput: React.FC<MathInputProps> = ({
       },
     });
 
-    // Événements
     const handleInput = (evt: Event) => {
       onChange((evt.target as any).value);
     };
@@ -186,6 +189,8 @@ export const MathInput: React.FC<MathInputProps> = ({
     <div className={className}>
       <math-field
         ref={mfRef}
+        inputMode="none" // <--- LA MAGIE POUR MOBILE (bloque le clavier natif)
+        math-virtual-keyboard-policy="manual" // <--- Confirme à MathLive ton mode manuel
         style={{
           width: "100%",
           padding: "8px",
@@ -195,6 +200,7 @@ export const MathInput: React.FC<MathInputProps> = ({
           fontSize: "1.2rem",
           outline: "none",
           boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+          touchAction: "manipulation", // <--- Empêche les bugs de défilement sur mobile
         }}
       >
         {value}

@@ -45,14 +45,18 @@ export interface VariationTableContent {
   points: VariationPoint[];
 }
 
-export interface GraphContent {
+export type GraphFunction = {
+  color: string;
   expression: string;
+};
+
+export interface GraphContent {
   xMin: number;
   xMax: number;
   yMin: number;
   yMax: number;
   showGrid: boolean;
-  showAxes: boolean;
+  functions: GraphFunction[];
 }
 
 export interface SignPoint {

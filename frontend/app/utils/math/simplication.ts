@@ -18,9 +18,6 @@ const containsPreservedFunction = (expr: string): boolean => {
   });
 };
 
-/**
- * Calcule le Plus Grand Commun Diviseur (PGCD)
- */
 const gcd = (a: number, b: number): number => {
   a = Math.abs(a);
   b = Math.abs(b);
@@ -45,16 +42,12 @@ const evaluateNumericOnly = (expr: string): number | null => {
   }
 };
 
-/**
- * Convertit un nombre décimal en fraction irréductible grâce à MathJs
- */
 const toSimpleFraction = (num: number): string | null => {
   try {
     const f = fraction(num) as any; 
-    
-    // On augmente la limite à 1000 pour accepter des dénominateurs comme 7 ou 13
     if (f.d > 1000) return null; 
     
+    // Simplification native si le dénominateur est 1
     if (f.d === 1) return String(f.s * f.n);
     
     const sign = f.s < 0 ? "-" : "";
@@ -68,11 +61,9 @@ const formatNumberForLatex = (num: number): string => {
   if (num === Infinity) return "+\\infty";
   if (num === -Infinity) return "-\\infty";
   
-  // 1. On tente d'abord la fraction sur le nombre BRUT (très important !)
   const frac = toSimpleFraction(num);
   if (frac) return frac;
-
-  // 2. Si ce n'est pas une fraction, on arrondit pour l'affichage décimal
+  
   const rounded = Math.round(num * 10000000) / 10000000;
   if (Number.isInteger(rounded)) return String(rounded);
   
@@ -84,28 +75,38 @@ const formatNumberForLatex = (num: number): string => {
 // ==========================================
 
 const simplifyNumericParts = (expr: string): string => {
-  // Gérer explicitement a / b pour préserver les fractions
-  let result = expr.replace(/(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/g, (match, numStr, denomStr) => {
-    const num = parseFloat(numStr);
-    const denom = parseFloat(denomStr);
-    if (denom === 0) return match;
+  let result = expr;
 
-    // Si ce sont des entiers, on fait une vraie simplification de fraction via PGCD
+  const simplifyFraction = (num: number, denom: number, match: string) => {
+    if (denom === 0) return match;
     if (Number.isInteger(num) && Number.isInteger(denom)) {
-      const gcdVal = gcd(num, denom);
-      const sNum = num / gcdVal;
-      const sDenom = denom / gcdVal;
+      let sNum = num;
+      let sDenom = denom;
+      // Remonte le signe moins au numérateur pour éviter les dénominateurs négatifs
+      if (sDenom < 0) {
+        sNum = -sNum;
+        sDenom = -sDenom;
+      }
+      const gcdVal = gcd(sNum, sDenom);
+      sNum = sNum / gcdVal;
+      sDenom = sDenom / gcdVal;
 
       if (sDenom === 1) return String(sNum);
       
-      const sign = (sNum < 0) !== (sDenom < 0) ? "-" : "";
-      return `${sign}\\frac{${Math.abs(sNum)}}{${Math.abs(sDenom)}}`;
+      const sign = sNum < 0 ? "-" : "";
+      return `${sign}\\frac{${Math.abs(sNum)}}{${sDenom}}`;
     }
-
     const res = num / denom;
     return isFinite(res) ? formatNumberForLatex(res) : match;
-  });
+  };
 
+  // 1. Gérer a / b
+  result = result.replace(/(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/g, (match, n, d) => simplifyFraction(parseFloat(n), parseFloat(d), match));
+
+  // 2. Gérer \frac{a}{b} avec prise en charge de dfrac, cfrac et tolérance des espaces
+  result = result.replace(/\\(?:d|c|t)?frac\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}/g, (match, n, d) => simplifyFraction(parseFloat(n), parseFloat(d), match));
+
+  // 3. Gérer a * b
   result = result.replace(/(-?\d+(?:\.\d+)?)\s*\*\s*(-?\d+(?:\.\d+)?)/g, (match, a, b) => {
     const res = parseFloat(a) * parseFloat(b);
     return isFinite(res) ? formatNumberForLatex(res) : match;
@@ -130,7 +131,6 @@ const simplifyInnerExpression = (expr: string): string => {
 const simplifyFunctionArguments = (expr: string): string => {
   let result = expr;
 
-  // 1. \sqrt{...}
   result = result.replace(/\\sqrt\s*\{([^{}]+)\}/g, (match, innerContent) => {
     const simplified = simplifyInnerExpression(innerContent);
     const numValue = evaluateNumericOnly(simplified);
@@ -143,7 +143,6 @@ const simplifyFunctionArguments = (expr: string): string => {
     return `\\sqrt{${simplified}}`;
   });
 
-  // 2. ln(...) et exp(...)
   ['ln', 'exp'].forEach(fn => {
     result = result.replace(new RegExp(`(?:\\\\)?${fn}\\s*\\(([^()]+)\\)`, "g"), (match, innerContent) => {
       const simplified = simplifyInnerExpression(innerContent);
@@ -152,7 +151,6 @@ const simplifyFunctionArguments = (expr: string): string => {
     });
   });
 
-  // 3. Fonctions Trigonométriques
   ["sin", "cos", "tan", "arcsin", "arccos", "arctan"].forEach((fn) => {
     result = result.replace(new RegExp(`(?:\\\\)?${fn}\\s*\\(([^()]+)\\)`, "g"), (match, innerContent) => {
       const simplified = simplifyInnerExpression(innerContent);
@@ -161,15 +159,13 @@ const simplifyFunctionArguments = (expr: string): string => {
     });
   });
 
-  // 4. Puissances ^{...}
   result = result.replace(/\^\{([^{}]+)\}/g, (match, innerContent) => {
     const simplified = simplifyInnerExpression(innerContent);
     const numValue = evaluateNumericOnly(simplified);
     return numValue !== null ? `^{${formatNumberForLatex(numValue)}}` : `^{${simplified}}`;
   });
 
-  // 5. Fractions \frac{...}{...}
-  result = result.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, (match, num, denom) => {
+  result = result.replace(/\\(?:d|c|t)?frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, (match, num, denom) => {
     const simplifiedNum = simplifyInnerExpression(num);
     const simplifiedDenom = simplifyInnerExpression(denom);
 
@@ -177,16 +173,21 @@ const simplifyFunctionArguments = (expr: string): string => {
     const denomValue = evaluateNumericOnly(simplifiedDenom);
 
     if (numValue !== null && denomValue !== null && denomValue !== 0) {
-      // Conservation pure de la fraction si ce sont des entiers !
       if (Number.isInteger(numValue) && Number.isInteger(denomValue)) {
-        const gcdVal = gcd(numValue, denomValue);
-        const sNum = numValue / gcdVal;
-        const sDenom = denomValue / gcdVal;
+        let sNum = numValue;
+        let sDenom = denomValue;
+        if (sDenom < 0) {
+          sNum = -sNum;
+          sDenom = -sDenom;
+        }
+        const gcdVal = gcd(sNum, sDenom);
+        sNum = sNum / gcdVal;
+        sDenom = sDenom / gcdVal;
 
         if (sDenom === 1) return String(sNum);
         
-        const sign = (sNum < 0) !== (sDenom < 0) ? "-" : "";
-        return `${sign}\\frac{${Math.abs(sNum)}}{${Math.abs(sDenom)}}`;
+        const sign = sNum < 0 ? "-" : "";
+        return `${sign}\\frac{${Math.abs(sNum)}}{${sDenom}}`;
       }
 
       const divResult = numValue / denomValue;
@@ -201,7 +202,7 @@ const simplifyFunctionArguments = (expr: string): string => {
 };
 
 // ==========================================
-// RENDU FINAL
+// RENDU FINAL ET VÉRIFICATION
 // ==========================================
 
 const uniformizeLatex = (latex: string): string => {
@@ -211,7 +212,6 @@ const uniformizeLatex = (latex: string): string => {
   result = result.replace(/\\times/g, "\\cdot");
   result = result.replace(/\s+/g, " ").trim();
   
-  // Nettoyage des balises de taille mathlive
   result = result.replace(/\\left\./g, "");
   result = result.replace(/\\right\./g, "");
   result = result.replace(/\\left\s*\\?lbrack/g, "\\lbrack");
@@ -219,22 +219,6 @@ const uniformizeLatex = (latex: string): string => {
   result = result.replace(/\\left\s*\\?rbrack/g, "\\rbrack");
   result = result.replace(/\\right\s*\\?lbrack/g, "\\lbrack");
 
-  // === LA SEULE NOUVEAUTÉ : Suppression des divisions par 1 ===
-  
-  // 1. Supprime les \frac{numérateur}{1} pour ne garder que le numérateur
-  // La regex gère jusqu'à un niveau d'accolades imbriquées dans le numérateur
-  let prev = "";
-  while (result !== prev) {
-    prev = result;
-    result = result.replace(/\\(?:d|c|t)?frac\s*\{((?:[^{}]|\{[^{}]*\})*)\}\s*\{1\}/g, "$1");
-  }
-  
-  // 2. Supprime les divisions en ligne : / 1
-  result = result.replace(/\/\s*1(?![0-9.])/g, "");
-  
-  // ============================================================
-
-  // Le reste du code d'origine (nettoyage standard post-MathJs)
   result = result.replace(/(?<![\d.])1\s*\\cdot\s*/g, "");
   result = result.replace(/\\cdot\s*1(?![0-9])/g, "");
 
@@ -255,6 +239,25 @@ const uniformizeLatex = (latex: string): string => {
   return result.trim();
 };
 
+// === LE NETTOYEUR FINAL EXPLICITE ===
+const removeDivisionByOne = (str: string): string => {
+  let res = str;
+  let prev = "";
+  while (res !== prev) {
+    prev = res;
+    // Retire \frac{A}{1} -> A (avec ou sans espace, et tolère un niveau d'accolades interne)
+    res = res.replace(/\\(?:d|c|t)?frac\s*\{([^{}]+)\}\s*\{\s*1\s*\}/g, "$1");
+    res = res.replace(/\\(?:d|c|t)?frac\s*\{((?:[^{}]|\{[^{}]*\})*)\}\s*\{\s*1\s*\}/g, "$1");
+    
+    // Retire \frac{A}{-1} -> -(A)
+    res = res.replace(/\\(?:d|c|t)?frac\s*\{([^{}]+)\}\s*\{\s*-1\s*\}/g, "-($1)");
+    res = res.replace(/\\(?:d|c|t)?frac\s*\{((?:[^{}]|\{[^{}]*\})*)\}\s*\{\s*-1\s*\}/g, "-($1)");
+  }
+  // Retire bêtement le format texte classique "/ 1" ou "/1"
+  res = res.replace(/\s*\/\s*1(?![0-9.])/g, "");
+  return res;
+};
+
 export const simplifyLatexExpression = (
   latex: string,
   variables: VariableValues,
@@ -270,13 +273,13 @@ export const simplifyLatexExpression = (
     const leftVal = simplifyLatexExpression(intervalMatch[2], {}); 
     const rightVal = simplifyLatexExpression(intervalMatch[3], {});
     const rightBracket = intervalMatch[4];
-    return `${leftBracket}${leftVal}; ${rightVal}${rightBracket}`;
+    return removeDivisionByOne(`${leftBracket}${leftVal}; ${rightVal}${rightBracket}`);
   }
 
   if (safeExpr.includes(';')) {
     const parts = safeExpr.split(/\s*;\s*/);
     const simplifiedParts = parts.map(p => simplifyLatexExpression(p, {}));
-    return simplifiedParts.join(' ; ');
+    return removeDivisionByOne(simplifiedParts.join(' ; '));
   }
 
   const setRegex = /^\s*\\?\{\s*(.*?)\s*\\?\}\s*$/;
@@ -284,27 +287,31 @@ export const simplifyLatexExpression = (
   if (setMatch) {
     const content = setMatch[1].trim();
     if (content === "") return "\\emptyset";
-    return `\\{${simplifyLatexExpression(content, {})}\\}`;
+    return removeDivisionByOne(`\\{${simplifyLatexExpression(content, {})}\\}`);
   }
 
   const numericResult = evaluateNumericOnly(safeExpr);
   if (numericResult !== null) {
-    return formatNumberForLatex(numericResult);
+    return removeDivisionByOne(formatNumberForLatex(numericResult));
   }
+
+  let finalResult = "";
 
   if (containsPreservedFunction(safeExpr)) {
     let result = simplifyFunctionArguments(safeExpr);
     result = simplifyNumericParts(result);
-    return uniformizeLatex(result);
+    finalResult = uniformizeLatex(result);
+  } else {
+    try {
+      const mathJsSyntax = toMathJsSyntax(safeExpr);
+      const node = parse(mathJsSyntax);
+      const simplifiedNode = simplify(node);
+      finalResult = uniformizeLatex(simplifiedNode.toTex());
+    } catch {
+      finalResult = uniformizeLatex(simplifyNumericParts(safeExpr));
+    }
   }
 
-  try {
-    const mathJsSyntax = toMathJsSyntax(safeExpr);
-    const node = parse(mathJsSyntax);
-    const simplifiedNode = simplify(node);
-    
-    return uniformizeLatex(simplifiedNode.toTex());
-  } catch {
-    return uniformizeLatex(simplifyNumericParts(safeExpr));
-  }
+  // === DERNIÈRE VÉRIFICATION AVANT L'AFFICHAGE ===
+  return removeDivisionByOne(finalResult);
 };

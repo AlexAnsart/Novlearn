@@ -57,6 +57,7 @@ export const toMathJsSyntax = (expression: string): string => {
   });
 
   // 7. Puissances
+  expr = expr.replace(/\*\*/g, "^");
   expr = expr.replace(/\^\{([^{}]+)\}/g, "^($1)");
 
   // 8. Fractions (Ultra-robuste : gère dfrac, cfrac, tfrac et les fractions sans accolades ex: \frac14)
