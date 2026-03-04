@@ -399,6 +399,17 @@ export const duelsApi = {
   },
 
   /**
+   * Get duel config (duration, exercise timeout). Single source of truth from backend.
+   */
+  async getDuelConfig(): Promise<{
+    duelDurationSeconds: number;
+    exerciseTimeoutSeconds: number;
+    correctionDisplaySeconds: number;
+  }> {
+    return apiRequest("/api/duels/config");
+  },
+
+  /**
    * Get pending duels (waiting for acceptance)
    */
   async getPendingDuels(): Promise<{ duels: DuelRequest[] }> {
