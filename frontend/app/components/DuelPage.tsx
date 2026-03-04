@@ -2,7 +2,7 @@
 
 import { Swords, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DuelRequest as ApiDuelRequest,
   DuelHistoryItem,
@@ -10,6 +10,7 @@ import {
   Friend,
   friendsApi,
 } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 
 interface LocalDuelRequest {
   id: string;
@@ -19,17 +20,16 @@ interface LocalDuelRequest {
 
 export function DuelPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [duelRequests, setDuelRequests] = useState<LocalDuelRequest[]>([]);
   const [sentDuels, setSentDuels] = useState<string[]>([]);
   const [history, setHistory] = useState<DuelHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const loadData = useCallback(async () => {
+    if (!user) return;
 
-  const loadData = async () => {
     try {
       setLoading(true);
       const [friendsData, duelsData, historyData] = await Promise.all([
@@ -52,7 +52,19 @@ export function DuelPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadData();
+    }
+  }, [authLoading, user, loadData]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth/login");
+    }
+  }, [authLoading, user, router]);
 
   const handleSendDuelRequest = async (
     friendId: string,
