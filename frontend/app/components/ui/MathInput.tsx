@@ -1,6 +1,5 @@
 "use client";
 
-import { Space } from "lucide-react";
 import "mathlive";
 import React, { useEffect, useRef } from "react";
 
@@ -58,6 +57,13 @@ export const MathInput: React.FC<MathInputProps> = ({
       }
     };
 
+    const handleFocus = () => {
+      const keyboard = (window as any).mathVirtualKeyboard;
+      if (keyboard) {
+        keyboard.show({ animate: true });
+      }
+    };
+
     const handleBlur = () => {
       checkKeyboardVisibility();
       if (isKeyboardVisibleRef.current) {
@@ -78,6 +84,7 @@ export const MathInput: React.FC<MathInputProps> = ({
       keyboard.addEventListener?.("geometrychange", checkKeyboardVisibility);
     }
 
+    mf.addEventListener("focus", handleFocus);
     mf.addEventListener("blur", handleBlur);
 
     const handleGlobalPointerDown = (e: PointerEvent) => {
@@ -104,11 +111,12 @@ export const MathInput: React.FC<MathInputProps> = ({
       document.removeEventListener("pointerdown", handleGlobalPointerDown, {
         capture: true,
       });
+      mf.removeEventListener("focus", handleFocus);
       mf.removeEventListener("blur", handleBlur);
       if (keyboard) {
         keyboard.removeEventListener?.(
           "geometrychange",
-          checkKeyboardVisibility
+          checkKeyboardVisibility,
         );
         // === LA MAGIE ANTI-FANTÔME EST ICI ===
         keyboard.hide();
@@ -144,7 +152,11 @@ export const MathInput: React.FC<MathInputProps> = ({
               { latex: "e^{#0}", label: "eˣ" },
               { label: "(", key: "(" },
               { label: ")", key: ")" },
-              { command: 'performWithFeedback("deleteBackward")', label: "⌫", class: "action" },
+              {
+                command: 'performWithFeedback("deleteBackward")',
+                label: "⌫",
+                class: "action",
+              },
             ],
             // Rangée 2 : 4-6, +/-, fraction, puissance, racine
             [
@@ -162,12 +174,11 @@ export const MathInput: React.FC<MathInputProps> = ({
               { label: "1", key: "1" },
               { label: "2", key: "2" },
               { label: "3", key: "3" },
-              { label: "+", key: "+" },              
+              { label: "+", key: "+" },
               { latex: "\\sqrt{#0}", label: "√" },
               { latex: "#0^{#?}", label: "xⁿ" },
               { latex: "\\pi", label: "π" },
               { latex: "\\left|#0\\right|", label: "|x|" },
-              
             ],
             // Rangée 4 : 0, variables, fonctions, fermer clavier
             [
@@ -178,9 +189,12 @@ export const MathInput: React.FC<MathInputProps> = ({
               { label: "x", key: "x" },
               { label: "y", key: "y" },
               { label: "n", key: "n" },
-              
-              
-              { command: ["hideVirtualKeyboard"], label: "🔽", class: "action" },
+
+              {
+                command: ["hideVirtualKeyboard"],
+                label: "🔽",
+                class: "action",
+              },
             ],
           ],
         },
