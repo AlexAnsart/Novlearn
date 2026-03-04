@@ -30,25 +30,37 @@ export function DuelPage() {
   const loadData = useCallback(async () => {
     if (!user) return;
 
+    setLoading(true);
+
+    // Load friends exactly like AccountPage "Amis" – single call, independent of duels/history.
+    // If we used Promise.all with getPendingDuels/getHistory, one failure would prevent setFriends.
     try {
-      setLoading(true);
-      const [friendsData, duelsData, historyData] = await Promise.all([
-        friendsApi.getFriends(),
+      const { friends: friendsList } = await friendsApi.getFriends();
+      console.log("[DuelPage] getFriends OK, count:", friendsList?.length ?? 0, "ids:", friendsList?.map((f) => f.id) ?? []);
+      setFriends(friendsList ?? []);
+    } catch (error: any) {
+      console.error("[DuelPage] getFriends error:", error?.message ?? error);
+      setFriends([]);
+    }
+
+    // Load duels and history in parallel; failures here must not affect friends list.
+    try {
+      const [duelsData, historyData] = await Promise.all([
         duelsApi.getPendingDuels(),
         duelsApi.getHistory(),
       ]);
-
-      setFriends(friendsData.friends);
       setDuelRequests(
-        duelsData.duels.map((d: ApiDuelRequest) => ({
+        (duelsData.duels ?? []).map((d: ApiDuelRequest) => ({
           id: d.id.toString(),
           from: d.from_user_name,
           fromId: d.from_user_id,
         })),
       );
-      setHistory(historyData.history || []);
+      setHistory(historyData.history ?? []);
     } catch (error: any) {
-      console.error("Error loading data:", error);
+      console.error("[DuelPage] duels/history error:", error?.message ?? error);
+      setDuelRequests([]);
+      setHistory([]);
     } finally {
       setLoading(false);
     }
