@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Footer } from "./Footer";
 import { Logo } from "./Logo";
 import { SidebarIcon } from "./SidebarIcon";
+import { DuelAcceptedRedirect } from "./DuelAcceptedRedirect";
 import { DuelNotifications } from "./DuelNotifications";
 
 interface LayoutProps {
@@ -217,6 +218,8 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
           )}
         </div>
       )}
+      {/* When a duel we created is accepted, redirect to the duel page */}
+      <DuelAcceptedRedirect />
       {/* Global duel notifications (fixed top-right) */}
       <DuelNotifications />
     </div>

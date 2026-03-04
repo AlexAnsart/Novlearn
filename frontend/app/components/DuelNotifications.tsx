@@ -30,21 +30,7 @@ export function DuelNotifications() {
         const result = await duelsApi.getPendingDuels();
         if (isCancelled) return;
 
-        const previousIds = new Set(duelRequests.map((d) => d.id));
         const newRequests = result.duels || [];
-
-        // Trigger a toast for truly new incoming requests
-        newRequests.forEach((req) => {
-          if (!previousIds.has(req.id)) {
-            toast(
-              `${req.from_user_name} vous défie en duel !`,
-              {
-                description: "Cliquez sur la notification en haut à droite pour accepter ou refuser.",
-              },
-            );
-          }
-        });
-
         setDuelRequests(newRequests);
       } catch (error) {
         // Silently ignore errors here to avoid spamming the user if backend is down
@@ -59,8 +45,8 @@ export function DuelNotifications() {
     // Initial load
     loadPending();
 
-    // Poll every 10 seconds to keep notifications fresh
-    const intervalId = setInterval(loadPending, 10000);
+    // Poll every 20 seconds to reduce load
+    const intervalId = setInterval(loadPending, 20000);
 
     return () => {
       isCancelled = true;
