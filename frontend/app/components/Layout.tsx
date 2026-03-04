@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Footer } from "./Footer";
 import { Logo } from "./Logo";
 import { SidebarIcon } from "./SidebarIcon";
+import { DuelNotifications } from "./DuelNotifications";
 
 interface LayoutProps {
   children: ReactNode;
@@ -216,6 +217,8 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
           )}
         </div>
       )}
+      {/* Global duel notifications (fixed top-right) */}
+      <DuelNotifications />
     </div>
   );
 }

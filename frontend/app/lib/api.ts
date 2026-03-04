@@ -344,6 +344,17 @@ export interface DuelRequest {
   created_at: string;
 }
 
+export interface DuelHistoryItem {
+  id: number;
+  opponent_id: string;
+  opponent_name: string;
+  my_score: number;
+  opponent_score: number;
+  result: "win" | "loss" | "draw";
+  created_at: string | null;
+  finished_at: string | null;
+}
+
 export const duelsApi = {
   /**
    * Create a new duel
@@ -422,5 +433,12 @@ export const duelsApi = {
         time_spent: timeSpent,
       }),
     });
+  },
+
+  /**
+   * Get duel history (finished duels) for current user
+   */
+  async getHistory(): Promise<{ history: DuelHistoryItem[] }> {
+    return apiRequest("/api/duels/history");
   },
 };
