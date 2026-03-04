@@ -283,7 +283,9 @@ export const friendsApi = {
    * Get list of friends
    */
   async getFriends(): Promise<{ friends: Friend[] }> {
-    return apiRequest("/api/friends");
+    const result = await apiRequest<{ friends: Friend[] }>("/api/friends");
+    console.log("[friendsApi] getFriends: count=", result?.friends?.length ?? 0);
+    return result;
   },
 
   /**
@@ -308,6 +310,15 @@ export const friendsApi = {
   async declineFriendRequest(requestId: number): Promise<{ message: string }> {
     return apiRequest(`/api/friends/requests/${requestId}/decline`, {
       method: "POST",
+    });
+  },
+
+  /**
+   * Remove a friend
+   */
+  async removeFriend(friendId: string): Promise<{ message: string }> {
+    return apiRequest(`/api/friends/${encodeURIComponent(friendId)}`, {
+      method: "DELETE",
     });
   },
 };

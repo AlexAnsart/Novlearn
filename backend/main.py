@@ -363,30 +363,35 @@ async def get_friends(user: dict = Depends(verify_token)):
     try:
         supabase = get_supabase_client()
         user_id = user["user_id"]
-        
+        logger.info("[API /api/friends] user_id=%s", user_id[:8] if user_id else None)
+
         # Get friendships where user is either user1 or user2
         friends_data = []
         friend_ids = []
-        
+
         # Query as user1 - get user2_ids
         result1 = supabase.table("friends")\
             .select("user2_id")\
             .eq("user1_id", user_id)\
             .eq("status", "accepted")\
             .execute()
-        
+        logger.info("[API /api/friends] as user1: rows=%s", len(result1.data or []))
+
         for friend in result1.data or []:
             friend_ids.append(friend["user2_id"])
-        
+
         # Query as user2 - get user1_ids
         result2 = supabase.table("friends")\
             .select("user1_id")\
             .eq("user2_id", user_id)\
             .eq("status", "accepted")\
             .execute()
-        
+        logger.info("[API /api/friends] as user2: rows=%s", len(result2.data or []))
+
         for friend in result2.data or []:
             friend_ids.append(friend["user1_id"])
+
+        logger.info("[API /api/friends] friend_ids count=%s ids=%s", len(friend_ids), friend_ids[:5] if friend_ids else [])
         
         # Get profiles for all friend IDs
         if friend_ids:
@@ -413,11 +418,31 @@ async def get_friends(user: dict = Depends(verify_token)):
                     "last_name": last_name,
                     "name": name
                 })
-        
+
+        logger.info("[API /api/friends] response friends count=%s", len(friends_data))
         return {"friends": friends_data}
-    
+
     except Exception as e:
         logger.error(f"Error getting friends: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/friends/{friend_id}")
+async def remove_friend(friend_id: str, user: dict = Depends(verify_token)):
+    """Remove a friend (delete the friendship)."""
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        if friend_id == user_id:
+            raise HTTPException(status_code=400, detail="Cannot remove yourself")
+        user1 = min(user_id, friend_id)
+        user2 = max(user_id, friend_id)
+        supabase.table("friends").delete().eq("user1_id", user1).eq("user2_id", user2).execute()
+        return {"message": "Friend removed"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing friend: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
