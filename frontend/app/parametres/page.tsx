@@ -2,6 +2,7 @@
 
 import { Layout } from "@/app/components/Layout";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import { supabase } from "@/app/lib/supabase";
 import {
   Bell,
@@ -22,8 +23,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
-type Theme = "light" | "dark" | "system";
 
 export default function SettingsPage() {
   const { user, profile } = useAuth();
@@ -50,7 +49,7 @@ export default function SettingsPage() {
   const [showNewPass, setShowNewPass] = useState(false);
 
   // --- ÉTAT : PRÉFÉRENCES ---
-  const [theme, setTheme] = useState<Theme>("dark");
+  const { theme, setTheme } = useTheme();
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [notifications, setNotifications] = useState(true);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -66,40 +65,22 @@ export default function SettingsPage() {
       });
     }
 
-    // Préférences (LocalStorage)
-    const savedTheme = localStorage.getItem("novlearn-theme") as Theme;
+    // Préférences (LocalStorage) — le thème est géré par ThemeContext
     const savedSound = localStorage.getItem("novlearn-sound");
     const savedNotif = localStorage.getItem("novlearn-notif");
 
-    if (savedTheme) setTheme(savedTheme);
     if (savedSound !== null) setSoundEnabled(savedSound === "true");
     if (savedNotif !== null) setNotifications(savedNotif === "true");
 
     setIsLoaded(true);
   }, [profile]);
 
-  // 2. Application du Thème & Sauvegarde
+  // 2. Sauvegarde des préférences son et notifications
   useEffect(() => {
     if (!isLoaded) return;
-
-    // Appliquer le thème au document HTML
-    const root = window.document.documentElement;
-    root.classList.remove("light", "dark");
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light";
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
-    }
-
-    // Sauvegarder dans le localStorage
-    localStorage.setItem("novlearn-theme", theme);
     localStorage.setItem("novlearn-sound", String(soundEnabled));
     localStorage.setItem("novlearn-notif", String(notifications));
-  }, [theme, soundEnabled, notifications, isLoaded]);
+  }, [soundEnabled, notifications, isLoaded]);
 
   // --- LOGIQUE : MISE À JOUR PROFIL (Nom/Prénom) ---
   const handleUpdateInfo = async () => {
@@ -176,17 +157,17 @@ export default function SettingsPage() {
 
   return (
     <Layout>
-      <div className="flex-1 px-4 md:px-8 pb-12 overflow-y-auto bg-slate-900">
+      <div className="flex-1 px-4 md:px-8 pb-12 overflow-y-auto bg-app-bg">
         <div className="max-w-4xl mx-auto pt-8 space-y-8">
           <h1
-            className="text-3xl font-bold text-white mb-6"
+            className="text-3xl font-bold text-content-main mb-6"
             style={{ fontFamily: "'Fredoka', sans-serif" }}
           >
             Paramètres
           </h1>
 
           {/* --- NAVIGATION ONGLETS --- */}
-          <div className="flex gap-2 p-1 bg-slate-800/50 rounded-xl w-fit border border-slate-700 mb-6">
+          <div className="flex gap-2 p-1 bg-app-surface/50 rounded-xl w-fit border border-app-border mb-6">
             <TabButton
               active={activeTab === "account"}
               onClick={() => setActiveTab("account")}
@@ -207,9 +188,9 @@ export default function SettingsPage() {
           {activeTab === "account" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
               {/* Infos Personnelles */}
-              <section className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 md:p-8">
+              <section className="bg-app-surface/50 border border-app-border rounded-2xl p-6 md:p-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-content-main flex items-center gap-2">
                     <User className="text-indigo-400" /> Informations
                   </h2>
                   <button
@@ -232,7 +213,7 @@ export default function SettingsPage() {
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-300">
+                    <label className="text-sm font-medium text-content-muted">
                       Prénom
                     </label>
                     <input
@@ -241,11 +222,11 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, first_name: e.target.value })
                       }
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-content-main focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-300">
+                    <label className="text-sm font-medium text-content-muted">
                       Nom
                     </label>
                     <input
@@ -254,22 +235,22 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, last_name: e.target.value })
                       }
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-content-main focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                   </div>
                 </div>
               </section>
 
               {/* Changement Mot de Passe */}
-              <section className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 md:p-8">
-                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <section className="bg-app-surface/50 border border-app-border rounded-2xl p-6 md:p-8">
+                <h2 className="text-xl font-bold text-content-main mb-6 flex items-center gap-2">
                   <Lock className="text-emerald-400" /> Changer le mot de passe
                 </h2>
 
                 <div className="space-y-4 max-w-lg">
                   {/* Ancien MDP */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-300">
+                    <label className="text-sm font-medium text-content-muted">
                       Ancien mot de passe
                     </label>
                     <div className="relative">
@@ -282,13 +263,13 @@ export default function SettingsPage() {
                             oldPassword: e.target.value,
                           })
                         }
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none pr-10"
+                        className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-content-main focus:ring-2 focus:ring-emerald-500 outline-none pr-10"
                         placeholder="Requis pour changer"
                       />
                       <button
                         type="button"
                         onClick={() => setShowOldPass(!showOldPass)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-main"
                       >
                         {showOldPass ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -298,7 +279,7 @@ export default function SettingsPage() {
                   {/* Nouveau MDP */}
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2 relative">
-                      <label className="text-sm font-medium text-slate-300">
+                      <label className="text-sm font-medium text-content-muted">
                         Nouveau mot de passe
                       </label>
                       <div className="relative">
@@ -311,12 +292,12 @@ export default function SettingsPage() {
                               newPassword: e.target.value,
                             })
                           }
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none pr-10"
+                          className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-content-main focus:ring-2 focus:ring-emerald-500 outline-none pr-10"
                         />
                         <button
                           type="button"
                           onClick={() => setShowNewPass(!showNewPass)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-main"
                         >
                           {showNewPass ? (
                             <EyeOff size={18} />
@@ -328,7 +309,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-300">
+                      <label className="text-sm font-medium text-content-muted">
                         Confirmer
                       </label>
                       <input
@@ -340,12 +321,12 @@ export default function SettingsPage() {
                             confirmPassword: e.target.value,
                           })
                         }
-                        className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-white outline-none ${
+                        className={`w-full bg-app-bg border rounded-xl px-4 py-3 text-content-main outline-none ${
                           passwordData.confirmPassword &&
                           passwordData.newPassword !==
                             passwordData.confirmPassword
                             ? "border-red-500 focus:ring-red-500"
-                            : "border-slate-700 focus:ring-emerald-500"
+                            : "border-app-border focus:ring-emerald-500"
                         }`}
                       />
                     </div>
@@ -376,8 +357,8 @@ export default function SettingsPage() {
           {activeTab === "preferences" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
               {/* Section Apparence */}
-              <section className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 md:p-8">
-                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <section className="bg-app-surface/50 border border-app-border rounded-2xl p-6 md:p-8">
+                <h2 className="text-xl font-bold text-content-main mb-6 flex items-center gap-2">
                   <Monitor className="text-blue-400" /> Apparence
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -406,12 +387,12 @@ export default function SettingsPage() {
               </section>
 
               {/* Section Options */}
-              <section className="bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden">
+              <section className="bg-app-surface/50 border border-app-border rounded-2xl overflow-hidden">
                 {/* Son */}
-                <div className="p-6 flex items-center justify-between border-b border-slate-700/50">
+                <div className="p-6 flex items-center justify-between border-b border-app-border/50">
                   <div className="flex items-center gap-4">
                     <div
-                      className={`p-3 rounded-xl transition-colors ${soundEnabled ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-700 text-slate-400"}`}
+                      className={`p-3 rounded-xl transition-colors ${soundEnabled ? "bg-emerald-500/20 text-emerald-400" : "bg-app-surface text-content-muted"}`}
                     >
                       {soundEnabled ? (
                         <Volume2 size={24} />
@@ -420,8 +401,10 @@ export default function SettingsPage() {
                       )}
                     </div>
                     <div>
-                      <h3 className="text-white font-bold">Effets sonores</h3>
-                      <p className="text-slate-400 text-sm">
+                      <h3 className="text-content-main font-bold">
+                        Effets sonores
+                      </h3>
+                      <p className="text-content-muted text-sm">
                         Bruitages lors des exercices
                       </p>
                     </div>
@@ -430,10 +413,10 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Notifications */}
-                <div className="p-6 flex items-center justify-between border-b border-slate-700/50">
+                <div className="p-6 flex items-center justify-between border-b border-app-border/50">
                   <div className="flex items-center gap-4">
                     <div
-                      className={`p-3 rounded-xl transition-colors ${notifications ? "bg-blue-500/20 text-blue-400" : "bg-slate-700 text-slate-400"}`}
+                      className={`p-3 rounded-xl transition-colors ${notifications ? "bg-blue-500/20 text-blue-400" : "bg-app-surface text-content-muted"}`}
                     >
                       {notifications ? (
                         <Bell size={24} />
@@ -442,8 +425,10 @@ export default function SettingsPage() {
                       )}
                     </div>
                     <div>
-                      <h3 className="text-white font-bold">Notifications</h3>
-                      <p className="text-slate-400 text-sm">
+                      <h3 className="text-content-main font-bold">
+                        Notifications
+                      </h3>
+                      <p className="text-content-muted text-sm">
                         Rappels d'entraînement
                       </p>
                     </div>
@@ -455,15 +440,15 @@ export default function SettingsPage() {
                 <div className="p-6 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div
-                      className={`p-3 rounded-xl transition-colors ${!reduceMotion ? "bg-purple-500/20 text-purple-400" : "bg-slate-700 text-slate-400"}`}
+                      className={`p-3 rounded-xl transition-colors ${!reduceMotion ? "bg-purple-500/20 text-purple-400" : "bg-app-surface text-content-muted"}`}
                     >
                       <Zap size={24} />
                     </div>
                     <div>
-                      <h3 className="text-white font-bold">
+                      <h3 className="text-content-main font-bold">
                         Animations fluides
                       </h3>
-                      <p className="text-slate-400 text-sm">
+                      <p className="text-content-muted text-sm">
                         Désactiver pour réduire les mouvements
                       </p>
                     </div>
@@ -491,7 +476,7 @@ function TabButton({ active, onClick, icon, label }: any) {
       className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
         active
           ? "bg-indigo-500 text-white shadow-md"
-          : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+          : "text-content-muted hover:text-content-main hover:bg-app-surface/50"
       }`}
     >
       {icon}
@@ -507,16 +492,16 @@ function ThemeCard({ active, onClick, icon, label, description }: any) {
       className={`relative p-4 rounded-xl border text-left transition-all duration-200 group ${
         active
           ? "bg-indigo-600/20 border-indigo-500 ring-1 ring-indigo-500"
-          : "bg-slate-900 border-slate-700 hover:border-slate-500 hover:bg-slate-800"
+          : "bg-app-bg border-app-border hover:border-app-border/70 hover:bg-app-surface"
       }`}
     >
       <div
-        className={`mb-3 transition-colors ${active ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-200"}`}
+        className={`mb-3 transition-colors ${active ? "text-indigo-400" : "text-content-muted group-hover:text-content-main"}`}
       >
         {icon}
       </div>
-      <div className="font-bold text-white mb-1">{label}</div>
-      <div className="text-xs text-slate-400">{description}</div>
+      <div className="font-bold text-content-main mb-1">{label}</div>
+      <div className="text-xs text-content-muted">{description}</div>
       {active && (
         <div className="absolute top-3 right-3 w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.6)]"></div>
       )}
@@ -535,7 +520,7 @@ function Switch({
     <button
       onClick={() => onChange(!checked)}
       className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-        checked ? "bg-indigo-500" : "bg-slate-700"
+        checked ? "bg-indigo-500" : "bg-app-border"
       }`}
     >
       <div

@@ -161,7 +161,7 @@ export default function Home() {
             </ActionButton>
           </div>
 
-          {/* Classement du mois - Version compacte */}
+          {/* Classement de la semaine - Version compacte */}
           <div className="mt-4">
             <MonthlyLeaderboard compact limit={5} />
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Space } from "lucide-react";
 import "mathlive";
 import React, { useEffect, useRef } from "react";
 
@@ -12,7 +13,15 @@ declare global {
         HTMLElement
       > & {
         ref?: React.RefObject<any>;
-        inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+        inputMode?:
+          | "none"
+          | "text"
+          | "decimal"
+          | "numeric"
+          | "tel"
+          | "search"
+          | "email"
+          | "url";
         "math-virtual-keyboard-policy"?: "auto" | "manual";
       };
     }
@@ -37,7 +46,7 @@ export const MathInput: React.FC<MathInputProps> = ({
   const mfRef = useRef<any>(null);
   const isKeyboardVisibleRef = useRef(false);
 
-  // === 1. LOGIQUE DE FOCUS (PC & VIRTUAL KEYBOARD) - INTACTE ===
+  // === 1. LOGIQUE DE FOCUS (PC & VIRTUAL KEYBOARD) ===
   useEffect(() => {
     const mf = mfRef.current;
     if (!mf) return;
@@ -53,9 +62,11 @@ export const MathInput: React.FC<MathInputProps> = ({
       checkKeyboardVisibility();
       if (isKeyboardVisibleRef.current) {
         setTimeout(() => {
-          // IMPORTANT: On ne redonne le focus que si l'élément actif est toujours le clavier 
-          // ou si aucun autre input n'a pris le focus entre temps
-          if (isKeyboardVisibleRef.current && mf && document.activeElement?.tagName !== 'MATH-FIELD') {
+          if (
+            isKeyboardVisibleRef.current &&
+            mf &&
+            document.activeElement?.tagName !== "MATH-FIELD"
+          ) {
             mf.focus();
           }
         }, 0);
@@ -71,95 +82,110 @@ export const MathInput: React.FC<MathInputProps> = ({
 
     const handleGlobalPointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
-      
-      // Vérifier si le clic est sur le clavier
-      const isKeyboardClick = target.closest(".ML__keyboard") || 
-                              target.closest('[part="keyboard"]');
 
-      // IMPORTANT : On ne déclenche le refocus que si cet input précis est l'élément "actif"
-      // ou si l'utilisateur clique sur le clavier virtuel
-      if (isKeyboardClick && mf === (window as any).mathVirtualKeyboard.targetElement) {
+      const isKeyboardClick =
+        target.closest(".ML__keyboard") || target.closest('[part="keyboard"]');
+
+      if (
+        isKeyboardClick &&
+        mf === (window as any).mathVirtualKeyboard.targetElement
+      ) {
         isKeyboardVisibleRef.current = true;
         e.preventDefault();
         requestAnimationFrame(() => mf?.focus());
       }
     };
 
-    // On utilise l'option { capture: true } pour intercepter le clic avant les autres
-    document.addEventListener("pointerdown", handleGlobalPointerDown, { capture: true });
+    document.addEventListener("pointerdown", handleGlobalPointerDown, {
+      capture: true,
+    });
 
     return () => {
-      document.removeEventListener("pointerdown", handleGlobalPointerDown, { capture: true });
+      document.removeEventListener("pointerdown", handleGlobalPointerDown, {
+        capture: true,
+      });
       mf.removeEventListener("blur", handleBlur);
       if (keyboard) {
-        keyboard.removeEventListener?.("geometrychange", checkKeyboardVisibility);
+        keyboard.removeEventListener?.(
+          "geometrychange",
+          checkKeyboardVisibility
+        );
+        // === LA MAGIE ANTI-FANTÔME EST ICI ===
+        keyboard.hide();
       }
     };
   }, []);
 
-  // === 2. CONFIGURATION DU CLAVIER ===
+  // === 2. CONFIGURATION DU CLAVIER (CORRIGÉE POUR NOUVELLE API MATHLIVE) ===
   useEffect(() => {
     const mf = mfRef.current;
     if (!mf) return;
 
+    // Options générales du champ de saisie
     mf.setOptions({
       smartMode: true,
-      virtualKeyboardMode: "manual", // On garde ton mode manuel
-
-      // Définition des touches personnalisées
-      virtualKeyboardLayout: {
-        rows: [
-          // Rangée 1 : Chiffres 7-9 et Opérations de base
-          [
-            { label: "7", key: "7" },
-            { label: "8", key: "8" },
-            { label: "9", key: "9" },
-            { label: "÷", latex: "\\div" },
-            { label: "×", latex: "\\times" },
-            { class: "separator w-5" },
-            { label: "x", key: "x", class: "font-bold text-blue-500" }, 
-            { label: "y", key: "y" },
-          ],
-          // Rangée 2 : Chiffres 4-6 et Fonctions usuelles
-          [
-            { label: "4", key: "4" },
-            { label: "5", key: "5" },
-            { label: "6", key: "6" },
-            { label: "-", key: "-" },
-            { label: "+", key: "+" },
-            { class: "separator w-5" },
-            { latex: "\\frac{#@}{#?}", label: "▢/▢" }, 
-            { latex: "#@^{#?}", label: "▢^n" }, 
-          ],
-          // Rangée 3 : Chiffres 1-3 et Fonctions Lycée
-          [
-            { label: "1", key: "1" },
-            { label: "2", key: "2" },
-            { label: "3", key: "3" },
-            { latex: "\\sqrt{#0}", label: "√" },
-            { latex: "\\ln(#0)", label: "ln" },
-            { class: "separator w-5" },
-            { latex: "\\pi", label: "π" },
-            { latex: "\\infty", label: "∞" },
-          ],
-          // Rangée 4 : 0, Virgule, Validation
-          [
-            { label: "0", key: "0" },
-            { label: ",", key: "," },
-            { label: "=", key: "=" },
-            { latex: "e^{#0}", label: "e^x" },
-            { latex: "\\lim_{x \\to \\infty}", label: "lim" }, 
-            { class: "separator w-5" },
-            { command: 'performWithFeedback("deleteBackward")', label: "⌫" }, 
-            {
-              command: 'performWithFeedback("commit")',
-              label: "OK",
-              class: "action font-bold",
-            },
-          ],
-        ],
-      },
+      smartFence: true,
     });
+
+    // Configuration globale du clavier virtuel
+    const keyboard = (window as any).mathVirtualKeyboard;
+    if (keyboard) {
+      // On écrase les onglets par défaut (123, abc, etc.) avec NOTRE clavier personnalisé
+      keyboard.layouts = [
+        {
+          label: "Maths",
+          rows: [
+            // Rangée 1 : 7-9, opérations, parenthèses, suppr
+            [
+              { label: "7", key: "7" },
+              { label: "8", key: "8" },
+              { label: "9", key: "9" },
+              { latex: "\\frac{#@}{#?}", label: "/" },
+              { latex: "e^{#0}", label: "eˣ" },
+              { label: "(", key: "(" },
+              { label: ")", key: ")" },
+              { command: 'performWithFeedback("deleteBackward")', label: "⌫", class: "action" },
+            ],
+            // Rangée 2 : 4-6, +/-, fraction, puissance, racine
+            [
+              { label: "4", key: "4" },
+              { label: "5", key: "5" },
+              { label: "6", key: "6" },
+              { label: "×", latex: "\\times" },
+              { latex: "\\ln(#0)", label: "ln" },
+              { latex: "[", label: "[" },
+              { latex: "]", label: "]" },
+              { latex: "\\lim_{x \\to #?}", label: "lim" },
+            ],
+            // Rangée 3 : 1-3, point, égal, constantes
+            [
+              { label: "1", key: "1" },
+              { label: "2", key: "2" },
+              { label: "3", key: "3" },
+              { label: "+", key: "+" },              
+              { latex: "\\sqrt{#0}", label: "√" },
+              { latex: "#0^{#?}", label: "xⁿ" },
+              { latex: "\\pi", label: "π" },
+              { latex: "\\left|#0\\right|", label: "|x|" },
+              
+            ],
+            // Rangée 4 : 0, variables, fonctions, fermer clavier
+            [
+              { label: "0", key: "0" },
+              { label: ".", key: "." },
+              { latex: "\\infty", label: "∞" },
+              { label: "-", key: "-" },
+              { label: "x", key: "x" },
+              { label: "y", key: "y" },
+              { label: "n", key: "n" },
+              
+              
+              { command: ["hideVirtualKeyboard"], label: "🔽", class: "action" },
+            ],
+          ],
+        },
+      ];
+    }
 
     const handleInput = (evt: Event) => {
       onChange((evt.target as any).value);
@@ -189,8 +215,8 @@ export const MathInput: React.FC<MathInputProps> = ({
     <div className={className}>
       <math-field
         ref={mfRef}
-        inputMode="none" // <--- LA MAGIE POUR MOBILE (bloque le clavier natif)
-        math-virtual-keyboard-policy="manual" // <--- Confirme à MathLive ton mode manuel
+        inputMode="none"
+        math-virtual-keyboard-policy="manual"
         style={{
           width: "100%",
           padding: "8px",
@@ -200,22 +226,30 @@ export const MathInput: React.FC<MathInputProps> = ({
           fontSize: "1.2rem",
           outline: "none",
           boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-          touchAction: "manipulation", // <--- Empêche les bugs de défilement sur mobile
+          touchAction: "manipulation",
         }}
       >
         {value}
       </math-field>
 
       <style jsx global>{`
+        /* 1. Couleur du texte DANS la zone de saisie */
+        math-field {
+          color: #0f172a; /* Texte foncé */
+        }
+
         math-field:focus-within {
           outline: 2px solid #6366f1;
           border-color: transparent;
         }
-        /* Style des touches perso */
-        .ML__keyboard {
+
+        /* 2. Couleurs DU CLAVIER VIRTUIEL (Forcé sur la racine du document) */
+        :root {
           --keyboard-background: #f1f5f9;
-          --key-background: white;
-          --key-text: #334155;
+          --keycap-background: #ffffff;
+          --keycap-text: #1e293b; /* Forcer le texte des touches en foncé */
+          --keycap-text-hover: #000000;
+          --keycap-secondary-text: #64748b;
         }
       `}</style>
     </div>

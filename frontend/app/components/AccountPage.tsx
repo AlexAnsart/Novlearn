@@ -12,9 +12,11 @@ import {
   TrendingUp,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { friendsApi } from "../lib/api";
 import { supabase } from "../lib/supabase";
@@ -76,13 +78,14 @@ export function AccountPage() {
   const handleAcceptFriendRequest = async (request: FriendRequest) => {
     try {
       await friendsApi.acceptFriendRequest(request.id);
-      // Refresh friends list
       await loadFriends();
-      // Remove from pending
       setFriendRequests(friendRequests.filter((r) => r.id !== request.id));
+      toast.success("Demande d'ami acceptée !");
     } catch (error: any) {
       console.error("Error accepting friend request:", error);
-      alert(error.message || "Erreur lors de l'acceptation de la demande");
+      toast.error(
+        error.message || "Erreur lors de l'acceptation de la demande",
+      );
     }
   };
 
@@ -90,9 +93,10 @@ export function AccountPage() {
     try {
       await friendsApi.declineFriendRequest(requestId);
       setFriendRequests(friendRequests.filter((r) => r.id !== requestId));
+      toast.success("Demande refusée.");
     } catch (error: any) {
       console.error("Error declining friend request:", error);
-      alert(error.message || "Erreur lors du refus de la demande");
+      toast.error(error.message || "Erreur lors du refus de la demande");
     }
   };
 
@@ -141,7 +145,7 @@ export function AccountPage() {
       router.push("/");
     } catch (error: any) {
       console.error("Erreur suppression compte:", error);
-      alert(`Impossible de supprimer le compte : ${error.message}`);
+      toast.error(`Impossible de supprimer le compte : ${error.message}`);
     } finally {
       setIsDeleting(false);
       setShowDeleteModal(false);
@@ -256,10 +260,10 @@ export function AccountPage() {
     try {
       await friendsApi.addFriendByCode(addFriendCode.trim());
       setAddFriendCode("");
-      alert("Demande d'ami envoyée !");
+      toast.success("Demande d'ami envoyée !");
     } catch (error: any) {
       console.error("Error adding friend:", error);
-      alert(error.message || "Erreur lors de l'ajout de l'ami");
+      toast.error(error.message || "Erreur lors de l'ajout de l'ami");
     } finally {
       setAddingFriend(false);
     }
@@ -308,9 +312,10 @@ export function AccountPage() {
         .select("streak")
         .eq("user_id", user.id);
 
-      const bestStreak = streakData && streakData.length > 0
-        ? Math.max(...streakData.map((s) => s.streak))
-        : 0;
+      const bestStreak =
+        streakData && streakData.length > 0
+          ? Math.max(...streakData.map((s) => s.streak))
+          : 0;
 
       if (attemptsError || !attemptsData) {
         setStats({
@@ -747,8 +752,6 @@ export function AccountPage() {
                   </p>
                 </div>
 
-
-
                 <div className="bg-slate-900/40 backdrop-blur-sm rounded-2xl p-6 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="flex items-center gap-3 mb-2">
                     <Award className="w-5 h-5 text-yellow-400" />
@@ -1010,11 +1013,11 @@ export function AccountPage() {
                   {friendRequests.map((request) => (
                     <div
                       key={request.id}
-                      className="bg-slate-900/40 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between"
+                      className="bg-slate-900/40 backdrop-blur-sm rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl flex items-center justify-center">
-                          <Users className="w-6 h-6 text-white" />
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl flex items-center justify-center shrink-0">
+                          <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <span
                           className="text-white"
@@ -1026,25 +1029,27 @@ export function AccountPage() {
                           {request.from}
                         </span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <button
                           onClick={() => handleAcceptFriendRequest(request)}
-                          className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white transition-all text-sm sm:text-base"
                           style={{
                             fontFamily: "'Fredoka', sans-serif",
                             fontWeight: 600,
                           }}
                         >
+                          <Check className="w-4 h-4" />
                           Accepter
                         </button>
                         <button
                           onClick={() => handleDeclineFriendRequest(request.id)}
-                          className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all text-sm sm:text-base"
                           style={{
                             fontFamily: "'Fredoka', sans-serif",
                             fontWeight: 600,
                           }}
                         >
+                          <X className="w-4 h-4" />
                           Refuser
                         </button>
                       </div>

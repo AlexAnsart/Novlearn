@@ -2,8 +2,195 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =======================================================================
+   VARIABLES CSS — SYSTÈME DE THÈME
+   Format HSL sans la fonction hsl() pour la compatibilité Tailwind :
+   "bg-app-bg/50" fonctionne automatiquement.
+   ======================================================================= */
+
+:root {
+  /* === THÈME SOMBRE ("Parfait" par défaut) === */
+  --color-bg: 222 47% 11%; /* slate-900 #0f172a */
+  --color-surface: 215 28% 17%; /* slate-800 #1e293b */
+  --color-border: 215 25% 27%; /* slate-700 #334155 */
+  --color-text-main: 213 27% 84%; /* slate-300 #cbd5e1 */
+  --color-text-muted: 215 20% 65%; /* slate-400 #94a3b8 */
+
+  /* Accents — statiques, identité visuelle préservée dans les deux modes */
+  --color-primary: 221 83% 53%; /* blue-600  #2563eb */
+  --color-primary-hover: 224 76% 40%; /* blue-700  #1e40af */
+}
+
+/* === THÈME CLAIR (Professionnel Épuré) === */
+/* Activé par la classe .light sur <html> */
+.light {
+  --color-bg: 0 0% 100%; /* blanc pur             #ffffff */
+  --color-surface: 210 40% 98%; /* slate-50 : cartes     #f8fafc */
+  --color-border: 214 32% 91%; /* slate-200 : fines     #e2e8f0 */
+  --color-text-main: 215 25% 27%; /* slate-700 : anthracite #334155 */
+  --color-text-muted: 215 16% 47%; /* slate-500 : gris moyen #64748b */
+  /* Le bleu primaire reste identique — il ressort parfaitement sur blanc */
+}
+
+/* === THÈME SYSTÈME === */
+/* Activé si l'OS est en clair ET qu'aucune classe .dark n'est forcée */
+@media (prefers-color-scheme: light) {
+  :root:not(.dark) {
+    --color-bg: 0 0% 100%;
+    --color-surface: 210 40% 98%;
+    --color-border: 214 32% 91%;
+    --color-text-main: 215 25% 27%;
+    --color-text-muted: 215 16% 47%;
+  }
+}
+
 body {
   margin: 0;
   padding: 0;
   font-family: "Fredoka", sans-serif;
+  background-color: hsl(var(--color-bg));
+  color: hsl(var(--color-text-main));
+  @apply transition-colors duration-200;
+}
+
+/* =======================================================================
+   OVERRIDES THÈME CLAIR — Éléments Tailwind hardcodés en mode sombre
+   Ces règles s'activent dès que la classe .light est sur <html>,
+   sans toucher au thème sombre (pas de modification de :root).
+   ======================================================================= */
+
+/* ── 1. Gradient de fond principal (Layout wrapper) ─────────────────── */
+.light .from-slate-950 {
+  --tw-gradient-from: #eff6ff var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(239 246 255 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.light .via-blue-950 {
+  --tw-gradient-to: rgb(239 246 255 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops:
+    var(--tw-gradient-from), #dbeafe var(--tw-gradient-via-position),
+    var(--tw-gradient-to);
+}
+.light .to-slate-950 {
+  --tw-gradient-to: #f8fafc var(--tw-gradient-to-position);
+}
+
+/* ── 2. Sidebar desktop & barre mobile ───────────────────────────────── */
+.light .bg-slate-900\/60 {
+  background-color: rgb(255 255 255 / 0.97) !important;
+}
+.light .bg-slate-900\/90 {
+  background-color: rgb(255 255 255 / 0.97) !important;
+}
+.light .border-slate-800\/50 {
+  border-color: hsl(var(--color-border)) !important;
+}
+
+/* ── 3. Icônes de navigation (inactif / hover) ───────────────────────── */
+.light .bg-slate-700\/50 {
+  background-color: rgb(226 232 240 / 0.8) !important;
+}
+.light .hover\:bg-slate-600\/60:hover {
+  background-color: rgb(203 213 225 / 0.9) !important;
+}
+
+/* ── 4. Cartes et surfaces ───────────────────────────────────────────── */
+.light .bg-slate-800\/60 {
+  background-color: rgb(255 255 255 / 0.95) !important;
+  border-color: hsl(var(--color-border));
+}
+.light .hover\:bg-slate-700\/60:hover {
+  background-color: rgb(241 245 249 / 0.98) !important;
+}
+.light .bg-slate-900\/40 {
+  background-color: rgb(241 245 249 / 0.9) !important;
+}
+.light .bg-slate-900\/60.rounded-2xl,
+.light .bg-slate-900\/60.rounded-xl {
+  background-color: rgb(241 245 249 / 0.9) !important;
+}
+.light .bg-slate-800 {
+  background-color: #f8fafc !important;
+}
+.light .bg-slate-900 {
+  background-color: #f1f5f9 !important;
+}
+.light .hover\:bg-slate-800\/60:hover {
+  background-color: rgb(241 245 249 / 0.95) !important;
+}
+.light .hover\:bg-slate-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* ── 5. Footer ───────────────────────────────────────────────────────── */
+.light .bg-slate-950 {
+  background-color: hsl(var(--color-surface)) !important;
+}
+
+/* ── 6. Texte dans les conteneurs convertis ─────────────────────────── */
+
+/* text-white → anthracite */
+.light .bg-slate-800\/60 .text-white,
+.light .bg-slate-800\/60.text-white,
+.light .bg-slate-900\/40 .text-white,
+.light .bg-slate-900\/40.text-white,
+.light .bg-slate-900\/60 .text-white,
+.light .bg-slate-900\/60.text-white,
+.light .bg-slate-900\/90 .text-white,
+.light .bg-slate-900\/90.text-white,
+.light .bg-slate-800 .text-white,
+.light .bg-slate-800.text-white,
+.light .bg-slate-900 .text-white,
+.light .bg-slate-900.text-white,
+.light .bg-slate-950 .text-white,
+.light .bg-slate-950.text-white {
+  color: hsl(var(--color-text-main)) !important;
+}
+
+/* text-slate-300 → texte principal */
+.light .bg-slate-800\/60 .text-slate-300,
+.light .bg-slate-900\/40 .text-slate-300,
+.light .bg-slate-800 .text-slate-300,
+.light .bg-slate-900 .text-slate-300,
+.light .bg-slate-950 .text-slate-300 {
+  color: hsl(var(--color-text-main)) !important;
+}
+
+/* text-slate-400 → texte secondaire */
+.light .bg-slate-800\/60 .text-slate-400,
+.light .bg-slate-900\/40 .text-slate-400,
+.light .bg-slate-800 .text-slate-400,
+.light .bg-slate-900 .text-slate-400,
+.light .bg-slate-950 .text-slate-400 {
+  color: hsl(var(--color-text-muted)) !important;
+}
+
+/* ── 7. Bordures dans les cartes ─────────────────────────────────────── */
+.light .border-slate-700 {
+  border-color: hsl(var(--color-border)) !important;
+}
+.light .border-slate-700\/50 {
+  border-color: hsl(var(--color-border) / 0.6) !important;
+}
+
+/* ── 8. Footer : texte gradient "NovLearn" (blanc sur blanc → couleur) ─ */
+.light .bg-slate-950 .from-white {
+  --tw-gradient-from: hsl(var(--color-primary)) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.light .bg-slate-950 .to-blue-200 {
+  --tw-gradient-to: #6366f1 var(--tw-gradient-to-position);
+}
+
+/* ── 9. Ombres : atténuation en mode clair ───────────────────────────── */
+.light
+  .shadow-\[0_8px_32px_rgba\(0\,0\,0\,0\.4\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.1\)\] {
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+.light
+  .shadow-\[0_4px_16px_rgba\(0\,0\,0\,0\.3\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.05\)\] {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }

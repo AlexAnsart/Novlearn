@@ -537,28 +537,6 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
             <div className="flex gap-3">
               <button
-                onClick={async () => {
-                  // Compte comme faux et passe à l'exercice suivant
-                  if (onNextClick) {
-                    setIsNextLoading(true);
-                    try {
-                      await onNextClick(true); // true = hasErrors
-                    } catch (e) {
-                      console.error(e);
-                    } finally {
-                      setIsNextLoading(false);
-                      feedbackPendingRef.current = false;
-                    }
-                  } else {
-                    proceedToNext();
-                  }
-                }}
-                disabled={isNextLoading || isFeedbackOpen}
-                className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-              >
-                Passer
-              </button>
-              <button
                 onClick={handleNextExercise}
                 disabled={isNextLoading || isFeedbackOpen}
                 className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"

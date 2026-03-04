@@ -21,7 +21,7 @@ export default async function ClassementPage() {
   }
 
   // Pré-chargement des données du classement (tri par score par défaut)
-  const initialLeaderboard = await getLeaderboardData("score", 50);
+  const initialLeaderboard = await getLeaderboardData("score", 20);
 
   return (
     <Layout>
@@ -33,16 +33,16 @@ export default async function ClassementPage() {
               className="text-3xl text-white mb-2"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
             >
-              Classement du mois
+              Classement de la semaine
             </h1>
             <p className="text-slate-400">
-              Comparez vos performances avec les autres utilisateurs
+              Classement remis à zéro chaque dimanche à 23h59
             </p>
           </div>
 
           {/* Classement avec données pré-chargées */}
           <MonthlyLeaderboard
-            limit={50}
+            limit={20}
             initialData={initialLeaderboard}
             initialSortBy="score"
           />
@@ -54,8 +54,11 @@ export default async function ClassementPage() {
             </h3>
             <ul className="text-slate-400 text-sm space-y-1">
               <li>• Chaque exercice réussi vous rapporte des points</li>
-              <li>• Le classement est réinitialisé au début de chaque mois</li>
-              <li>• Entraînez-vous régulièrement pour rester au sommet !</li>
+              <li>
+                • La série compte le nombre de jours actifs dans la semaine
+              </li>
+              <li>• Le classement est réinitialisé le dimanche à 23h59</li>
+              <li>• Entraînez-vous chaque jour pour rester au sommet !</li>
             </ul>
           </div>
         </div>
