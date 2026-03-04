@@ -17,7 +17,7 @@ import {
   type ExerciseListItem,
 } from "../lib/exerciseUtils";
 import { supabase } from "../lib/supabase";
-import { CHAPTER_ORDER } from "../settings/competenceSettings";
+import { useTaxonomyStore } from "../store/useTaxonomyStore";
 // ON SUPPRIME L'IMPORT DE flashcardsData ICI
 // import { flashCardsData } from "../lib/flashcardsData";
 import MathText from "../components/ui/MathText";
@@ -29,9 +29,9 @@ const CHAPTER_EMOJIS: Record<string, string> = {
   "Dérivation et Fonctions": "📈",
   "Logarithme néperien": "📉",
   "Primitives et équadiff": "∫",
-  "Convexité": "⌒",
-  "Stats": "📊",
-  "Probas": "🎲",
+  Convexité: "⌒",
+  Stats: "📊",
+  Probas: "🎲",
 };
 
 interface Chapter {
@@ -51,16 +51,17 @@ interface FlashCard {
 
 export function TrainingPage() {
   const router = useRouter();
+  const chapters_list = useTaxonomyStore((state) => state.chapters);
 
-  // Construction dynamique de la liste des chapitres basée sur CHAPTER_ORDER
+  // Construction dynamique de la liste des chapitres basée sur le store
   const chapters: Chapter[] = useMemo(() => {
-    return CHAPTER_ORDER.map((name) => ({
+    return chapters_list.map((name) => ({
       id: name, // On utilise le nom comme ID pour simplifier le lien avec la DB
       name: name,
       emoji: CHAPTER_EMOJIS[name] || "📚", // Emoji par défaut si non trouvé
       notSeenYet: true,
     }));
-  }, []);
+  }, [chapters_list]);
 
   const [chapterStates, setChapterStates] = useState<Record<string, boolean>>(
     chapters.reduce((acc, c) => ({ ...acc, [c.id]: c.notSeenYet }), {}),
@@ -259,7 +260,9 @@ export function TrainingPage() {
         router.push(`/exercices?id=${randomExerciseId}`);
       } else {
         // No difficulty: use recommendation (placement test + adaptive exo)
-        router.push(`/exercices?chapter=${encodeURIComponent(selectedChapter)}`);
+        router.push(
+          `/exercices?chapter=${encodeURIComponent(selectedChapter)}`,
+        );
       }
     } catch (err) {
       console.error("Erreur lors de la recherche d'exercice :", err);

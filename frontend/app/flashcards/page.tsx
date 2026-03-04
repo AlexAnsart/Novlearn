@@ -15,7 +15,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
-import { CHAPTER_ORDER } from "../settings/competenceSettings";
+import { useTaxonomyStore } from "../store/useTaxonomyStore";
 
 // Type correspondant à votre table DB
 interface Flashcard {
@@ -32,13 +32,15 @@ export default function FlashcardsManager() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   // État pour le filtre (par défaut "all" pour tout voir)
+  const chapters = useTaxonomyStore((state) => state.chapters);
+
   const [selectedChapter, setSelectedChapter] = useState<string>("all");
 
   // États du formulaire
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    chapter: CHAPTER_ORDER[0] || "Suites numériques",
+    chapter: "Suites numériques",
     question: "",
     answer: "",
   });
@@ -155,7 +157,7 @@ export default function FlashcardsManager() {
 
   const handleCreate = () => {
     setFormData({
-      chapter: CHAPTER_ORDER[0] || "",
+      chapter: chapters[0] || "Suites numériques",
       question: "",
       answer: "",
     });
@@ -166,7 +168,11 @@ export default function FlashcardsManager() {
   const closeForm = () => {
     setIsFormOpen(false);
     setEditingId(null);
-    setFormData({ chapter: CHAPTER_ORDER[0] || "", question: "", answer: "" });
+    setFormData({
+      chapter: chapters[0] || "Suites numériques",
+      question: "",
+      answer: "",
+    });
   };
 
   const isFormValid =
@@ -203,7 +209,7 @@ export default function FlashcardsManager() {
                 >
                   <option value="all">Tous les chapitres</option>
                   <option disabled>──────────</option>
-                  {CHAPTER_ORDER.map((chap) => (
+                  {chapters.map((chap) => (
                     <option key={chap} value={chap}>
                       {chap}
                     </option>
@@ -274,7 +280,7 @@ export default function FlashcardsManager() {
                       }
                       className="w-full p-4 pl-5 rounded-xl border border-slate-700 bg-slate-950 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none appearance-none cursor-pointer font-medium transition-all"
                     >
-                      {CHAPTER_ORDER.map((chap) => (
+                      {chapters.map((chap) => (
                         <option key={chap} value={chap}>
                           {chap}
                         </option>

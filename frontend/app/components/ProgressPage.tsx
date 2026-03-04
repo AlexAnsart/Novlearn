@@ -21,7 +21,7 @@ import {
 } from "recharts";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
-import { CHAPTER_ORDER, COMPETENCES } from "../settings/competenceSettings";
+import { useTaxonomyStore } from "../store/useTaxonomyStore";
 
 function getScoreColor(score: number) {
   if (score >= 90)
@@ -114,6 +114,8 @@ function buildHistory(
 
 export function ProgressPage() {
   const { user, loading: authLoading } = useAuth();
+  const chapters = useTaxonomyStore((state) => state.chapters);
+  const taxonomyCompetences = useTaxonomyStore((state) => state.competences);
   const router = useRouter();
   const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(
     null,
@@ -130,7 +132,7 @@ export function ProgressPage() {
   const fetchProgress = useCallback(async () => {
     if (!user) {
       setData(
-        CHAPTER_ORDER.map((s) => ({
+        chapters.map((s) => ({
           subject: s,
           progress: 0,
           history: [],
@@ -206,7 +208,7 @@ export function ProgressPage() {
       }
 
       const chapterToCompetences = new Map<string, CompetenceScore[]>();
-      for (const c of COMPETENCES) {
+      for (const c of taxonomyCompetences) {
         const points = scoresByCompetence.get(c.id) ?? 0;
         const comp: CompetenceScore = {
           id: c.id,
@@ -219,13 +221,15 @@ export function ProgressPage() {
         chapterToCompetences.get(c.chapter)!.push(comp);
       }
 
-      const chapterNames = [...CHAPTER_ORDER];
+      const chapterNames = [...chapters];
       const built: SubjectData[] = chapterNames.map((subject) => {
         const competences = chapterToCompetences.get(subject) ?? [];
         const chapterAttempts = byChapter.get(subject) ?? [];
         const history = buildHistory(chapterAttempts);
         const totalAnswers = chapterAttempts.length;
-        const correctAnswers = chapterAttempts.filter((a) => a.is_correct).length;
+        const correctAnswers = chapterAttempts.filter(
+          (a) => a.is_correct,
+        ).length;
         // Radar shows success rate (% correct answers), not exercise count
         const successRate =
           totalAnswers > 0
@@ -245,7 +249,7 @@ export function ProgressPage() {
     } catch (e) {
       console.error("[ProgressPage] fetchProgress:", e);
       setData(
-        CHAPTER_ORDER.map((s) => ({
+        chapters.map((s) => ({
           subject: s,
           progress: 0,
           history: [],
@@ -258,7 +262,7 @@ export function ProgressPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, chapters, taxonomyCompetences]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -415,8 +419,25 @@ export function ProgressPage() {
                   </p>
                 </div>
                 <div className="bg-slate-900/40 rounded-xl p-4 text-center">
-                  <p className="text-blue-200 mb-1" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>Exercices</p>
-                  <p className="text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.5rem" }}>{selectedSubject.totalAnswers}</p>
+                  <p
+                    className="text-blue-200 mb-1"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Exercices
+                  </p>
+                  <p
+                    className="text-white"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "1.5rem",
+                    }}
+                  >
+                    {selectedSubject.totalAnswers}
+                  </p>
                 </div>
               </div>
             )}

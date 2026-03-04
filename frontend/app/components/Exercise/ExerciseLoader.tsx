@@ -15,10 +15,7 @@ import React, {
 } from "react";
 import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
 import { supabase } from "../../lib/supabase";
-import {
-  getCompetenceById,
-  normalizeCompetenceId,
-} from "../../settings/competenceSettings";
+import { useTaxonomyStore } from "../../store/useTaxonomyStore";
 import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import { FeedbackModal } from "../ui/FeedbackModal";
@@ -32,7 +29,9 @@ async function updateCompetenceScore(
   isCorrect: boolean,
 ): Promise<void> {
   try {
-    const competenceConfig = getCompetenceById(competenceId);
+    const competenceConfig = useTaxonomyStore
+      .getState()
+      .getCompetenceById(competenceId);
     const maxPoints = competenceConfig?.max_points ?? 10;
 
     const { data: scoreRow, error: selectError } = await supabase
@@ -105,6 +104,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   onNextClick,
 }) => {
   const router = useRouter();
+  const normalizeCompetenceId = useTaxonomyStore(
+    (state) => state.normalizeCompetenceId,
+  );
 
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [variables, setVariables] = useState<VariableValues>({});
@@ -331,6 +333,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
     hasErrors,
     shouldCountPoints,
     competencesFromProps,
+    normalizeCompetenceId,
   ]);
 
   const proceedToNext = useCallback(() => {

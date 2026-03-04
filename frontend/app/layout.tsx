@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
 import { Fredoka } from "next/font/google";
 import { Toaster } from "sonner";
+import { TaxonomyProvider } from "./components/TaxonomyProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import "./globals.css";
 
@@ -71,7 +72,7 @@ export default function RootLayout({
             storageKey="novlearn-theme"
             enableSystem
           >
-            {children}
+            <TaxonomyProvider>{children}</TaxonomyProvider>
             <Toaster position="top-right" theme="dark" richColors closeButton />
           </ThemeProvider>
         </AuthProvider>
