@@ -168,7 +168,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
             <div className="flex items-center gap-2 text-orange-700">
               <AlertCircle className="w-5 h-5" />
               <span className="font-medium">
-                {maxAttempts <= 2 && maxAttempts - currentAttempt <= 1
+                {maxAttempts <= 2 && maxAttempts - attempts <= 1
                   ? "Ce n'est pas tout à fait ça. Il vous reste un essai !"
                   : "Ce n'est pas tout à fait ça. Réessayez !"}
               </span>
