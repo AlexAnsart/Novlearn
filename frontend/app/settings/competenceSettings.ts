@@ -1,41 +1,25 @@
 /**
- * Competences and chapter order: loaded from shared/competences.json (single source of truth).
- * Both backend and frontend use this file.
+ * @deprecated Utiliser useTaxonomyStore depuis "../store/useTaxonomyStore".
+ * Ce fichier est un shim de compatibilité : les fonctions synchrones
+ * lisent directement l'état Zustand (disponible après le chargement initial).
  */
+export type { CompetenceConfig } from "../services/taxonomyService";
+export { useTaxonomyStore } from "../store/useTaxonomyStore";
 
-import competencesData from "../../../shared/competences.json";
+import type { CompetenceConfig } from "../services/taxonomyService";
+import { useTaxonomyStore } from "../store/useTaxonomyStore";
 
-export interface CompetenceConfig {
-  id: string;
-  name: string;
-  chapter: string;
-  max_points: number;
-}
-
-export const CHAPTER_ORDER: string[] = competencesData.chapterOrder;
-export const COMPETENCES: CompetenceConfig[] = competencesData.competences;
-
-const byId = new Map<string, CompetenceConfig>(
-  COMPETENCES.map((c) => [c.id, c]),
-);
-
-const byName = new Map<string, CompetenceConfig>(
-  COMPETENCES.map((c) => [c.name, c]),
-);
-
+/** Accès synchrone à l'état du store (fonctionne en dehors des composants React) */
 export function getCompetenceById(id: string): CompetenceConfig | undefined {
-  return byId.get(id);
+  return useTaxonomyStore.getState().getCompetenceById(id);
 }
 
-export function getCompetenceByName(name: string): CompetenceConfig | undefined {
-  return byName.get(name);
+export function getCompetenceByName(
+  name: string,
+): CompetenceConfig | undefined {
+  return useTaxonomyStore.getState().getCompetenceByName(name);
 }
 
-/**
- * Convert competence identifier (ID or name) to ID.
- */
 export function normalizeCompetenceId(identifier: string): string | null {
-  if (byId.has(identifier)) return identifier;
-  const competence = byName.get(identifier);
-  return competence ? competence.id : null;
+  return useTaxonomyStore.getState().normalizeCompetenceId(identifier);
 }

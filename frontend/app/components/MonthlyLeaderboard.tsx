@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarClock,
   ChevronRight,
   Crown,
   Flame,
@@ -48,8 +49,45 @@ export function MonthlyLeaderboard({
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
   const [activeTab, setActiveTab] = useState<LeaderboardTab>(initialSortBy);
 
+  const [timeUntilReset, setTimeUntilReset] = useState("");
+
   const { user } = useAuth();
   const router = useRouter();
+
+  // Compteur de temps avant réinitialisation (dimanche 23:59 UTC)
+  useEffect(() => {
+    const computeTimeLeft = () => {
+      const now = new Date();
+      const dayOfWeek = now.getUTCDay(); // 0=Dim
+      const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+      const nextSunday = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() + daysUntilSunday,
+          23,
+          59,
+          59,
+        ),
+      );
+      const diff = nextSunday.getTime() - now.getTime();
+      if (diff <= 0) {
+        setTimeUntilReset("Réinit. en cours...");
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      if (h >= 24) {
+        const d = Math.floor(h / 24);
+        setTimeUntilReset(`Réinit. dans ${d}j ${h % 24}h`);
+      } else {
+        setTimeUntilReset(`Réinit. dans ${h}h ${m}min`);
+      }
+    };
+    computeTimeLeft();
+    const interval = setInterval(computeTimeLeft, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialise le rang utilisateur si données pré-chargées
   useEffect(() => {
@@ -74,14 +112,21 @@ export function MonthlyLeaderboard({
 
       const now = new Date();
       // Force UTC pour éviter le bug de timezone
-      const firstDayOfMonth = new Date(
-        Date.UTC(now.getFullYear(), now.getMonth(), 1),
+      // Semaine commence le lundi (ISO 8601)
+      const dayOfWeek = now.getUTCDay(); // 0=Dim, 1=Lun, ...
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const firstDayOfWeek = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() - daysFromMonday,
+        ),
       ).toISOString();
 
-      const { data, error } = await supabase.rpc("get_monthly_leaderboard", {
-        month_start: firstDayOfMonth,
+      const { data, error } = await supabase.rpc("get_weekly_leaderboard", {
+        week_start: firstDayOfWeek,
         result_limit: limit,
-        sort_by: activeTab, // On envoie le tri choisi à la base de données
+        sort_by: activeTab,
       });
 
       if (error) throw error;
@@ -141,8 +186,17 @@ export function MonthlyLeaderboard({
     return entry.first_name || "Utilisateur";
   };
 
-  const getCurrentMonthName = () => {
-    return new Date().toLocaleDateString("fr-FR", { month: "long" });
+  const getCurrentWeekRange = () => {
+    const now = new Date();
+    const dayOfWeek = now.getUTCDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(now);
+    monday.setUTCDate(now.getUTCDate() - daysFromMonday);
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    return `Semaine du ${fmt(monday)} au ${fmt(sunday)}`;
   };
 
   // --- RENDU DES ONGLETS (Tabs) ---
@@ -188,15 +242,22 @@ export function MonthlyLeaderboard({
     return (
       <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50 flex flex-col h-full">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold text-sm capitalize flex items-center gap-2">
-            {activeTab === "score" ? (
-              <Trophy className="w-4 h-4 text-yellow-400" />
-            ) : (
-              <Flame className="w-4 h-4 text-orange-500" />
+          <div>
+            <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+              {activeTab === "score" ? (
+                <Trophy className="w-4 h-4 text-yellow-400" />
+              ) : (
+                <Flame className="w-4 h-4 text-orange-500" />
+              )}
+              Top {activeTab === "score" ? "Points" : "Série"} de la semaine
+            </h3>
+            {timeUntilReset && (
+              <p className="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
+                <CalendarClock className="w-3 h-3" />
+                {timeUntilReset}
+              </p>
             )}
-            Top {activeTab === "score" ? "Points" : "Série"}{" "}
-            {getCurrentMonthName()}
-          </h3>
+          </div>
           <button
             onClick={() => router.push("/classement")}
             className="text-indigo-400 hover:text-indigo-300 text-xs flex items-center gap-1 transition-colors"
@@ -263,11 +324,16 @@ export function MonthlyLeaderboard({
           </div>
           <div>
             <h2 className="text-white font-bold text-xl">
-              Classement {activeTab === "score" ? "Général" : "Séries"}
+              Classement {activeTab === "score" ? "Points" : "Séries"} de la
+              semaine
             </h2>
-            <p className="text-slate-400 text-sm capitalize">
-              {getCurrentMonthName()} {new Date().getFullYear()}
-            </p>
+            <p className="text-slate-400 text-sm">{getCurrentWeekRange()}</p>
+            {timeUntilReset && (
+              <p className="text-slate-500 text-xs flex items-center gap-1 mt-1">
+                <CalendarClock className="w-3 h-3" />
+                {timeUntilReset} (dim. 23h59)
+              </p>
+            )}
           </div>
         </div>
 
@@ -334,7 +400,7 @@ export function MonthlyLeaderboard({
           )}
           <p className="text-slate-400">
             Aucun classement {activeTab === "streak" ? "de série" : ""}{" "}
-            disponible ce mois-ci
+            disponible cette semaine
           </p>
           <p className="text-slate-500 text-sm mt-1">
             Soyez le premier à apparaître ici !

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { ThemeProvider } from "next-themes";
 import { Fredoka } from "next/font/google";
 import { Toaster } from "sonner";
+import { TaxonomyProvider } from "./components/TaxonomyProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import "./globals.css";
 
@@ -42,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className={fredoka.variable}>
+    <html lang="fr" className={fredoka.variable} suppressHydrationWarning>
       <head>
         {/* KaTeX pour le rendu mathématique (formules dans les questions) */}
         <link
@@ -59,13 +61,20 @@ export default function RootLayout({
         />
       </head>
 
-      {/* On applique le fond sombre par défaut pour éviter le flash blanc */}
-      <body className="bg-slate-900 text-slate-50 antialiased font-sans selection:bg-indigo-500/30">
+      <body className="bg-app-bg text-content-main antialiased font-sans selection:bg-indigo-500/30">
         <AuthProvider>
-          {/* Contenu de l'application */}
-          {children}
-
-          <Toaster position="top-right" theme="dark" richColors closeButton />
+          {/* attribute="class" → applique .light/.dark sur <html>
+              defaultTheme="dark" → thème par défaut
+              storageKey → clé localStorage identique à l'ancienne */}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            storageKey="novlearn-theme"
+            enableSystem
+          >
+            <TaxonomyProvider>{children}</TaxonomyProvider>
+            <Toaster position="top-right" theme="dark" richColors closeButton />
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

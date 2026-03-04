@@ -92,7 +92,7 @@ export const InteractiveTutorial = () => {
     {
       target: ".tour-leaderboard",
       content:
-        "Le Classement te montre la compétition mensuelle ! Accumule des points en t'entraînant et en gagnant des duels pour grimper dans le classement et devenir le meilleur du mois. 🏆",
+        "Le Classement te montre la compétition de la semaine ! Accumule des points en t'entraînant et en gagnant des duels pour grimper dans le classement et devenir le meilleur de la semaine. 🏆",
       placement: isMobile ? "top" : "right",
     },
     {

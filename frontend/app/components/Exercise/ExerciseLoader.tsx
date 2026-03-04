@@ -15,10 +15,7 @@ import React, {
 } from "react";
 import { computeNewScore, difficultyToLevel } from "../../lib/competenceScore";
 import { supabase } from "../../lib/supabase";
-import {
-  getCompetenceById,
-  normalizeCompetenceId,
-} from "../../settings/competenceSettings";
+import { useTaxonomyStore } from "../../store/useTaxonomyStore";
 import { Exercise, VariableValues } from "../../types/exercise";
 import { generateVariables } from "../../utils/variableGenerator";
 import { FeedbackModal } from "../ui/FeedbackModal";
@@ -32,7 +29,9 @@ async function updateCompetenceScore(
   isCorrect: boolean,
 ): Promise<void> {
   try {
-    const competenceConfig = getCompetenceById(competenceId);
+    const competenceConfig = useTaxonomyStore
+      .getState()
+      .getCompetenceById(competenceId);
     const maxPoints = competenceConfig?.max_points ?? 10;
 
     const { data: scoreRow, error: selectError } = await supabase
@@ -105,6 +104,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   onNextClick,
 }) => {
   const router = useRouter();
+  const normalizeCompetenceId = useTaxonomyStore(
+    (state) => state.normalizeCompetenceId,
+  );
 
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [variables, setVariables] = useState<VariableValues>({});
@@ -331,6 +333,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
     hasErrors,
     shouldCountPoints,
     competencesFromProps,
+    normalizeCompetenceId,
   ]);
 
   const proceedToNext = useCallback(() => {
@@ -389,7 +392,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 min-h-[300px]">
+      <div className="flex flex-col items-center justify-center p-6 sm:p-12 min-h-[300px]">
         <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-gray-600 font-medium">Chargement de l'exercice...</p>
       </div>
@@ -398,7 +401,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
   if (error) {
     return (
-      <div className="p-8 flex flex-col items-center justify-center text-center bg-red-50 border border-red-100 rounded-xl min-h-[300px]">
+      <div className="p-5 sm:p-8 flex flex-col items-center justify-center text-center bg-red-50 border border-red-100 rounded-xl min-h-[300px]">
         <h3 className="text-red-800 font-bold mb-2">Oups !</h3>
         <p className="text-red-600 mb-4">{error}</p>
         <button
@@ -414,7 +417,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   if (!exercise) return null;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+    <div className="space-y-3 sm:space-y-6 animate-in fade-in duration-500 pb-6 sm:pb-12">
       <FeedbackModal
         isOpen={isFeedbackOpen}
         onClose={handleModalClose}
@@ -425,10 +428,10 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
 
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+      <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-100">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h2 className="text-2xl font-bold text-slate-800">
+            <h2 className="text-base sm:text-2xl font-bold text-slate-800">
               {exercise.app_title || exercise.title}
             </h2>
             {mode && (
@@ -453,7 +456,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Bouton Passer visible tant que l'exercice n'est pas fini */}
           {!isExerciseFinished && (
             <button
@@ -474,7 +477,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
                 }
               }}
               disabled={isNextLoading || isFeedbackOpen}
-              className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-xl font-bold shadow hover:shadow-lg transition-all disabled:opacity-70 text-sm"
+              className="group flex items-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-lg font-bold shadow hover:shadow-lg transition-all disabled:opacity-70 text-xs sm:text-sm"
               style={{ minHeight: 0 }}
             >
               Passer
@@ -482,10 +485,10 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           )}
           <button
             onClick={() => setIsHelpOpen(true)}
-            className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
             title="Aide - Comment répondre ?"
           >
-            <HelpCircle className="w-5 h-5" />
+            <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           <button
@@ -493,29 +496,29 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
               setIsFeedbackDifficultyOnly(false);
               setIsFeedbackOpen(true);
             }}
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
             title="Signaler un problème"
           >
-            <Flag className="w-5 h-5" />
+            <Flag className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           {isExerciseFinished && (
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border animate-in zoom-in ${hasErrors ? "text-orange-600 bg-orange-50 border-orange-100" : "text-green-600 bg-green-50 border-green-100"}`}
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border animate-in zoom-in ${hasErrors ? "text-orange-600 bg-orange-50 border-orange-100" : "text-green-600 bg-green-50 border-green-100"}`}
             >
               {hasErrors ? (
-                <Flag className="w-5 h-5" />
+                <Flag className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
               ) : (
-                <CheckCircle2 className="w-5 h-5" />
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
               )}
-              <span className="font-bold text-sm">
-                {hasErrors ? "Exercice terminé" : "Exercice validé !"}
+              <span className="font-bold text-xs sm:text-sm">
+                {hasErrors ? "Terminé" : "Validé !"}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-100 relative">
+      <div className="bg-white rounded-xl shadow-lg p-3 sm:p-6 border border-slate-100 relative">
         <ExerciseRenderer
           exercise={exercise}
           preGeneratedVariables={variables}
@@ -523,13 +526,13 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         />
 
         {isExerciseFinished && (
-          <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-6 border-slate-100">
+          <div className="mt-4 sm:mt-8 flex flex-col sm:flex-row justify-between items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-4 sm:pt-6 border-slate-100">
             <button
               onClick={() => {
                 setIsFeedbackDifficultyOnly(false);
                 setIsFeedbackOpen(true);
               }}
-              className="text-slate-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+              className="text-slate-500 hover:text-indigo-600 text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors"
             >
               <MessageSquare className="w-4 h-4" /> Donner mon avis sur cet
               exercice
@@ -537,31 +540,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
             <div className="flex gap-3">
               <button
-                onClick={async () => {
-                  // Compte comme faux et passe à l'exercice suivant
-                  if (onNextClick) {
-                    setIsNextLoading(true);
-                    try {
-                      await onNextClick(true); // true = hasErrors
-                    } catch (e) {
-                      console.error(e);
-                    } finally {
-                      setIsNextLoading(false);
-                      feedbackPendingRef.current = false;
-                    }
-                  } else {
-                    proceedToNext();
-                  }
-                }}
-                disabled={isNextLoading || isFeedbackOpen}
-                className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-              >
-                Passer
-              </button>
-              <button
                 onClick={handleNextExercise}
                 disabled={isNextLoading || isFeedbackOpen}
-                className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+                className="group flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-70 text-sm sm:text-base"
               >
                 {isNextLoading ? (
                   <>

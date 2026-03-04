@@ -2,38 +2,53 @@
  * Génération des variables pour les exercices
  */
 
-import { Variable, VariableValues } from '../types/exercise';
-import { evaluate } from './math/evaluation';
+import { Variable, VariableValues } from "../types/exercise";
+import { evaluate } from "./math/evaluation";
 
 /**
  * Évalue une exclusion (peut être un nombre ou une expression avec variables)
  */
 function evaluateExclusion(
   exclusion: string | number,
-  currentValues: VariableValues
+  currentValues: VariableValues,
 ): number | null {
-  if (typeof exclusion === 'number') {
+  if (typeof exclusion === "number") {
     return exclusion;
   }
-  
+
   // Si c'est une chaîne, essayer de l'évaluer comme expression
   try {
     const numericValues: Record<string, number> = {};
     for (const [name, value] of Object.entries(currentValues)) {
-      const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+      const numValue =
+        typeof value === "number" ? value : parseFloat(String(value));
       if (!isNaN(numValue)) {
         numericValues[name] = numValue;
       }
     }
-    
-    const result = evaluate(exclusion, numericValues);
+
+    // Résoudre la syntaxe @variable (ex: "@a", "@a + 1")
+    const sortedKeys = Object.keys(numericValues).sort(
+      (a, b) => b.length - a.length,
+    );
+    let resolvedExclusion = exclusion;
+    for (const key of sortedKeys) {
+      resolvedExclusion = resolvedExclusion.replace(
+        new RegExp(`@${key}(?![a-zA-Z0-9])`, "g"),
+        String(numericValues[key]),
+      );
+    }
+    // Si des @variable n'ont pas pu être résolues, abandonner
+    if (resolvedExclusion.includes("@")) return null;
+
+    const result = evaluate(resolvedExclusion, numericValues);
     if (!isNaN(result) && isFinite(result)) {
       return result;
     }
   } catch {
     // Si l'évaluation échoue (variable pas encore définie), retourner null
   }
-  
+
   return null;
 }
 
@@ -43,17 +58,17 @@ function evaluateExclusion(
 function isValueExcluded(
   value: number,
   exclusions: (string | number)[] | undefined,
-  currentValues: VariableValues
+  currentValues: VariableValues,
 ): boolean {
   if (!exclusions || exclusions.length === 0) return false;
-  
+
   for (const exclusion of exclusions) {
     const excludedValue = evaluateExclusion(exclusion, currentValues);
     if (excludedValue !== null && Math.abs(value - excludedValue) < 0.0001) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -65,7 +80,7 @@ function generateIntegerWithExclusions(
   max: number,
   exclusions: (string | number)[] | undefined,
   currentValues: VariableValues,
-  maxAttempts: number = 100
+  maxAttempts: number = 100,
 ): number {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const value = randomInteger(min, max);
@@ -74,7 +89,9 @@ function generateIntegerWithExclusions(
     }
   }
   // Fallback: retourner une valeur même si elle est exclue (éviter boucle infinie)
-  console.warn(`Could not find non-excluded value after ${maxAttempts} attempts`);
+  console.warn(
+    `Could not find non-excluded value after ${maxAttempts} attempts`,
+  );
   return randomInteger(min, max);
 }
 
@@ -87,7 +104,7 @@ function generateDecimalWithExclusions(
   decimals: number,
   exclusions: (string | number)[] | undefined,
   currentValues: VariableValues,
-  maxAttempts: number = 100
+  maxAttempts: number = 100,
 ): number {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const value = randomDecimal(min, max, decimals);
@@ -95,7 +112,9 @@ function generateDecimalWithExclusions(
       return value;
     }
   }
-  console.warn(`Could not find non-excluded decimal after ${maxAttempts} attempts`);
+  console.warn(
+    `Could not find non-excluded decimal after ${maxAttempts} attempts`,
+  );
   return randomDecimal(min, max, decimals);
 }
 
@@ -108,23 +127,23 @@ export function generateVariables(variables: Variable[]): VariableValues {
 
   // First pass: generate random values for non-computed variables
   for (const variable of variables) {
-    if (variable.type === 'computed') {
+    if (variable.type === "computed") {
       continue; // Skip computed variables for now
     }
 
     switch (variable.type) {
-      case 'integer':
+      case "integer":
         if (variable.min !== undefined && variable.max !== undefined) {
           values[variable.name] = generateIntegerWithExclusions(
             variable.min,
             variable.max,
             variable.exclusions,
-            values
+            values,
           );
         }
         break;
 
-      case 'decimal':
+      case "decimal":
         if (
           variable.min !== undefined &&
           variable.max !== undefined &&
@@ -135,22 +154,22 @@ export function generateVariables(variables: Variable[]): VariableValues {
             variable.max,
             variable.decimals,
             variable.exclusions,
-            values
+            values,
           );
         }
         break;
 
-      case 'choice':
+      case "choice":
         if (variable.choices && variable.choices.length > 0) {
           // Pour choice, filtrer les choix exclus
-          const availableChoices = variable.choices.filter(choice => {
+          const availableChoices = variable.choices.filter((choice) => {
             const numValue = parseFloat(choice);
             if (!isNaN(numValue)) {
               return !isValueExcluded(numValue, variable.exclusions, values);
             }
             return true; // Garder les choix non-numériques
           });
-          
+
           if (availableChoices.length > 0) {
             values[variable.name] = randomChoice(availableChoices);
           } else {
@@ -165,25 +184,33 @@ export function generateVariables(variables: Variable[]): VariableValues {
   // We may need multiple passes if computed variables depend on each other
   let computedCount = 0;
   const maxIterations = 10; // Safety limit
-  
-  while (computedCount < variables.filter(v => v.type === 'computed').length && computedCount < maxIterations) {
+
+  while (
+    computedCount < variables.filter((v) => v.type === "computed").length &&
+    computedCount < maxIterations
+  ) {
     let foundNew = false;
-    
+
     for (const variable of variables) {
-      if (variable.type === 'computed' && variable.expression && !(variable.name in values)) {
+      if (
+        variable.type === "computed" &&
+        variable.expression &&
+        !(variable.name in values)
+      ) {
         try {
           // Convert current values to numeric for evaluation
           const numericValues: Record<string, number> = {};
           for (const [name, value] of Object.entries(values)) {
-            const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+            const numValue =
+              typeof value === "number" ? value : parseFloat(String(value));
             if (!isNaN(numValue)) {
               numericValues[name] = numValue;
             }
           }
-          
+
           // Evaluate the expression
           const result = evaluate(variable.expression, numericValues);
-          
+
           if (!isNaN(result) && isFinite(result)) {
             values[variable.name] = result;
             foundNew = true;
@@ -194,7 +221,7 @@ export function generateVariables(variables: Variable[]): VariableValues {
         }
       }
     }
-    
+
     if (!foundNew) {
       // No new computed variables could be calculated, break to avoid infinite loop
       break;
@@ -217,7 +244,7 @@ export function randomInteger(min: number, max: number): number {
 export function randomDecimal(
   min: number,
   max: number,
-  decimals: number
+  decimals: number,
 ): number {
   const value = Math.random() * (max - min) + min;
   return parseFloat(value.toFixed(decimals));
@@ -233,11 +260,13 @@ export function randomChoice<T>(choices: T[]): T {
 /**
  * Convertit les variables en valeurs numériques uniquement
  */
-export function toNumericVariables(variables: VariableValues): Record<string, number> {
+export function toNumericVariables(
+  variables: VariableValues,
+): Record<string, number> {
   const numeric: Record<string, number> = {};
-  
+
   for (const [key, value] of Object.entries(variables)) {
-    if (typeof value === 'number') {
+    if (typeof value === "number") {
       numeric[key] = value;
     } else {
       const parsed = parseFloat(value);
@@ -246,7 +275,7 @@ export function toNumericVariables(variables: VariableValues): Record<string, nu
       }
     }
   }
-  
+
   return numeric;
 }
 
@@ -256,11 +285,11 @@ export function toNumericVariables(variables: VariableValues): Record<string, nu
 export function getNumericValue(
   variables: VariableValues,
   name: string,
-  fallback: number = 0
+  fallback: number = 0,
 ): number {
   const val = variables[name];
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
+  if (typeof val === "number") return val;
+  if (typeof val === "string") {
     const parsed = parseFloat(val);
     return isNaN(parsed) ? fallback : parsed;
   }

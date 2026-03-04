@@ -83,7 +83,7 @@ export interface LeaderboardEntry {
 }
 
 /**
- * Récupère les données du classement mensuel côté serveur.
+ * Récupère les données du classement hebdomadaire côté serveur.
  * Permet un rendu initial plus rapide (SSR).
  */
 export async function getLeaderboardData(
@@ -93,12 +93,19 @@ export async function getLeaderboardData(
   const supabase = await createSupabaseServerClient();
 
   const now = new Date();
-  const firstDayOfMonth = new Date(
-    Date.UTC(now.getFullYear(), now.getMonth(), 1),
+  // Début de la semaine en cours (lundi 00:00 UTC, ISO 8601)
+  const dayOfWeek = now.getUTCDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const firstDayOfWeek = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysFromMonday,
+    ),
   ).toISOString();
 
-  const { data, error } = await supabase.rpc("get_monthly_leaderboard", {
-    month_start: firstDayOfMonth,
+  const { data, error } = await supabase.rpc("get_weekly_leaderboard", {
+    week_start: firstDayOfWeek,
     result_limit: limit,
     sort_by: sortBy,
   });
