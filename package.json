@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "db:push": "supabase db push",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop"
+  },
   "dependencies": {
     "@cortex-js/compute-engine": "^0.30.2",
     "@supabase/ssr": "^0.8.0",
