@@ -59,7 +59,9 @@ export const MathInput: React.FC<MathInputProps> = ({
 
     const handleFocus = () => {
       const keyboard = (window as any).mathVirtualKeyboard;
-      if (keyboard) {
+      // N'afficher le clavier que s'il n'est pas déjà visible
+      // pour éviter un reset interne qui "avale" le prochain keystroke physique
+      if (keyboard && !keyboard.visible) {
         keyboard.show({ animate: true });
       }
     };
@@ -99,7 +101,11 @@ export const MathInput: React.FC<MathInputProps> = ({
       ) {
         isKeyboardVisibleRef.current = true;
         e.preventDefault();
-        requestAnimationFrame(() => mf?.focus());
+        // Ne refocus que si le champ n'est pas déjà actif pour éviter
+        // le cycle focus → keyboard.show() qui "avale" le prochain keystroke physique
+        if (document.activeElement !== mf) {
+          requestAnimationFrame(() => mf?.focus());
+        }
       }
     };
 
@@ -257,7 +263,7 @@ export const MathInput: React.FC<MathInputProps> = ({
           border-color: transparent;
         }
 
-        /* 2. Couleurs DU CLAVIER VIRTUIEL (Forcé sur la racine du document) */
+        /* 2. Couleurs DU CLAVIER VIRTUEL (Forcé sur la racine du document) */
         :root {
           --keyboard-background: #f1f5f9;
           --keycap-background: #ffffff;
