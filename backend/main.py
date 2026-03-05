@@ -5,9 +5,9 @@ Backend principal de l'application avec système de duels et amis
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import random
 
@@ -24,6 +24,20 @@ from chapter_selection import select_chapter_for_recommendation
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+# Reduce noise from HTTP clients and auth (Supabase/httpx, token verification)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("auth").setLevel(logging.WARNING)
+
+# ============================================
+# CONSTANTS
+# ============================================
+
+from settings.duel_settings import (
+    DUEL_CORRECTION_DISPLAY_SECONDS,
+    DUEL_DURATION_SECONDS,
+    DUEL_EXERCISE_TIMEOUT_SECONDS,
+)
 
 # Création de l'application FastAPI
 app = FastAPI(
@@ -68,7 +82,23 @@ class SubmitDuelAnswerRequest(BaseModel):
     element_id: int
     answer: str
     is_correct: bool
-    time_spent: int  # millisecondes
+    time_spent: int  # milliseconds; clamped to avoid DB INT overflow and timestamp-as-delta bugs
+
+    @field_validator("time_spent", mode="before")
+    @classmethod
+    def clamp_time_spent(cls, v: object) -> int:
+        """Ensure time_spent fits in PostgreSQL INT and is not a mistaken timestamp."""
+        if v is None:
+            return 0
+        try:
+            x = int(v)
+        except (TypeError, ValueError):
+            return 0
+        if x < 0:
+            return 0
+        if x > 600_000:  # > 10 min => likely bug (e.g. Date.now() sent as delta)
+            return 0
+        return min(x, 2_147_483_647)
 
 
 # ============================================
@@ -356,30 +386,35 @@ async def get_friends(user: dict = Depends(verify_token)):
     try:
         supabase = get_supabase_client()
         user_id = user["user_id"]
-        
+        logger.info("[API /api/friends] user_id=%s", user_id[:8] if user_id else None)
+
         # Get friendships where user is either user1 or user2
         friends_data = []
         friend_ids = []
-        
+
         # Query as user1 - get user2_ids
         result1 = supabase.table("friends")\
             .select("user2_id")\
             .eq("user1_id", user_id)\
             .eq("status", "accepted")\
             .execute()
-        
+        logger.info("[API /api/friends] as user1: rows=%s", len(result1.data or []))
+
         for friend in result1.data or []:
             friend_ids.append(friend["user2_id"])
-        
+
         # Query as user2 - get user1_ids
         result2 = supabase.table("friends")\
             .select("user1_id")\
             .eq("user2_id", user_id)\
             .eq("status", "accepted")\
             .execute()
-        
+        logger.info("[API /api/friends] as user2: rows=%s", len(result2.data or []))
+
         for friend in result2.data or []:
             friend_ids.append(friend["user1_id"])
+
+        logger.info("[API /api/friends] friend_ids count=%s ids=%s", len(friend_ids), friend_ids[:5] if friend_ids else [])
         
         # Get profiles for all friend IDs
         if friend_ids:
@@ -406,11 +441,31 @@ async def get_friends(user: dict = Depends(verify_token)):
                     "last_name": last_name,
                     "name": name
                 })
-        
+
+        logger.info("[API /api/friends] response friends count=%s", len(friends_data))
         return {"friends": friends_data}
-    
+
     except Exception as e:
         logger.error(f"Error getting friends: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/friends/{friend_id}")
+async def remove_friend(friend_id: str, user: dict = Depends(verify_token)):
+    """Remove a friend (delete the friendship)."""
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        if friend_id == user_id:
+            raise HTTPException(status_code=400, detail="Cannot remove yourself")
+        user1 = min(user_id, friend_id)
+        user2 = max(user_id, friend_id)
+        supabase.table("friends").delete().eq("user1_id", user1).eq("user2_id", user2).execute()
+        return {"message": "Friend removed"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing friend: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -544,21 +599,10 @@ async def create_duel(request: CreateDuelRequest, user: dict = Depends(verify_to
         if not friendship.data:
             raise HTTPException(status_code=400, detail="Vous devez être amis pour lancer un duel")
         
-        # Get default exercise if none specified
-        exercise_id = request.exercise_id
-        if not exercise_id:
-            # Get first available exercise
-            exercises = supabase.table("exercises").select("id").limit(1).execute()
-            if exercises.data:
-                exercise_id = exercises.data[0]["id"]
-            else:
-                raise HTTPException(status_code=404, detail="Aucun exercice disponible")
-        
-        # Create duel
+        # Create duel (exercise will be chosen randomly when the duel is accepted)
         duel_data = {
             "player1_id": user_id,
             "player2_id": request.friend_id,
-            "exercise_id": exercise_id,
             "status": "waiting",
             "player1_score": 0,
             "player2_score": 0
@@ -597,31 +641,29 @@ async def accept_duel(duel_id: int, user: dict = Depends(verify_token)):
         if duel_data["player2_id"] != user_id:
             raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accepter ce duel")
         
-        # Update duel status
+        # Pick a completely random exercise to start the duel
+        exercise_row, exercise_data = get_random_exercise_with_variables(supabase)
+        if not exercise_row:
+            raise HTTPException(status_code=404, detail="Aucun exercice disponible")
+
+        now_utc = datetime.utcnow().replace(tzinfo=timezone.utc)
+        exercise_data_with_time = {**exercise_data, "started_at": now_utc.isoformat()}
+        # Update duel status and attach first random exercise
         update_data = {
             "status": "active",
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": now_utc.isoformat(),
+            "exercise_id": exercise_row["id"],
+            "exercise_data": exercise_data_with_time,
         }
-        
-        # Generate exercise variables if needed
-        exercise = supabase.table("exercises").select("content").eq("id", duel_data["exercise_id"]).execute()
-        if exercise.data:
-            exercise_content = exercise.data[0]["content"]
-            variables = exercise_content.get("variables", [])
-            
-            # Generate random values for variables
-            variable_values = {}
-            for var in variables:
-                if var["type"] == "integer":
-                    variable_values[var["name"]] = random.randint(var["min"], var["max"])
-                elif var["type"] == "decimal":
-                    variable_values[var["name"]] = round(random.uniform(var["min"], var["max"]), var.get("decimals", 2))
-            
-            update_data["exercise_data"] = {"variables": variable_values}
         
         result = supabase.table("duels").update(update_data).eq("id", duel_id).execute()
         
-        return {"message": "Duel accepté", "duel": result.data[0]}
+        duel_updated = result.data[0]
+        logger.info(
+            "[API] duel accepted duel_id=%s player2=%s -> redirect to /duel/active/%s",
+            duel_id, user_id[:8], duel_id,
+        )
+        return {"message": "Duel accepté", "duel": duel_updated}
     
     except HTTPException:
         raise
@@ -740,18 +782,118 @@ async def get_active_duels(user: dict = Depends(verify_token)):
         supabase = get_supabase_client()
         user_id = user["user_id"]
         
-        # Get active duels where user is either player
+        # Get duels where user is either player
         result = supabase.table("duels")\
             .select("*")\
-            .eq("status", "active")\
             .or_(f"player1_id.eq.{user_id},player2_id.eq.{user_id}")\
             .execute()
-        
-        return {"duels": result.data or []}
+
+        duels = result.data or []
+
+        # Ensure finished duels are finalized server-side (timer)
+        finalized_duels = []
+        for duel in duels:
+            finalized_duels.append(finalize_duel_if_needed(supabase, duel))
+
+        # Return only active duels to keep previous behaviour for client
+        active_duels = [d for d in finalized_duels if d.get("status") == "active"]
+        return {"duels": active_duels}
     
     except Exception as e:
         logger.error(f"Error getting active duels: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/duels/history")
+async def get_duel_history(user: dict = Depends(verify_token)):
+    """Get finished duels history for current user. Must be declared before /api/duels/{duel_id} to avoid matching 'history' as duel_id."""
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+
+        result = (
+            supabase.table("duels")
+            .select("*")
+            .eq("status", "finished")
+            .or_(f"player1_id.eq.{user_id},player2_id.eq.{user_id}")
+            .order("finished_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+
+        duels = result.data or []
+
+        opponent_ids: List[str] = []
+        for d in duels:
+            if d.get("player1_id") == user_id and d.get("player2_id"):
+                opponent_ids.append(d["player2_id"])
+            elif d.get("player2_id") == user_id and d.get("player1_id"):
+                opponent_ids.append(d["player1_id"])
+
+        profiles_map = {}
+        if opponent_ids:
+            profiles_result = (
+                supabase.table("profiles")
+                .select("id, first_name, last_name, email")
+                .in_("id", opponent_ids)
+                .execute()
+            )
+            profiles_map = {p["id"]: p for p in (profiles_result.data or [])}
+
+        history_items = []
+        for d in duels:
+            if d.get("player1_id") == user_id:
+                opponent_id = d.get("player2_id")
+                my_score = d.get("player1_score") or 0
+                opponent_score = d.get("player2_score") or 0
+            else:
+                opponent_id = d.get("player1_id")
+                my_score = d.get("player2_score") or 0
+                opponent_score = d.get("player1_score") or 0
+
+            opponent_profile = profiles_map.get(opponent_id or "", {})
+            email = opponent_profile.get("email", "") if opponent_profile else ""
+            first_name = opponent_profile.get("first_name", "") if opponent_profile else ""
+            last_name = opponent_profile.get("last_name", "") if opponent_profile else ""
+            opponent_name = (
+                f"{first_name} {last_name}".strip()
+                or (email.split("@")[0] if email else "Adversaire")
+            )
+
+            result_label = "draw"
+            if d.get("winner_id") == user_id:
+                result_label = "win"
+            elif d.get("winner_id") and d.get("winner_id") != user_id:
+                result_label = "loss"
+
+            history_items.append(
+                {
+                    "id": d.get("id"),
+                    "opponent_id": opponent_id,
+                    "opponent_name": opponent_name,
+                    "my_score": my_score,
+                    "opponent_score": opponent_score,
+                    "result": result_label,
+                    "created_at": d.get("created_at"),
+                    "finished_at": d.get("finished_at"),
+                }
+            )
+
+        return {"history": history_items}
+
+    except Exception as e:
+        logger.error(f"Error getting duel history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/duels/config")
+async def get_duel_config():
+    """Public duel config: duration and exercise timeout. Single source of truth (edit backend/settings/duel_settings.py)."""
+    return {
+        "duelDurationSeconds": DUEL_DURATION_SECONDS,
+        "exerciseTimeoutSeconds": DUEL_EXERCISE_TIMEOUT_SECONDS,
+        "correctionDisplaySeconds": DUEL_CORRECTION_DISPLAY_SECONDS,
+    }
 
 
 @app.get("/api/duels/{duel_id}")
@@ -760,20 +902,39 @@ async def get_duel(duel_id: int, user: dict = Depends(verify_token)):
     try:
         supabase = get_supabase_client()
         user_id = user["user_id"]
-        
+
         result = supabase.table("duels")\
             .select("*")\
             .eq("id", duel_id)\
             .execute()
         
         if not result.data:
+            logger.info("[API] get_duel duel_id=%s user=%s -> 404 not found", duel_id, user_id[:8])
             raise HTTPException(status_code=404, detail="Duel introuvable")
         
         duel = result.data[0]
-        
-        # Check if user is part of the duel
-        if duel["player1_id"] != user_id and duel["player2_id"] != user_id:
+        p1 = duel.get("player1_id")
+        p2 = duel.get("player2_id")
+        is_player1 = p1 == user_id
+        is_player2 = p2 == user_id
+
+        if not is_player1 and not is_player2:
+            logger.warning(
+                "[API] get_duel duel_id=%s user=%s -> 403 (player1=%s player2=%s)",
+                duel_id, user_id[:8], (p1 or "")[:8] if p1 else None, (p2 or "")[:8] if p2 else None,
+            )
             raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à voir ce duel")
+
+        # Log which side the requester is on (player1=creator, player2=accepter)
+        logger.info(
+            "[API] get_duel duel_id=%s user=%s -> 200 (player1=%s player2=%s)",
+            duel_id, user_id[:8], is_player1, is_player2,
+        )
+
+        # Finalize duel if timer expired
+        duel = finalize_duel_if_needed(supabase, duel)
+        # If neither player scored within 30s, advance to next exercise
+        duel = advance_duel_to_next_exercise_if_timeout(supabase, duel)
         
         # Get exercise if exercise_id exists
         if duel.get("exercise_id"):
@@ -825,10 +986,22 @@ async def get_duel(duel_id: int, user: dict = Depends(verify_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# INT max for PostgreSQL; time_spent and cumulative times must not exceed this
+_MAX_INT = 2_147_483_647
+_MAX_TIME_SPENT_MS = 600_000  # 10 min per exercise
+
+
 @app.post("/api/duels/{duel_id}/submit")
 async def submit_duel_answer(duel_id: int, request: SubmitDuelAnswerRequest, user: dict = Depends(verify_token)):
-    """Submit answer in a duel"""
+    """Submit answer in a duel. time_spent is clamped by Pydantic to avoid INT overflow."""
     try:
+        # request.time_spent is already clamped by SubmitDuelAnswerRequest validator
+        time_spent_ms = request.time_spent
+        logger.info(
+            "[duel] submit_duel_answer duel_id=%s user=%s time_spent_ms=%s element_id=%s is_correct=%s",
+            duel_id, user.get("user_id", "")[:8], time_spent_ms, request.element_id, request.is_correct,
+        )
+
         supabase = get_supabase_client()
         user_id = user["user_id"]
         
@@ -839,46 +1012,134 @@ async def submit_duel_answer(duel_id: int, request: SubmitDuelAnswerRequest, use
             raise HTTPException(status_code=404, detail="Duel introuvable")
         
         duel_data = duel.data[0]
+
+        # Finalize duel if timer expired
+        duel_data = finalize_duel_if_needed(supabase, duel_data)
+        # If neither player scored within 30s, advance to next exercise
+        duel_data = advance_duel_to_next_exercise_if_timeout(supabase, duel_data)
+
+        # If duel is already finished, we still record the attempt but do not change the score or exercise
+        duel_finished = duel_data.get("status") == "finished"
         
         # Check if user is part of the duel
         if duel_data["player1_id"] != user_id and duel_data["player2_id"] != user_id:
             raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à soumettre une réponse pour ce duel")
+
+        # Check BEFORE insert whether someone already solved this exercise (first correct gets the point)
+        already_solved_before = False
+        if request.is_correct:
+            existing = (
+                supabase.table("duel_attempts")
+                .select("id")
+                .eq("duel_id", duel_id)
+                .eq("is_correct", True)
+                .eq("element_id", request.element_id)
+                .limit(1)
+                .execute()
+            )
+            already_solved_before = bool(existing.data)
+            logger.info("[duel] submit is_correct=True already_solved_before=%s", already_solved_before)
         
-        # Record attempt
         attempt_data = {
             "duel_id": duel_id,
             "player_id": user_id,
             "element_id": request.element_id,
             "answer": request.answer,
             "is_correct": request.is_correct,
-            "time_spent": request.time_spent
+            "time_spent": time_spent_ms,
         }
+        logger.info("[duel] insert duel_attempts payload time_spent=%s (type=%s)", attempt_data["time_spent"], type(attempt_data["time_spent"]).__name__)
+        try:
+            supabase.table("duel_attempts").insert(attempt_data).execute()
+        except Exception as insert_err:
+            logger.error(
+                "[duel] duel_attempts INSERT failed: %s | payload=%s",
+                insert_err, {k: v for k, v in attempt_data.items() if k != "answer"},
+            )
+            raise
+
+        # If duel already finished because timer expired, do not update score or push new exercise
+        if duel_finished:
+            return {
+                "message": "Duel terminé - réponse enregistrée mais hors temps",
+                "correct": request.is_correct,
+                "duel": duel_data,
+            }
         
-        supabase.table("duel_attempts").insert(attempt_data).execute()
-        
-        # Update score if correct
+        # Update score if correct (only first correct for this exercise grants points)
         if request.is_correct:
+            if already_solved_before:
+                logger.info("[duel] correct but already_solved_before -> return current duel state")
+                # Someone already solved this exercise; don't change score but return current duel state
+                # (so frontend gets the next exercise, not stale duel_data from start of request)
+                updated = supabase.table("duels").select("*").eq("id", duel_id).execute()
+                duel_return = updated.data[0] if updated.data else duel_data
+                if duel_return.get("exercise_id"):
+                    ex_res = supabase.table("exercises").select("id, title, chapter, difficulty, content").eq("id", duel_return["exercise_id"]).execute()
+                    if ex_res.data:
+                        duel_return = {**duel_return, "exercise": ex_res.data[0]}
+                return {
+                    "message": "Réponse correcte mais l'exercice a déjà été résolu",
+                    "correct": True,
+                    "duel": duel_return,
+                }
+
+            logger.info("[duel] first correct for this exercise -> grant point and advance to next")
             is_player1 = duel_data["player1_id"] == user_id
             score_field = "player1_score" if is_player1 else "player2_score"
             time_field = "player1_time" if is_player1 else "player2_time"
             
-            new_score = (duel_data[score_field] or 0) + 1
-            current_time = duel_data[time_field] or 0
-            new_time = current_time + request.time_spent
+            new_score = (duel_data.get(score_field) or 0) + 1
+            current_time = duel_data.get(time_field) or 0
+            try:
+                current_time = int(current_time) if current_time is not None else 0
+            except (TypeError, ValueError):
+                current_time = 0
+            if current_time < 0 or current_time > _MAX_INT:
+                current_time = 0
+            new_time = min(current_time + time_spent_ms, _MAX_INT)
+            logger.info("[duel] update duels payload %s=%s %s=%s (current_time=%s time_spent_ms=%s)", score_field, new_score, time_field, new_time, current_time, time_spent_ms)
+
+            # Pick next random exercise for the duel
+            next_exercise, next_exercise_data = get_random_exercise_with_variables(
+                supabase
+            )
+            if not next_exercise:
+                # Fallback: keep current exercise but still update score
+                update_payload = {
+                    score_field: new_score,
+                    time_field: new_time,
+                }
+            else:
+                now_utc = datetime.utcnow().replace(tzinfo=timezone.utc)
+                next_data = {**next_exercise_data, "started_at": now_utc.isoformat()}
+                update_payload = {
+                    score_field: new_score,
+                    time_field: new_time,
+                    "exercise_id": next_exercise["id"],
+                    "exercise_data": next_data,
+                }
+            try:
+                supabase.table("duels").update(update_payload).eq("id", duel_id).execute()
+            except Exception as update_err:
+                logger.error(
+                    "[duel] duels UPDATE failed: %s | payload %s=%s %s=%s",
+                    update_err, score_field, new_score, time_field, new_time,
+                )
+                raise
             
-            supabase.table("duels").update({
-                score_field: new_score,
-                time_field: new_time
-            }).eq("id", duel_id).execute()
-            
-            # Get updated duel
+            # Get updated duel and attach exercise so client can show next exercise without another request
             updated_duel = supabase.table("duels").select("*").eq("id", duel_id).execute()
-            
+            duel_return = updated_duel.data[0] if updated_duel.data else duel_data
+            if duel_return.get("exercise_id"):
+                ex_res = supabase.table("exercises").select("id, title, chapter, difficulty, content").eq("id", duel_return["exercise_id"]).execute()
+                if ex_res.data:
+                    duel_return["exercise"] = ex_res.data[0]
             return {
                 "message": "Réponse enregistrée",
                 "correct": True,
                 "new_score": new_score,
-                "duel": updated_duel.data[0] if updated_duel.data else duel_data
+                "duel": duel_return,
             }
         
         return {"message": "Réponse enregistrée", "correct": False}
@@ -886,13 +1147,202 @@ async def submit_duel_answer(duel_id: int, request: SubmitDuelAnswerRequest, use
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error submitting answer: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error submitting answer (see above for which op failed): %s", e)
+        raise HTTPException(status_code=500, detail="Erreur lors de l'enregistrement de la réponse.")
 
 
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
+
+
+def advance_duel_to_next_exercise_if_timeout(supabase, duel: dict) -> dict:
+    """
+    If the current exercise has been shown for more than DUEL_EXERCISE_TIMEOUT_SECONDS
+    and nobody has scored this round, pick a new random exercise and update the duel.
+    """
+    try:
+        if not duel or duel.get("status") != "active":
+            return duel
+        exercise_data = duel.get("exercise_data") or {}
+        started_at_str = exercise_data.get("started_at")
+        if not started_at_str:
+            return duel
+        try:
+            started_at = datetime.fromisoformat(started_at_str.replace("Z", "+00:00"))
+        except Exception:
+            return duel
+        now = datetime.now(timezone.utc)
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        elapsed = (now - started_at).total_seconds()
+        if elapsed < DUEL_EXERCISE_TIMEOUT_SECONDS:
+            return duel
+        # Check if anyone scored (correct attempt) since this exercise started
+        last_correct = (
+            supabase.table("duel_attempts")
+            .select("submitted_at")
+            .eq("duel_id", duel["id"])
+            .eq("is_correct", True)
+            .order("submitted_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if last_correct.data:
+            try:
+                last_at = datetime.fromisoformat(
+                    last_correct.data[0]["submitted_at"].replace("Z", "+00:00")
+                )
+                if last_at.tzinfo is None:
+                    last_at = last_at.replace(tzinfo=timezone.utc)
+                if last_at >= started_at:
+                    return duel
+            except Exception:
+                pass
+        next_exercise, next_data = get_random_exercise_with_variables(supabase)
+        if not next_exercise:
+            return duel
+        now_utc = datetime.utcnow().replace(tzinfo=timezone.utc)
+        payload = {
+            "exercise_id": next_exercise["id"],
+            "exercise_data": {**next_data, "started_at": now_utc.isoformat()},
+        }
+        updated = (
+            supabase.table("duels").update(payload).eq("id", duel["id"]).execute()
+        )
+        if updated.data:
+            logger.info(
+                "[duel] duel_id=%s exercise timeout 30s -> next exercise_id=%s",
+                duel["id"],
+                next_exercise["id"],
+            )
+            return updated.data[0]
+    except Exception as e:
+        logger.warning("advance_duel_to_next_exercise_if_timeout: %s", e)
+    return duel
+
+
+def _is_qcm_exercise(exercise_row: dict) -> bool:
+    """True if exercise is a QCM (multiple choice). Excluded from duels."""
+    title = (exercise_row.get("title") or "").upper()
+    if "QCM" in title:
+        return True
+    content = exercise_row.get("content") or {}
+    for el in content.get("elements") or []:
+        if el.get("type") == "mcq":
+            return True
+    return False
+
+
+def get_random_exercise_with_variables(supabase):
+    """
+    Pick a random exercise (excluding QCMs) and generate concrete variable values.
+    Returns (exercise_row, exercise_data) where exercise_data contains the shared variables.
+    """
+    try:
+        exercises = (
+            supabase.table("exercises")
+            .select("id, title, chapter, difficulty, content")
+            .execute()
+        )
+        if not exercises.data:
+            return None, None
+
+        non_qcm = [e for e in exercises.data if not _is_qcm_exercise(e)]
+        if not non_qcm:
+            logger.warning("[duel] No non-QCM exercises available, using any exercise")
+            non_qcm = exercises.data
+
+        exercise_row = random.choice(non_qcm)
+        content = exercise_row.get("content") or {}
+        variables_config = content.get("variables", [])
+
+        variable_values = {}
+        for var in variables_config:
+            try:
+                vtype = var.get("type")
+                name = var.get("name")
+                if not name:
+                    continue
+                if vtype == "integer":
+                    variable_values[name] = random.randint(
+                        int(var.get("min", 0)), int(var.get("max", 10))
+                    )
+                elif vtype == "decimal":
+                    decimals = int(var.get("decimals", 2))
+                    value = random.uniform(
+                        float(var.get("min", 0.0)), float(var.get("max", 1.0))
+                    )
+                    variable_values[name] = round(value, decimals)
+            except Exception as var_error:
+                logger.warning("Error generating variable for duel: %s", var_error)
+
+        return exercise_row, {"variables": variable_values}
+    except Exception as e:
+        logger.error("Error picking random exercise for duel: %s", e)
+        return None, None
+
+
+def finalize_duel_if_needed(supabase, duel: dict) -> dict:
+    """
+    Ensure duel is marked as finished when the 3-minute timer is over.
+    Returns the (possibly updated) duel dict.
+    """
+    try:
+        if not duel:
+            return duel
+
+        if duel.get("status") != "active":
+            return duel
+
+        started_at_str = duel.get("started_at")
+        if not started_at_str or duel.get("finished_at"):
+            return duel
+
+        # Parse ISO timestamp from Supabase (UTC)
+        try:
+            # Supabase returns ISO 8601 with timezone, e.g. "2026-03-04T12:34:56.789012+00:00"
+            started_at = datetime.fromisoformat(started_at_str)
+        except Exception:
+            # Fallback: naive UTC
+            started_at = datetime.strptime(started_at_str, "%Y-%m-%dT%H:%M:%S.%f")
+            started_at = started_at.replace(tzinfo=timezone.utc)
+
+        now = datetime.now(timezone.utc)
+        elapsed_seconds = (now - started_at).total_seconds()
+
+        if elapsed_seconds < DUEL_DURATION_SECONDS:
+            return duel
+
+        # Timer is over: compute winner based on score
+        p1_score = duel.get("player1_score") or 0
+        p2_score = duel.get("player2_score") or 0
+
+        winner_id = None
+        if p1_score > p2_score:
+            winner_id = duel.get("player1_id")
+        elif p2_score > p1_score:
+            winner_id = duel.get("player2_id")
+
+        update_payload = {
+            "status": "finished",
+            "finished_at": now.isoformat(),
+            "winner_id": winner_id,
+        }
+
+        updated = (
+            supabase.table("duels")
+            .update(update_payload)
+            .eq("id", duel["id"])
+            .execute()
+        )
+        if updated.data:
+            return updated.data[0]
+    except Exception as e:
+        logger.error("Error finalizing duel timer: %s", e)
+
+    return duel
+
 
 def generate_unique_code(length: int = 8) -> str:
     """Generate a random alphanumeric code"""

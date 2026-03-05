@@ -2,13 +2,15 @@
 
 import { Swords, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DuelRequest as ApiDuelRequest,
+  DuelHistoryItem,
   duelsApi,
   Friend,
   friendsApi,
 } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 
 interface LocalDuelRequest {
   id: string;
@@ -18,37 +20,63 @@ interface LocalDuelRequest {
 
 export function DuelPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [duelRequests, setDuelRequests] = useState<LocalDuelRequest[]>([]);
   const [sentDuels, setSentDuels] = useState<string[]>([]);
+  const [history, setHistory] = useState<DuelHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const loadData = useCallback(async () => {
+    if (!user) return;
 
-  const loadData = async () => {
+    setLoading(true);
+
+    // Load friends exactly like AccountPage "Amis" – single call, independent of duels/history.
+    // If we used Promise.all with getPendingDuels/getHistory, one failure would prevent setFriends.
     try {
-      setLoading(true);
-      const [friendsData, duelsData] = await Promise.all([
-        friendsApi.getFriends(),
-        duelsApi.getPendingDuels(),
-      ]);
+      const { friends: friendsList } = await friendsApi.getFriends();
+      console.log("[DuelPage] getFriends OK, count:", friendsList?.length ?? 0, "ids:", friendsList?.map((f) => f.id) ?? []);
+      setFriends(friendsList ?? []);
+    } catch (error: any) {
+      console.error("[DuelPage] getFriends error:", error?.message ?? error);
+      setFriends([]);
+    }
 
-      setFriends(friendsData.friends);
+    // Load duels and history in parallel; failures here must not affect friends list.
+    try {
+      const [duelsData, historyData] = await Promise.all([
+        duelsApi.getPendingDuels(),
+        duelsApi.getHistory(),
+      ]);
       setDuelRequests(
-        duelsData.duels.map((d: ApiDuelRequest) => ({
+        (duelsData.duels ?? []).map((d: ApiDuelRequest) => ({
           id: d.id.toString(),
           from: d.from_user_name,
           fromId: d.from_user_id,
         })),
       );
+      setHistory(historyData.history ?? []);
     } catch (error: any) {
-      console.error("Error loading data:", error);
+      console.error("[DuelPage] duels/history error:", error?.message ?? error);
+      setDuelRequests([]);
+      setHistory([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      loadData();
+    }
+  }, [authLoading, user, loadData]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth/login");
+    }
+  }, [authLoading, user, router]);
 
   const handleSendDuelRequest = async (
     friendId: string,
@@ -243,6 +271,61 @@ export function DuelPage() {
             </div>
           )}
         </div>
+
+        {history.length > 0 && (
+          <div className="bg-slate-900/60 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <h3
+              className="text-white text-xl mb-4"
+              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+            >
+              Historique des duels
+            </h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {history.map((item) => {
+                const isWin = item.result === "win";
+                const isLoss = item.result === "loss";
+                const resultLabel = isWin
+                  ? "Victoire"
+                  : isLoss
+                    ? "Défaite"
+                    : "Égalité";
+                const resultColor = isWin
+                  ? "text-emerald-300 bg-emerald-500/15 border-emerald-500/30"
+                  : isLoss
+                    ? "text-rose-300 bg-rose-500/15 border-rose-500/30"
+                    : "text-sky-300 bg-sky-500/15 border-sky-500/30";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between bg-slate-950/40 rounded-2xl px-4 py-3 border border-slate-800/80"
+                  >
+                    <div>
+                      <p
+                        className="text-sm text-white"
+                        style={{
+                          fontFamily: "'Fredoka', sans-serif",
+                          fontWeight: 600,
+                        }}
+                      >
+                        vs {item.opponent_name}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Score : {item.my_score} - {item.opponent_score}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs px-3 py-1 rounded-full border ${resultColor}`}
+                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                    >
+                      {resultLabel}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

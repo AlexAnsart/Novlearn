@@ -20,12 +20,18 @@ interface QuestionRendererProps {
   content: QuestionContent;
   variables: VariableValues;
   onSubmit?: (answer: string, isCorrect: boolean) => void;
+  /** Max wrong attempts before marking as finished (default 2). Use a high number for unlimited (e.g. duel mode). */
+  maxAttempts?: number;
+  /** Whether to show the hint button and content (default true). Set false for duel mode. */
+  allowHint?: boolean;
 }
 
 const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   content,
   variables,
   onSubmit,
+  maxAttempts = 2,
+  allowHint = true,
 }) => {
   const [value, setValue] = useState("");
   const [attempts, setAttempts] = useState(0);
@@ -81,7 +87,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
       if (onSubmit) onSubmit(value, true);
     } else {
       setStatus("incorrect");
-      if (currentAttempt >= 2) {
+      if (currentAttempt >= maxAttempts) {
         setIsFinished(true);
         if (onSubmit) onSubmit(value, false);
       }
@@ -156,16 +162,18 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           </button>
         </div>
 
-        {/* --- FEEDBACK 1er ESSAI --- */}
+        {/* --- FEEDBACK wrong answer (no finish yet or last attempt) --- */}
         {!isFinished && status === "incorrect" && (
           <div className="animate-in fade-in slide-in-from-left-2 space-y-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
             <div className="flex items-center gap-2 text-orange-700">
               <AlertCircle className="w-5 h-5" />
               <span className="font-medium">
-                Ce n'est pas tout à fait ça. Il vous reste un essai !
+                {maxAttempts <= 2 && maxAttempts - attempts <= 1
+                  ? "Ce n'est pas tout à fait ça. Il vous reste un essai !"
+                  : "Ce n'est pas tout à fait ça. Réessayez !"}
               </span>
             </div>
-            {content.hint &&
+            {allowHint && content.hint &&
               (!showHint ? (
                 <button
                   type="button"

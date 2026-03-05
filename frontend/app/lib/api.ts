@@ -283,7 +283,9 @@ export const friendsApi = {
    * Get list of friends
    */
   async getFriends(): Promise<{ friends: Friend[] }> {
-    return apiRequest("/api/friends");
+    const result = await apiRequest<{ friends: Friend[] }>("/api/friends");
+    console.log("[friendsApi] getFriends: count=", result?.friends?.length ?? 0);
+    return result;
   },
 
   /**
@@ -308,6 +310,15 @@ export const friendsApi = {
   async declineFriendRequest(requestId: number): Promise<{ message: string }> {
     return apiRequest(`/api/friends/requests/${requestId}/decline`, {
       method: "POST",
+    });
+  },
+
+  /**
+   * Remove a friend
+   */
+  async removeFriend(friendId: string): Promise<{ message: string }> {
+    return apiRequest(`/api/friends/${encodeURIComponent(friendId)}`, {
+      method: "DELETE",
     });
   },
 };
@@ -344,6 +355,17 @@ export interface DuelRequest {
   created_at: string;
 }
 
+export interface DuelHistoryItem {
+  id: number;
+  opponent_id: string;
+  opponent_name: string;
+  my_score: number;
+  opponent_score: number;
+  result: "win" | "loss" | "draw";
+  created_at: string | null;
+  finished_at: string | null;
+}
+
 export const duelsApi = {
   /**
    * Create a new duel
@@ -374,6 +396,17 @@ export const duelsApi = {
     return apiRequest(`/api/duels/${duelId}/decline`, {
       method: "POST",
     });
+  },
+
+  /**
+   * Get duel config (duration, exercise timeout). Single source of truth from backend.
+   */
+  async getDuelConfig(): Promise<{
+    duelDurationSeconds: number;
+    exerciseTimeoutSeconds: number;
+    correctionDisplaySeconds: number;
+  }> {
+    return apiRequest("/api/duels/config");
   },
 
   /**
@@ -422,5 +455,12 @@ export const duelsApi = {
         time_spent: timeSpent,
       }),
     });
+  },
+
+  /**
+   * Get duel history (finished duels) for current user
+   */
+  async getHistory(): Promise<{ history: DuelHistoryItem[] }> {
+    return apiRequest("/api/duels/history");
   },
 };
