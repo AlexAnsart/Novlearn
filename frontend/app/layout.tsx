@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
 import { Fredoka } from "next/font/google";
 import { Toaster } from "sonner";
+import { CompleteProfileModal } from "./components/CompleteProfileModal";
 import { TaxonomyProvider } from "./components/TaxonomyProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import "./globals.css";
@@ -73,6 +74,7 @@ export default function RootLayout({
             enableSystem
           >
             <TaxonomyProvider>{children}</TaxonomyProvider>
+            <CompleteProfileModal />
             <Toaster position="top-right" theme="dark" richColors closeButton />
           </ThemeProvider>
         </AuthProvider>

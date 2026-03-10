@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 // Assurez-vous que le chemin d'import pointe bien vers votre dossier renderers
 import EquationRenderer from "../../renderers/EquationRenderer";
-import FunctionRenderer from "../../renderers/FunctionRenderer";
 import GraphRenderer from "../../renderers/GraphRenderer";
 import MCQRenderer from "../../renderers/MCQRenderer";
 import QuestionRenderer from "../../renderers/QuestionRenderer";
@@ -13,7 +12,6 @@ import {
   EquationContent,
   Exercise,
   ExerciseElement,
-  FunctionContent,
   GraphContent,
   MCQContent,
   QuestionContent,
@@ -58,14 +56,6 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         />
       );
 
-    case "function":
-      return (
-        <FunctionRenderer
-          content={element.content as FunctionContent}
-          variables={variables}
-        />
-      );
-
     case "equation":
       return (
         <EquationRenderer
@@ -104,7 +94,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         <QuestionRenderer
           content={element.content as QuestionContent}
           variables={variables}
-          onSubmit={onChildSubmit} 
+          onSubmit={onChildSubmit}
         />
       );
 

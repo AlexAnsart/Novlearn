@@ -6,6 +6,7 @@ import { supabase } from "@/app/lib/supabase";
 import {
   AlertCircle,
   BookOpen,
+  ChevronDown,
   Filter,
   Loader2,
   MessageSquare,
@@ -22,8 +23,8 @@ interface Feedback {
   created_at: string;
   message: string;
   category: string;
-  difficulty_rating?: number | null; 
-  exercise_id?: number | null; 
+  difficulty_rating?: number | null;
+  exercise_id?: number | null;
   user_id: string | null;
   profiles?: {
     email: string;
@@ -47,9 +48,15 @@ type FilterType =
 
 export default function FeedbackDashboard() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [exercisesMap, setExercisesMap] = useState<Map<number, string>>(new Map());
+  const [exercisesMap, setExercisesMap] = useState<Map<number, string>>(
+    new Map(),
+  );
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(
+    null,
+  );
+  const [exerciseFilterOpen, setExerciseFilterOpen] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -82,13 +89,17 @@ export default function FeedbackDashboard() {
       setFeedbacks(data || []);
 
       // Récupérer les noms des exercices associés
-      const exerciseIds = [...new Set((data || []).filter(f => f.exercise_id).map(f => f.exercise_id))];
+      const exerciseIds = [
+        ...new Set(
+          (data || []).filter((f) => f.exercise_id).map((f) => f.exercise_id),
+        ),
+      ];
       if (exerciseIds.length > 0) {
         const { data: exercisesData } = await supabase
           .from("exercises")
           .select("id, title")
           .in("id", exerciseIds);
-        
+
         if (exercisesData) {
           const map = new Map<number, string>();
           exercisesData.forEach((ex: ExerciseInfo) => map.set(ex.id, ex.title));
@@ -118,9 +129,25 @@ export default function FeedbackDashboard() {
     }
   };
 
+  const ratingFeedbacks = feedbacks.filter((f) => f.difficulty_rating !== null);
+
+  // Exercices distincts présents dans les feedbacks avec note
+  const exercisesWithRatings = [
+    ...new Map(
+      ratingFeedbacks
+        .filter((f) => f.exercise_id)
+        .map((f) => [f.exercise_id, f.exercise_id]),
+    ).values(),
+  ] as number[];
+
   const filteredFeedbacks = feedbacks.filter((item) => {
     if (activeFilter === "all") return true;
-    if (activeFilter === "rating") return item.difficulty_rating !== null; // On prend tout ce qui a une note
+    if (activeFilter === "rating") {
+      if (item.difficulty_rating === null) return false;
+      if (selectedExerciseId !== null)
+        return item.exercise_id === selectedExerciseId;
+      return true;
+    }
     return item.category === activeFilter;
   });
 
@@ -216,13 +243,21 @@ export default function FeedbackDashboard() {
             <FilterButton
               label="Tout"
               active={activeFilter === "all"}
-              onClick={() => setActiveFilter("all")}
+              onClick={() => {
+                setActiveFilter("all");
+                setSelectedExerciseId(null);
+                setExerciseFilterOpen(false);
+              }}
               count={feedbacks.length}
             />
             <FilterButton
               label="Notes Difficulté"
               active={activeFilter === "rating"}
-              onClick={() => setActiveFilter("rating")}
+              onClick={() => {
+                setActiveFilter("rating");
+                setSelectedExerciseId(null);
+                setExerciseFilterOpen(false);
+              }}
               count={
                 feedbacks.filter((f) => f.difficulty_rating !== null).length
               }
@@ -230,7 +265,11 @@ export default function FeedbackDashboard() {
             <FilterButton
               label="Erreurs Contenu"
               active={activeFilter === "content_error"}
-              onClick={() => setActiveFilter("content_error")}
+              onClick={() => {
+                setActiveFilter("content_error");
+                setSelectedExerciseId(null);
+                setExerciseFilterOpen(false);
+              }}
               count={
                 feedbacks.filter((f) => f.category === "content_error").length
               }
@@ -238,7 +277,11 @@ export default function FeedbackDashboard() {
             <FilterButton
               label="Suggestions"
               active={activeFilter === "suggestion"}
-              onClick={() => setActiveFilter("suggestion")}
+              onClick={() => {
+                setActiveFilter("suggestion");
+                setSelectedExerciseId(null);
+                setExerciseFilterOpen(false);
+              }}
               count={
                 feedbacks.filter((f) => f.category === "suggestion").length
               }
@@ -246,10 +289,74 @@ export default function FeedbackDashboard() {
             <FilterButton
               label="Bugs"
               active={activeFilter === "bug"}
-              onClick={() => setActiveFilter("bug")}
+              onClick={() => {
+                setActiveFilter("bug");
+                setSelectedExerciseId(null);
+                setExerciseFilterOpen(false);
+              }}
               count={feedbacks.filter((f) => f.category === "bug").length}
             />
           </div>
+
+          {/* Sous-filtre par exercice (visible uniquement pour les notes de difficulté) */}
+          {activeFilter === "rating" && exercisesWithRatings.length > 0 && (
+            <div className="mb-6">
+              <button
+                onClick={() => setExerciseFilterOpen((o) => !o)}
+                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors mb-2"
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    exerciseFilterOpen ? "rotate-180" : ""
+                  }`}
+                />
+                Filtrer par exercice
+                {selectedExerciseId !== null && (
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-600/30 text-indigo-300 text-xs border border-indigo-500/40">
+                    #{selectedExerciseId}
+                  </span>
+                )}
+              </button>
+
+              {exerciseFilterOpen && (
+                <div className="flex flex-wrap gap-2 pl-2 border-l-2 border-indigo-500/40">
+                  <button
+                    onClick={() => setSelectedExerciseId(null)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border flex items-center gap-1.5 ${
+                      selectedExerciseId === null
+                        ? "bg-indigo-600/30 text-indigo-200 border-indigo-500/50"
+                        : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+                    }`}
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    Tous les exercices
+                  </button>
+                  {exercisesWithRatings.map((exId) => (
+                    <button
+                      key={exId}
+                      onClick={() => setSelectedExerciseId(exId)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border flex items-center gap-1.5 ${
+                        selectedExerciseId === exId
+                          ? "bg-indigo-600/30 text-indigo-200 border-indigo-500/50"
+                          : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+                      }`}
+                    >
+                      <BookOpen className="w-3 h-3" />#{exId}
+                      {exercisesMap.get(exId)
+                        ? ` - ${exercisesMap.get(exId)}`
+                        : ""}
+                      <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-500">
+                        {
+                          ratingFeedbacks.filter((f) => f.exercise_id === exId)
+                            .length
+                        }
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Liste */}
           {loading ? (
@@ -279,8 +386,9 @@ export default function FeedbackDashboard() {
                       {/* Badge Exercice ID + Nom */}
                       {item.exercise_id && (
                         <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
-                          <BookOpen className="w-3 h-3" />
-                          #{item.exercise_id} - {exercisesMap.get(item.exercise_id) || "Exercice inconnu"}
+                          <BookOpen className="w-3 h-3" />#{item.exercise_id} -{" "}
+                          {exercisesMap.get(item.exercise_id) ||
+                            "Exercice inconnu"}
                         </div>
                       )}
 

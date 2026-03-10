@@ -1,7 +1,6 @@
 // Export de tous les renderers d'éléments d'exercice
 
 export { default as EquationRenderer } from "./EquationRenderer";
-export { default as FunctionRenderer } from "./FunctionRenderer";
 export { default as GraphRenderer } from "./GraphRenderer";
 export { default as MCQRenderer } from "./MCQRenderer";
 export { default as QuestionRenderer } from "./QuestionRenderer";
