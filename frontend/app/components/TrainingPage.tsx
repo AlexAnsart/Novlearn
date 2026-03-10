@@ -22,18 +22,6 @@ import { useTaxonomyStore } from "../store/useTaxonomyStore";
 // import { flashCardsData } from "../lib/flashcardsData";
 import MathText from "../components/ui/MathText";
 
-// Mapping des émojis pour les chapitres définis dans competenceSettings
-const CHAPTER_EMOJIS: Record<string, string> = {
-  "Suites numériques": "📊",
-  "Limites et continuité": "➡️",
-  "Dérivation et Fonctions": "📈",
-  "Logarithme néperien": "📉",
-  "Primitives et équadiff": "∫",
-  Convexité: "⌒",
-  Stats: "📊",
-  Probas: "🎲",
-};
-
 interface Chapter {
   id: string;
   name: string;
@@ -52,16 +40,17 @@ interface FlashCard {
 export function TrainingPage() {
   const router = useRouter();
   const chapters_list = useTaxonomyStore((state) => state.chapters);
+  const chapterEmojis = useTaxonomyStore((state) => state.chapterEmojis);
 
   // Construction dynamique de la liste des chapitres basée sur le store
   const chapters: Chapter[] = useMemo(() => {
     return chapters_list.map((name) => ({
-      id: name, // On utilise le nom comme ID pour simplifier le lien avec la DB
+      id: name,
       name: name,
-      emoji: CHAPTER_EMOJIS[name] || "📚", // Emoji par défaut si non trouvé
+      emoji: chapterEmojis[name] ?? "📚",
       notSeenYet: true,
     }));
-  }, [chapters_list]);
+  }, [chapters_list, chapterEmojis]);
 
   const [chapterStates, setChapterStates] = useState<Record<string, boolean>>(
     chapters.reduce((acc, c) => ({ ...acc, [c.id]: c.notSeenYet }), {}),

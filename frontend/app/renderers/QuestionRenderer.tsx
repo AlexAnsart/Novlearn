@@ -12,6 +12,7 @@ import {
 import React, { useMemo, useState } from "react";
 import { MathInput } from "../components/ui/MathInput";
 import MathText from "../components/ui/MathText";
+import { useAudioFeedback } from "../hooks/useAudioFeedback";
 import { QuestionContent, VariableValues } from "../types/exercise";
 import { checkAnswer } from "../utils/math/evaluation";
 import { simplifyLatexExpression } from "../utils/math/simplication";
@@ -33,6 +34,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   maxAttempts = 2,
   allowHint = true,
 }) => {
+  const { playSuccess, playError } = useAudioFeedback();
   const [value, setValue] = useState("");
   const [attempts, setAttempts] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
@@ -84,9 +86,11 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
       setStatus("correct");
       setIsFinished(true);
       setShowExplanation(true);
+      playSuccess();
       if (onSubmit) onSubmit(value, true);
     } else {
       setStatus("incorrect");
+      playError();
       if (currentAttempt >= maxAttempts) {
         setIsFinished(true);
         if (onSubmit) onSubmit(value, false);
@@ -173,7 +177,8 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                   : "Ce n'est pas tout à fait ça. Réessayez !"}
               </span>
             </div>
-            {allowHint && content.hint &&
+            {allowHint &&
+              content.hint &&
               (!showHint ? (
                 <button
                   type="button"

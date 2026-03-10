@@ -3,12 +3,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Latex from "../components/ui/Latex";
 import { GraphContent, RendererProps } from "../types/exercise";
-import {
-  evaluate,
-  mathJsExprToLatex,
-  toMathJsSyntax,
-} from "../utils/math/evaluation";
+import { evaluate, toMathJsSyntax } from "../utils/math/evaluation";
 import { substituteVariables } from "../utils/math/parsing";
+import { simplifyLatexExpression } from "../utils/math/simplication";
 
 // Rapport hauteur / largeur du graphe
 const ASPECT = 4 / 5;
@@ -352,7 +349,7 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
                   )}
                 </span>
                 <Latex>
-                  {mathJsExprToLatex(fn.expression, variables ?? {})}
+                  {simplifyLatexExpression(fn.expression, variables ?? {})}
                 </Latex>
               </span>
             ))}

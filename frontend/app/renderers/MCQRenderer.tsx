@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import MathText from "../components/ui/MathText";
+import { useAudioFeedback } from "../hooks/useAudioFeedback";
 import { MCQContent, RendererProps } from "../types/exercise";
 
 interface MCQRendererProps extends RendererProps<MCQContent> {
@@ -31,18 +32,27 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
   variables,
   onSubmit,
 }) => {
+  const { playSuccess, playError } = useAudioFeedback();
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [isFinished, setIsFinished] = useState(false);
-  const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle");
+  const [status, setStatus] = useState<"idle" | "correct" | "incorrect">(
+    "idle",
+  );
   const [showExplanation, setShowExplanation] = useState(false);
 
   const isMultipleChoice = content?.multipleChoice ?? false;
 
   // Mélanger les options une seule fois au montage
+  // Les options "Aucune des réponses..." restent toujours en dernier
   const shuffledOptions = useMemo(() => {
-    return shuffleArray(content?.options || []);
+    const options = content?.options || [];
+    const pinnedPattern =
+      /aucune\s+(des|de\s+la|de\s+l'|des\s+autres|des\s+r[eé]ponses)/i;
+    const pinned = options.filter((opt) => pinnedPattern.test(opt.text));
+    const rest = options.filter((opt) => !pinnedPattern.test(opt.text));
+    return [...shuffleArray(rest), ...pinned];
   }, [content?.options]);
 
   const handleSelect = (index: number) => {
@@ -71,20 +81,22 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
     const correctIndices = new Set(
       shuffledOptions
         .map((opt, idx) => (opt.correct ? idx : -1))
-        .filter((idx) => idx !== -1)
+        .filter((idx) => idx !== -1),
     );
 
     const allCorrectSelected = [...correctIndices].every((idx) =>
-      selectedIndices.has(idx)
+      selectedIndices.has(idx),
     );
     const noIncorrectSelected = [...selectedIndices].every(
-      (idx) => shuffledOptions[idx].correct
+      (idx) => shuffledOptions[idx].correct,
     );
     const isCorrect = allCorrectSelected && noIncorrectSelected;
 
     setStatus(isCorrect ? "correct" : "incorrect");
     setIsFinished(true);
     setShowExplanation(true); // Afficher l'explication automatiquement à la fin
+    if (isCorrect) playSuccess();
+    else playError();
     onSubmit?.([...selectedIndices][0], isCorrect);
   };
 
@@ -108,8 +120,8 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
         isFinished && status === "correct"
           ? "bg-green-50/30 border-green-200"
           : isFinished && status === "incorrect"
-          ? "bg-red-50/30 border-red-200"
-          : "bg-white border-slate-200"
+            ? "bg-red-50/30 border-red-200"
+            : "bg-white border-slate-200"
       }`}
     >
       {/* --- EN-TÊTE QUESTION --- */}
@@ -120,11 +132,11 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
             isFinished && status === "correct"
               ? "bg-green-100 text-green-700"
               : isFinished && status === "incorrect"
-              ? "bg-red-100 text-red-700"
-              : "bg-indigo-100 text-indigo-600"
+                ? "bg-red-100 text-red-700"
+                : "bg-indigo-100 text-indigo-600"
           }`}
         >
-          {isFinished ? status === "correct" ? "✓" : "✗" : "?"}
+          {isFinished ? (status === "correct" ? "✓" : "✗") : "?"}
         </div>
         <div className="flex-grow pt-1">
           <MathText
@@ -147,11 +159,12 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
           {shuffledOptions.map((option, index) => {
             const isSelected = selectedIndices.has(index);
             const isCorrect = option.correct;
-            
+
             // Calcul du style dynamique
-            let containerStyle = "border-slate-200 hover:border-slate-300 hover:bg-slate-50";
+            let containerStyle =
+              "border-slate-200 hover:border-slate-300 hover:bg-slate-50";
             let indicatorStyle = "bg-slate-100 text-slate-500";
-            
+
             if (!isFinished) {
               if (isSelected) {
                 containerStyle = "border-indigo-500 bg-indigo-50/50";
@@ -185,7 +198,11 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
                     isMultipleChoice ? "rounded-md" : "rounded-full"
                   } ${indicatorStyle}`}
                 >
-                   {isFinished && isCorrect ? "✓" : isFinished && isSelected ? "✗" : String.fromCharCode(65 + index)}
+                  {isFinished && isCorrect
+                    ? "✓"
+                    : isFinished && isSelected
+                      ? "✗"
+                      : String.fromCharCode(65 + index)}
                 </span>
                 <div className="flex-grow text-slate-800">
                   <MathText
@@ -201,18 +218,18 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
 
         {/* --- BOUTON VALIDER --- */}
         {!isFinished && (
-            <button
-              onClick={handleValidate}
-              disabled={selectedIndices.size === 0}
-              className={`px-6 py-2.5 text-white font-medium rounded-lg transition-all shadow-md active:scale-95 w-full sm:w-auto
+          <button
+            onClick={handleValidate}
+            disabled={selectedIndices.size === 0}
+            className={`px-6 py-2.5 text-white font-medium rounded-lg transition-all shadow-md active:scale-95 w-full sm:w-auto
                 ${
-                    selectedIndices.size === 0
+                  selectedIndices.size === 0
                     ? "bg-slate-400 cursor-not-allowed opacity-50 shadow-none"
                     : "bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg"
                 }`}
-            >
-              Valider
-            </button>
+          >
+            Valider
+          </button>
         )}
 
         {/* --- RÉSULTAT FINAL --- */}
@@ -237,19 +254,22 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
 
             {/* --- CORRECTION (Réponses attendues) --- */}
             {status === "incorrect" && (
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm">
                 <span className="font-bold text-sm uppercase text-slate-500 tracking-wider">
-                    Réponse(s) attendue(s) :
+                  Réponse(s) attendue(s) :
                 </span>
                 <div className="flex flex-col gap-2">
-                    {correctOptionTexts.map((text, i) => (
-                    <div key={i} className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                         <span className="text-green-600 text-sm">●</span>
-                        <MathText content={text} variables={variables} />
+                  {correctOptionTexts.map((text, i) => (
+                    <div
+                      key={i}
+                      className="font-bold text-lg text-slate-800 flex items-center gap-2"
+                    >
+                      <span className="text-green-600 text-sm">●</span>
+                      <MathText content={text} variables={variables} />
                     </div>
-                    ))}
+                  ))}
                 </div>
-                </div>
+              </div>
             )}
 
             {/* --- EXPLICATION --- */}
