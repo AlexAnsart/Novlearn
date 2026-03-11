@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { ThemeProvider } from "next-themes";
 import { Fredoka } from "next/font/google";
-import { Toaster } from "sonner";
-import { TaxonomyProvider } from "./components/TaxonomyProvider";
-import { AuthProvider } from "./contexts/AuthContext";
+import { ClientProviders } from "./ClientProviders";
 import "./globals.css";
 
 // Configuration de la police Fredoka
@@ -62,20 +59,7 @@ export default function RootLayout({
       </head>
 
       <body className="bg-app-bg text-content-main antialiased font-sans selection:bg-indigo-500/30">
-        <AuthProvider>
-          {/* attribute="class" → applique .light/.dark sur <html>
-              defaultTheme="dark" → thème par défaut
-              storageKey → clé localStorage identique à l'ancienne */}
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            storageKey="novlearn-theme"
-            enableSystem
-          >
-            <TaxonomyProvider>{children}</TaxonomyProvider>
-            <Toaster position="top-right" theme="dark" richColors closeButton />
-          </ThemeProvider>
-        </AuthProvider>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );
