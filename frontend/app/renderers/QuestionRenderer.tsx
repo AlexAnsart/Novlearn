@@ -107,10 +107,10 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
     <div
       className={`my-6 p-6 rounded-xl shadow-sm border transition-all duration-500 ${
         isFinished && status === "correct"
-          ? "bg-green-50/30 border-green-200 dark:bg-green-950/25 dark:border-green-800/60"
+          ? "bg-green-50/30 border-green-200"
           : isFinished && status === "incorrect"
-            ? "bg-red-50/30 border-red-200 dark:bg-red-950/25 dark:border-red-800/60"
-            : "bg-white border-slate-200 dark:bg-slate-800/80 dark:border-slate-700"
+            ? "bg-red-50/30 border-red-200"
+            : "bg-white border-slate-200"
       }`}
     >
       {/* --- EN-TÊTE QUESTION --- */}
@@ -119,10 +119,10 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm transition-colors
           ${
             isFinished && status === "correct"
-              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+              ? "bg-green-100 text-green-700"
               : isFinished && status === "incorrect"
-                ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
-                : "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400"
+                ? "bg-red-100 text-red-700"
+                : "bg-indigo-100 text-indigo-600"
           }`}
         >
           {isFinished ? (status === "correct" ? "✓" : "✗") : "?"}
@@ -131,7 +131,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           <MathText
             content={content.question}
             variables={variables}
-            className="font-medium text-lg text-slate-800 dark:text-slate-200"
+            className="font-medium text-lg text-slate-800"
           />
         </div>
       </div>
@@ -168,8 +168,8 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
 
         {/* --- FEEDBACK wrong answer (no finish yet or last attempt) --- */}
         {!isFinished && status === "incorrect" && (
-          <div className="animate-in fade-in slide-in-from-left-2 space-y-3 p-3 bg-orange-50 rounded-lg border border-orange-100 dark:bg-orange-950/20 dark:border-orange-800/40">
-            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+          <div className="animate-in fade-in slide-in-from-left-2 space-y-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
+            <div className="flex items-center gap-2 text-orange-700">
               <AlertCircle className="w-5 h-5" />
               <span className="font-medium">
                 {maxAttempts <= 2 && maxAttempts - attempts <= 1
@@ -189,7 +189,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                   Besoin d'un indice ?
                 </button>
               ) : (
-                <div className="ml-7 p-3 bg-white text-slate-700 text-sm rounded-lg border border-orange-200 flex gap-2 animate-in fade-in shadow-sm dark:bg-slate-800 dark:text-slate-300 dark:border-orange-700/40">
+                <div className="ml-7 p-3 bg-white text-slate-700 text-sm rounded-lg border border-orange-200 flex gap-2 animate-in fade-in shadow-sm">
                   <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-indigo-500" />
                   <div>
                     <span className="font-bold block text-xs uppercase mb-1 text-indigo-500">
@@ -207,7 +207,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <div
               className={`flex items-center gap-2 text-lg font-bold
-              ${status === "correct" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+              ${status === "correct" ? "text-green-600" : "text-red-600"}`}
             >
               {status === "correct" ? (
                 <>
@@ -223,11 +223,11 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
             </div>
 
             {/* --- CORRECTION SIMPLIFIÉE --- */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
-              <span className="font-bold text-sm uppercase text-slate-500 tracking-wider dark:text-slate-400">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shadow-sm">
+              <span className="font-bold text-sm uppercase text-slate-500 tracking-wider">
                 Réponse attendue :
               </span>
-              <span className="font-bold text-xl text-slate-800 dark:text-slate-200">
+              <span className="font-bold text-xl text-slate-800">
                 {/* On passe simplifiedCorrectAnswer au lieu de content.correctAnswer */}
                 <MathText
                   content={formatForDisplay(simplifiedCorrectAnswer)}
@@ -242,10 +242,10 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowExplanation(!showExplanation)}
-                  className="group flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors dark:text-slate-400 dark:hover:text-indigo-400"
+                  className="group flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
                 >
                   <div
-                    className={`p-1 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors dark:bg-slate-700 dark:group-hover:bg-indigo-900/40`}
+                    className={`p-1 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors`}
                   >
                     {showExplanation ? (
                       <ChevronUp className="w-4 h-4" />
@@ -259,16 +259,16 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 </button>
 
                 {showExplanation && (
-                  <div className="mt-3 p-5 rounded-xl bg-blue-50/50 border border-blue-100 animate-in fade-in slide-in-from-top-2 dark:bg-blue-950/20 dark:border-blue-800/40">
+                  <div className="mt-3 p-5 rounded-xl bg-blue-50/50 border border-blue-100 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-start gap-3">
-                      <div className="mt-1 p-1.5 bg-blue-100 text-blue-600 rounded-lg dark:bg-blue-900/40 dark:text-blue-400">
+                      <div className="mt-1 p-1.5 bg-blue-100 text-blue-600 rounded-lg">
                         <Lightbulb className="w-5 h-5" />
                       </div>
                       <div className="space-y-1 flex-1">
-                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1 dark:text-blue-400">
+                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">
                           Détails du raisonnement
                         </p>
-                        <div className="text-slate-800 text-base leading-relaxed dark:text-slate-200">
+                        <div className="text-slate-800 text-base leading-relaxed">
                           <MathText
                             content={content.explanation}
                             variables={variables}

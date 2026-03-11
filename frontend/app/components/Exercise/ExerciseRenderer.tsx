@@ -94,7 +94,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         <QuestionRenderer
           content={element.content as QuestionContent}
           variables={variables}
-          onSubmit={onChildSubmit}
+          onSubmit={onChildSubmit} // QuestionRenderer attend maintenant onSubmit
         />
       );
 
@@ -103,7 +103,7 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({
         <MCQRenderer
           content={element.content as MCQContent}
           variables={variables}
-          onSubmit={onChildSubmit}
+          onSubmit={onChildSubmit} // MCQRenderer attend onSubmit
         />
       );
 

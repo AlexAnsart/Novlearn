@@ -21,26 +21,26 @@
   --color-primary-hover: 224 76% 40%; /* blue-700  #1e40af */
 }
 
-/* === THÈME CLAIR (Moderne & Raffiné) === */
+/* === THÈME CLAIR (Professionnel Épuré) === */
 /* Activé par la classe .light sur <html> */
 .light {
-  --color-bg: 214 35% 95%;       /* fond bleu-gris doux      #edf1f7 */
-  --color-surface: 0 0% 100%;    /* cartes blanches pures    #ffffff */
-  --color-border: 214 28% 86%;   /* bordures légères         #ccd5e4 */
-  --color-text-main: 215 32% 16%; /* texte bien contrasté    #1d2d42 */
-  --color-text-muted: 215 18% 46%; /* secondaire              #627693 */
-  /* Le bleu primaire reste identique — il ressort parfaitement sur fond clair */
+  --color-bg: 0 0% 100%; /* blanc pur             #ffffff */
+  --color-surface: 210 40% 98%; /* slate-50 : cartes     #f8fafc */
+  --color-border: 214 32% 91%; /* slate-200 : fines     #e2e8f0 */
+  --color-text-main: 215 25% 27%; /* slate-700 : anthracite #334155 */
+  --color-text-muted: 215 16% 47%; /* slate-500 : gris moyen #64748b */
+  /* Le bleu primaire reste identique — il ressort parfaitement sur blanc */
 }
 
 /* === THÈME SYSTÈME === */
 /* Activé si l'OS est en clair ET qu'aucune classe .dark n'est forcée */
 @media (prefers-color-scheme: light) {
   :root:not(.dark) {
-    --color-bg: 214 35% 95%;
-    --color-surface: 0 0% 100%;
-    --color-border: 214 28% 86%;
-    --color-text-main: 215 32% 16%;
-    --color-text-muted: 215 18% 46%;
+    --color-bg: 0 0% 100%;
+    --color-surface: 210 40% 98%;
+    --color-border: 214 32% 91%;
+    --color-text-main: 215 25% 27%;
+    --color-text-muted: 215 16% 47%;
   }
 }
 
@@ -61,28 +61,26 @@ body {
 
 /* ── 1. Gradient de fond principal (Layout wrapper) ─────────────────── */
 .light .from-slate-950 {
-  --tw-gradient-from: #e8effe var(--tw-gradient-from-position);
-  --tw-gradient-to: rgb(232 239 254 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-from: #eff6ff var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(239 246 255 / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 .light .via-blue-950 {
-  --tw-gradient-to: rgb(232 239 254 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-to: rgb(239 246 255 / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops:
-    var(--tw-gradient-from), #dde9fb var(--tw-gradient-via-position),
+    var(--tw-gradient-from), #dbeafe var(--tw-gradient-via-position),
     var(--tw-gradient-to);
 }
 .light .to-slate-950 {
-  --tw-gradient-to: #edf1f7 var(--tw-gradient-to-position);
+  --tw-gradient-to: #f8fafc var(--tw-gradient-to-position);
 }
 
 /* ── 2. Sidebar desktop & barre mobile ───────────────────────────────── */
 .light .bg-slate-900\/60 {
-  background-color: rgb(255 255 255 / 0.98) !important;
-  box-shadow: 2px 0 24px rgba(37, 99, 235, 0.07) !important;
+  background-color: rgb(255 255 255 / 0.97) !important;
 }
 .light .bg-slate-900\/90 {
-  background-color: rgb(255 255 255 / 0.98) !important;
-  box-shadow: 0 -2px 24px rgba(37, 99, 235, 0.07) !important;
+  background-color: rgb(255 255 255 / 0.97) !important;
 }
 .light .border-slate-800\/50 {
   border-color: hsl(var(--color-border)) !important;
@@ -189,22 +187,10 @@ body {
 .light
   .shadow-\[0_8px_32px_rgba\(0\,0\,0\,0\.4\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.1\)\] {
   box-shadow:
-    0 4px 20px rgba(37, 99, 235, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.08),
     0 1px 4px rgba(0, 0, 0, 0.04) !important;
 }
 .light
   .shadow-\[0_4px_16px_rgba\(0\,0\,0\,0\.3\)\,inset_0_1px_0_rgba\(255\,255\,255\,0\.05\)\] {
-  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.06) !important;
-}
-
-/* ── 10. Cartes exercices en mode clair ──────────────────────────────── */
-.light .shadow-lg {
-  box-shadow:
-    0 4px 24px rgba(37, 99, 235, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04) !important;
-}
-.light .shadow-sm {
-  box-shadow:
-    0 1px 6px rgba(37, 99, 235, 0.06),
-    0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }
