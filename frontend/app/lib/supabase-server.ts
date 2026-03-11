@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -80,6 +81,8 @@ export interface LeaderboardEntry {
   score: number;
   best_streak: number;
   rank: number;
+  crown_count: number;
+  star_count: number;
 }
 
 /**
@@ -116,4 +119,43 @@ export async function getLeaderboardData(
   }
 
   return data || [];
+}
+
+/**
+ * Attribue les récompenses de la semaine précédente si ce n'est pas encore fait.
+ * Appelé au chargement de la page classement (SSR). Utilise la service role key.
+ * La fonction SQL est idempotente (ON CONFLICT DO UPDATE).
+ */
+export async function maybeAwardLastWeek(): Promise<void> {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) return;
+
+  // Lundi 00:00 UTC de la semaine précédente
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const prevWeekStart = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysFromMonday - 7,
+    ),
+  );
+  const prevWeekStartStr = prevWeekStart.toISOString().split("T")[0];
+
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+
+  // Guard : si les récompenses de cette semaine existent déjà, on ne refait rien
+  const { count } = await admin
+    .from("user_weekly_rewards")
+    .select("id", { count: "exact", head: true })
+    .eq("week_start", prevWeekStartStr);
+
+  if (count && count > 0) return;
+
+  await admin.rpc("award_weekly_top3");
 }

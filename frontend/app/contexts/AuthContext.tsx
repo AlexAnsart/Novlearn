@@ -18,6 +18,8 @@ interface Profile {
   birth_date: string;
   created_at: string;
   consent_date: string;
+  crown_count: number;
+  star_count: number;
 }
 
 interface AuthContextType {

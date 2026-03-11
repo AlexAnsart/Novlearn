@@ -89,12 +89,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   if (isSent) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-        <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl transform scale-100">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl transform scale-100 dark:bg-slate-800">
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-green-900/40 dark:text-green-400">
             <Send className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-slate-800 mb-2">Merci !</h3>
-          <p className="text-slate-500">Votre retour a bien été envoyé.</p>
+          <h3 className="text-xl font-bold text-slate-800 mb-2 dark:text-slate-200">Merci !</h3>
+          <p className="text-slate-500 dark:text-slate-400">Votre retour a bien été envoyé.</p>
         </div>
       </div>
     );
@@ -102,24 +102,24 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 dark:bg-slate-800">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/80">
           <div>
-            <h3 className="text-lg font-bold text-slate-800">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
               {onlyDifficulty
                 ? "Comment avez-vous trouvé cet exercice ?"
                 : "Donnez nous votre avis !"}
             </h3>
             {exerciseTitle && (
-              <p className="text-xs text-slate-500 truncate max-w-[200px]">
+              <p className="text-xs text-slate-500 truncate max-w-[200px] dark:text-slate-400">
                 Sur : {exerciseTitle}
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600 dark:hover:bg-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
           >
             <X className="w-5 h-5" />
           </button>
@@ -139,8 +139,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
                     ${
                       category === "content_error"
-                        ? "bg-red-50 border-red-200 text-red-600"
-                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                        ? "bg-red-50 border-red-200 text-red-600 dark:bg-red-950/30 dark:border-red-800/50 dark:text-red-400"
+                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-600/60"
                     }`}
                 >
                   <AlertTriangle className="w-5 h-5 mb-1" />
@@ -153,8 +153,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                 className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
                   ${
                     category === "suggestion"
-                      ? "bg-amber-50 border-amber-200 text-amber-600"
-                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                      ? "bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-400"
+                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-600/60"
                   }`}
               >
                 <Lightbulb className="w-5 h-5 mb-1" />
@@ -166,8 +166,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                 className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
                   ${
                     category === "other"
-                      ? "bg-blue-50 border-blue-200 text-blue-600"
-                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                      ? "bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-950/30 dark:border-blue-800/50 dark:text-blue-400"
+                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-600/60"
                   }`}
               >
                 <Bug className="w-5 h-5 mb-1" />
@@ -180,8 +180,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all
                     ${
                       category === "difficulty"
-                        ? "bg-purple-50 border-purple-200 text-purple-600"
-                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                        ? "bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/30 dark:border-purple-800/50 dark:text-purple-400"
+                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-600/60"
                     }`}
                 >
                   <Star className="w-5 h-5 mb-1" />
@@ -193,8 +193,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
           {/* 2. Sélecteur d'étoiles (S'affiche si category == difficulty) */}
           {category === "difficulty" && (
-            <div className="bg-purple-50/50 rounded-xl p-4 border border-purple-100 animate-in slide-in-from-top-2">
-              <p className="text-sm text-purple-700 font-medium mb-3 text-center">
+            <div className="bg-purple-50/50 rounded-xl p-4 border border-purple-100 animate-in slide-in-from-top-2 dark:bg-purple-950/20 dark:border-purple-800/40">
+              <p className="text-sm text-purple-700 font-medium mb-3 text-center dark:text-purple-400">
                 Notez la difficulté
               </p>
               <div className="flex justify-center gap-1">
@@ -211,13 +211,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                       className={`w-8 h-8 transition-colors ${
                         star <= (hoverRating || difficultyRating)
                           ? "fill-purple-500 text-purple-500"
-                          : "text-purple-200"
+                          : "text-purple-200 dark:text-purple-800"
                       }`}
                     />
                   </button>
                 ))}
               </div>
-              <div className="flex justify-between text-xs text-purple-400 mt-2 px-2">
+              <div className="flex justify-between text-xs text-purple-400 mt-2 px-2 dark:text-purple-600">
                 <span>Très Facile</span>
                 <span>Impossible</span>
               </div>
@@ -227,7 +227,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
           {/* 3. Message */}
           <div>
             <textarea
-              className="w-full h-32 p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400"
+              className="w-full h-32 p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-indigo-900/40 dark:focus:border-indigo-500"
               placeholder={
                 category === "difficulty"
                   ? "Un commentaire sur la difficulté ? (Optionnel)"
@@ -245,7 +245,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors dark:text-slate-400 dark:hover:bg-slate-700"
             >
               Passer
             </button>

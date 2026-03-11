@@ -394,19 +394,19 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
     return (
       <div className="flex flex-col items-center justify-center p-6 sm:p-12 min-h-[300px]">
         <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-gray-600 font-medium">Chargement de l'exercice...</p>
+        <p className="text-gray-600 font-medium dark:text-slate-400">Chargement de l'exercice...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-5 sm:p-8 flex flex-col items-center justify-center text-center bg-red-50 border border-red-100 rounded-xl min-h-[300px]">
-        <h3 className="text-red-800 font-bold mb-2">Oups !</h3>
-        <p className="text-red-600 mb-4">{error}</p>
+      <div className="p-5 sm:p-8 flex flex-col items-center justify-center text-center bg-red-50 border border-red-100 rounded-xl min-h-[300px] dark:bg-red-950/20 dark:border-red-800/40">
+        <h3 className="text-red-800 font-bold mb-2 dark:text-red-300">Oups !</h3>
+        <p className="text-red-600 mb-4 dark:text-red-400">{error}</p>
         <button
           onClick={() => setRefreshTrigger((p) => p + 1)}
-          className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg"
+          className="px-4 py-2 bg-white border border-red-200 text-red-700 rounded-lg dark:bg-slate-800 dark:border-red-700/50 dark:text-red-400"
         >
           Réessayer
         </button>
@@ -428,10 +428,10 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
 
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
 
-      <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-100">
+      <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-100 dark:bg-slate-800/80 dark:border-slate-700/60">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h2 className="text-base sm:text-2xl font-bold text-slate-800">
+            <h2 className="text-base sm:text-2xl font-bold text-slate-800 dark:text-slate-200">
               {exercise.app_title || exercise.title}
             </h2>
             {mode && (
@@ -442,9 +442,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
               </span>
             )}
           </div>
-          <div className="flex gap-2 text-sm text-gray-500">
+          <div className="flex gap-2 text-sm text-gray-500 dark:text-slate-400">
             {exercise.chapter && (
-              <span className="bg-gray-100 px-2 py-0.5 rounded text-xs uppercase tracking-wide font-semibold">
+              <span className="bg-gray-100 px-2 py-0.5 rounded text-xs uppercase tracking-wide font-semibold dark:bg-slate-700 dark:text-slate-300">
                 {exercise.chapter}
               </span>
             )}
@@ -503,7 +503,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           </button>
           {isExerciseFinished && (
             <div
-              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border animate-in zoom-in ${hasErrors ? "text-orange-600 bg-orange-50 border-orange-100" : "text-green-600 bg-green-50 border-green-100"}`}
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border animate-in zoom-in ${hasErrors ? "text-orange-600 bg-orange-50 border-orange-100 dark:text-orange-400 dark:bg-orange-950/25 dark:border-orange-800/40" : "text-green-600 bg-green-50 border-green-100 dark:text-green-400 dark:bg-green-950/25 dark:border-green-800/40"}`}
             >
               {hasErrors ? (
                 <Flag className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
@@ -518,7 +518,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-3 sm:p-6 border border-slate-100 relative">
+      <div className="bg-white rounded-xl shadow-lg p-3 sm:p-6 border border-slate-100 relative dark:bg-slate-800/60 dark:border-slate-700/50">
         <ExerciseRenderer
           exercise={exercise}
           preGeneratedVariables={variables}
@@ -526,13 +526,13 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         />
 
         {isExerciseFinished && (
-          <div className="mt-4 sm:mt-8 flex flex-col sm:flex-row justify-between items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-4 sm:pt-6 border-slate-100">
+          <div className="mt-4 sm:mt-8 flex flex-col sm:flex-row justify-between items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-500 border-t pt-4 sm:pt-6 border-slate-100 dark:border-slate-700">
             <button
               onClick={() => {
                 setIsFeedbackDifficultyOnly(false);
                 setIsFeedbackOpen(true);
               }}
-              className="text-slate-500 hover:text-indigo-600 text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors"
+              className="text-slate-500 hover:text-indigo-600 text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors dark:text-slate-400 dark:hover:text-indigo-400"
             >
               <MessageSquare className="w-4 h-4" /> Donner mon avis sur cet
               exercice
