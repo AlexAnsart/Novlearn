@@ -13,6 +13,7 @@ import {
   Trash2,
   TrendingUp,
   User,
+  Users,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -714,26 +715,33 @@ export function AccountPage() {
                       "UTILISATEUR"}
                 </h3>
                 {/* Badges de récompenses sous le nom */}
-                {profile && (profile.crown_count > 0 || profile.star_count > 0) && (
-                  <div className="flex items-center gap-2 mt-2">
-                    {profile.crown_count > 0 && (
-                      <span className="flex items-center gap-1 bg-yellow-500/20 border border-yellow-400/40 rounded-full px-2.5 py-1">
-                        <Crown className="w-4 h-4 text-yellow-400" />
-                        <span className="text-yellow-200 text-sm font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-                          {profile.crown_count}
+                {profile &&
+                  (profile.crown_count > 0 || profile.star_count > 0) && (
+                    <div className="flex items-center gap-2 mt-2">
+                      {profile.crown_count > 0 && (
+                        <span className="flex items-center gap-1 bg-yellow-500/20 border border-yellow-400/40 rounded-full px-2.5 py-1">
+                          <Crown className="w-4 h-4 text-yellow-400" />
+                          <span
+                            className="text-yellow-200 text-sm font-bold"
+                            style={{ fontFamily: "'Fredoka', sans-serif" }}
+                          >
+                            {profile.crown_count}
+                          </span>
                         </span>
-                      </span>
-                    )}
-                    {profile.star_count > 0 && (
-                      <span className="flex items-center gap-1 bg-indigo-500/20 border border-indigo-400/40 rounded-full px-2.5 py-1">
-                        <Star className="w-4 h-4 text-indigo-300" />
-                        <span className="text-indigo-200 text-sm font-bold" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-                          {profile.star_count}
+                      )}
+                      {profile.star_count > 0 && (
+                        <span className="flex items-center gap-1 bg-indigo-500/20 border border-indigo-400/40 rounded-full px-2.5 py-1">
+                          <Star className="w-4 h-4 text-indigo-300" />
+                          <span
+                            className="text-indigo-200 text-sm font-bold"
+                            style={{ fontFamily: "'Fredoka', sans-serif" }}
+                          >
+                            {profile.star_count}
+                          </span>
                         </span>
-                      </span>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* Informations */}

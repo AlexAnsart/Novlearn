@@ -9,12 +9,12 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { Duel, duelsApi } from "../../../lib/api";
 import { supabase } from "../../../lib/supabase";
 import QuestionRenderer from "../../../renderers/QuestionRenderer";
-import { Exercise, TextContent, VariableValues } from "../../../types/exercise";
 import {
   DUEL_CORRECTION_DISPLAY_SECONDS,
   DUEL_DURATION_SECONDS,
   DUEL_EXERCISE_TIMEOUT_SECONDS,
 } from "../../../settings/duelSettings";
+import { Exercise, TextContent, VariableValues } from "../../../types/exercise";
 import { evaluate } from "../../../utils/math/evaluation";
 import { substituteVariables } from "../../../utils/math/parsing";
 
@@ -81,6 +81,10 @@ export default function ActiveDuelPage() {
   const durationSec = duelConfig?.duelDurationSeconds ?? DUEL_DURATION_SECONDS;
   const exerciseTimeoutSec = duelConfig?.exerciseTimeoutSeconds ?? DUEL_EXERCISE_TIMEOUT_SECONDS;
   const correctionDisplaySec = duelConfig?.correctionDisplaySeconds ?? DUEL_CORRECTION_DISPLAY_SECONDS;
+  const duelStatus = duel?.status;
+  const duelStartedAt = duel?.started_at;
+  const duelExerciseStartedAt =
+    (duel?.exercise_data as { started_at?: string } | undefined)?.started_at;
 
   const loadDuel = useCallback(
     async (silent = false, skipCorrection = false) => {
@@ -209,10 +213,10 @@ export default function ActiveDuelPage() {
 
   // Poll every 10s so backend can advance to next exercise after timeout (no score)
   useEffect(() => {
-    if (!duel || duel.status !== "active") return;
+    if (duelStatus !== "active") return;
     const t = setInterval(() => loadDuel(true), 10000);
     return () => clearInterval(t);
-  }, [duel?.id, duel?.status, loadDuel]);
+  }, [duel?.id, duelStatus, loadDuel]);
 
   // Hide missed correction after N seconds
   useEffect(() => {
@@ -223,10 +227,10 @@ export default function ActiveDuelPage() {
 
   // Local countdown timer based on duel.started_at
   useEffect(() => {
-    if (!duel || !duel.started_at || duel.status !== "active") return;
+    if (!duelStartedAt || duelStatus !== "active") return;
 
     const tick = () => {
-      const startedAt = new Date(duel.started_at as string).getTime();
+      const startedAt = new Date(duelStartedAt).getTime();
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       const remaining = Math.max(0, durationSec - elapsed);
       setRemainingSeconds(remaining);
@@ -238,16 +242,14 @@ export default function ActiveDuelPage() {
     tick();
     const intervalId = setInterval(tick, 1000);
     return () => clearInterval(intervalId);
-  }, [duel, durationSec]);
+  }, [duelStartedAt, duelStatus, durationSec]);
 
   // Per-exercise countdown: from exercise_data.started_at
   useEffect(() => {
-    if (!duel || duel.status !== "active") return;
-    const startedAtStr = (duel.exercise_data as { started_at?: string } | undefined)?.started_at;
-    if (!startedAtStr) return;
+    if (!duelExerciseStartedAt || duelStatus !== "active") return;
 
     const tick = () => {
-      const startedAt = new Date(startedAtStr).getTime();
+      const startedAt = new Date(duelExerciseStartedAt).getTime();
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       const remaining = Math.max(0, exerciseTimeoutSec - elapsed);
       setExerciseRemainingSeconds(remaining);
@@ -256,7 +258,7 @@ export default function ActiveDuelPage() {
     tick();
     const intervalId = setInterval(tick, 1000);
     return () => clearInterval(intervalId);
-  }, [duel?.id, duel?.status, (duel?.exercise_data as { started_at?: string } | undefined)?.started_at, exerciseTimeoutSec]);
+  }, [duelExerciseStartedAt, duelStatus, exerciseTimeoutSec]);
 
   const applyDuelData = useCallback(
     (duelData: Duel, opts: { exerciseTimeoutSec: number; durationSec: number }) => {
@@ -340,7 +342,7 @@ export default function ActiveDuelPage() {
         if (isCorrect) submittingCorrectRef.current = false;
       }
     },
-    [exercise, duel, duelId, exerciseStartTime, forceFinished, loadDuel, applyDuelData, exerciseTimeoutSec],
+    [exercise, duel, duelId, exerciseStartTime, forceFinished, loadDuel, applyDuelData, exerciseTimeoutSec, durationSec],
   );
 
   if (loading) {
