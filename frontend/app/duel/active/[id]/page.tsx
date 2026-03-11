@@ -33,7 +33,7 @@ function buildExercise(raw: ExerciseMsg["exercise"]): Exercise {
     title: raw.title,
     app_title: raw.title,
     chapter: raw.chapter,
-    difficulty: raw.difficulty,
+    difficulty: raw.difficulty as Exercise["difficulty"],
     competences: [],
     variables: (raw.content?.variables ?? []) as Exercise["variables"],
     elements: (raw.content?.elements ?? []) as Exercise["elements"],
@@ -114,7 +114,11 @@ export default function ActiveDuelPage() {
 
         if (cancelled) { room.leave(); return; }
         roomRef.current = room;
-        console.log("[Duel] joined room", { roomId: room.id, sessionId: room.sessionId });
+        console.log("[Duel] joined room", {
+          // Colyseus rooms expose id/sessionId at runtime, but TS types may not include them
+          roomId: (room as any).id,
+          sessionId: (room as any).sessionId,
+        });
 
         // ── State sync ────────────────────────────────────────────────────
         room.onStateChange((state: any) => {
