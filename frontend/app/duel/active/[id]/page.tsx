@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { Trophy, Zap } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";

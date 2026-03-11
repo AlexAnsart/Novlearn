@@ -27,14 +27,6 @@ export interface TextContent {
   text: string;
 }
 
-export interface FunctionContent {
-  name?: string;
-  variable?: string;
-  expression: string;
-  domain?: string;
-  latex?: boolean;
-}
-
 export interface VariationPoint {
   x: string;
   value: string;
@@ -51,17 +43,16 @@ export type GraphFunction = {
 };
 
 export interface GraphContent {
-  xMin: number;
-  xMax: number;
-  yMin: number;
-  yMax: number;
+  xMin: number | string;
+  xMax: number | string;
+  yMin: number | string;
+  yMax: number | string;
   showGrid: boolean;
   functions: GraphFunction[];
 }
 
 export interface SignPoint {
   x: string;
-  // AJOUT DE '||' ICI pour corriger l'erreur TS(2367)
   sign: "+" | "-" | "0" | "||";
 }
 
@@ -115,7 +106,6 @@ export interface SequenceContent {
 // Union de tous les types de contenu possibles
 export type ElementContent =
   | TextContent
-  | FunctionContent
   | VariationTableContent
   | GraphContent
   | SignTableContent
@@ -128,7 +118,6 @@ export type ElementContent =
 // Union Discriminée pour typage strict
 export type ExerciseElement =
   | { id: number; type: "text"; content: TextContent }
-  | { id: number; type: "function"; content: FunctionContent }
   | { id: number; type: "variation_table"; content: VariationTableContent }
   | { id: number; type: "graph"; content: GraphContent }
   | { id: number; type: "sign_table"; content: SignTableContent }

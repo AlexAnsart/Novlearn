@@ -1,23 +1,51 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
+
+// Précharge un fichier audio pour éviter le délai au premier lancement
+function preload(src: string, volume = 0.5): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  const a = new Audio(src);
+  a.volume = volume;
+  return a;
+}
 
 export const useAudioFeedback = () => {
-  const playSound = useCallback((soundPath: string) => {
+  const successAudio = useRef<HTMLAudioElement | null>(
+    preload("/sounds/Correct.mp3"),
+  );
+  const errorAudio = useRef<HTMLAudioElement | null>(
+    preload("/sounds/Fail.mp3"),
+  );
+  const slideAudio = useRef<HTMLAudioElement | null>(
+    preload("/sounds/Slide.mp3"),
+  );
+
+  const isSoundEnabled = () =>
+    localStorage.getItem("novlearn-sound") !== "false";
+
+  const playAudio = useCallback((audio: HTMLAudioElement | null) => {
+    if (!isSoundEnabled() || !audio) return;
     try {
-      const audio = new Audio(soundPath);
-      // On baisse un peu le volume pour que ça ne soit pas agressif
-      audio.volume = 0.5; 
-      // Le .catch est VITAL pour éviter les erreurs "Autoplay prevented" du navigateur
+      audio.currentTime = 0;
       audio.play().catch((err) => {
         console.warn("Audio bloqué par le navigateur :", err);
       });
     } catch (error) {
-      console.error("Erreur lors du chargement du son :", error);
+      console.error("Erreur lors de la lecture du son :", error);
     }
   }, []);
 
-  const playClick = () => playSound("/sounds/click.mp3");
-  const playSuccess = () => playSound("/sounds/success.mp3");
-  const playError = () => playSound("/sounds/error.mp3");
+  const playSuccess = useCallback(
+    () => playAudio(successAudio.current),
+    [playAudio],
+  );
+  const playError = useCallback(
+    () => playAudio(errorAudio.current),
+    [playAudio],
+  );
+  const playSlide = useCallback(
+    () => playAudio(slideAudio.current),
+    [playAudio],
+  );
 
-  return { playClick, playSuccess, playError };
+  return { playSuccess, playError, playSlide };
 };

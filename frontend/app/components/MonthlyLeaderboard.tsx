@@ -7,6 +7,7 @@ import {
   Flame,
   Loader2,
   Medal,
+  Star,
   Trophy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,34 @@ interface LeaderboardEntry {
   score: number;
   best_streak: number;
   rank: number;
+  crown_count: number;
+  star_count: number;
+}
+
+function RewardBadges({
+  crown_count,
+  star_count,
+}: {
+  crown_count: number;
+  star_count: number;
+}) {
+  if (!crown_count && !star_count) return null;
+  return (
+    <div className="flex items-center gap-1">
+      {crown_count > 0 && (
+        <span className="flex items-center gap-0.5 bg-yellow-500/20 border border-yellow-400/40 rounded-full px-1.5 py-0.5">
+          <Crown className="w-3 h-3 text-yellow-400" />
+          <span className="text-yellow-300 text-xs font-bold">{crown_count}</span>
+        </span>
+      )}
+      {star_count > 0 && (
+        <span className="flex items-center gap-0.5 bg-indigo-500/20 border border-indigo-400/40 rounded-full px-1.5 py-0.5">
+          <Star className="w-3 h-3 text-indigo-300" />
+          <span className="text-indigo-200 text-xs font-bold">{star_count}</span>
+        </span>
+      )}
+    </div>
+  );
 }
 
 interface MonthlyLeaderboardProps {
@@ -281,6 +310,10 @@ export function MonthlyLeaderboard({
                 <span className="text-white text-sm block truncate">
                   {getDisplayName(entry)}
                 </span>
+                <RewardBadges
+                  crown_count={entry.crown_count}
+                  star_count={entry.star_count}
+                />
               </div>
 
               <div className="text-right">
@@ -352,10 +385,16 @@ export function MonthlyLeaderboard({
               {getRankIcon(entry.rank)}
             </div>
 
-            <div className="flex-1 flex items-center gap-3">
-              <span className="text-white font-medium">
-                {user?.id === entry.user_id ? "Vous" : getDisplayName(entry)}
-              </span>
+            <div className="flex-1 flex items-center gap-3 min-w-0">
+              <div className="min-w-0">
+                <span className="text-white font-medium block truncate">
+                  {user?.id === entry.user_id ? "Vous" : getDisplayName(entry)}
+                </span>
+                <RewardBadges
+                  crown_count={entry.crown_count}
+                  star_count={entry.star_count}
+                />
+              </div>
             </div>
 
             <div className="text-right flex items-center gap-6">

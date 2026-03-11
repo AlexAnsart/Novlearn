@@ -7,6 +7,7 @@ import {
 interface TaxonomyState {
   isLoaded: boolean;
   chapters: string[];
+  chapterEmojis: Record<string, string>;
   competences: CompetenceConfig[];
   competencesByChapter: Record<string, CompetenceConfig[]>;
 
@@ -20,6 +21,7 @@ interface TaxonomyState {
 export const useTaxonomyStore = create<TaxonomyState>((set, get) => ({
   isLoaded: false,
   chapters: [],
+  chapterEmojis: {},
   competences: [],
   competencesByChapter: {},
 
@@ -27,7 +29,8 @@ export const useTaxonomyStore = create<TaxonomyState>((set, get) => ({
     if (get().isLoaded) return; // Ne charge qu'une seule fois
 
     try {
-      const { chapterOrder, competences } = await fetchTaxonomyFromDB();
+      const { chapterOrder, chapterEmojis, competences } =
+        await fetchTaxonomyFromDB();
 
       const byChapter: Record<string, CompetenceConfig[]> = {};
       for (const c of competences) {
@@ -37,6 +40,7 @@ export const useTaxonomyStore = create<TaxonomyState>((set, get) => ({
 
       set({
         chapters: chapterOrder,
+        chapterEmojis,
         competences,
         competencesByChapter: byChapter,
         isLoaded: true,

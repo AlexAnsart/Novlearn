@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Layout } from "../components/Layout";
 import { MonthlyLeaderboard } from "../components/MonthlyLeaderboard";
-import { getLeaderboardData, getServerUser } from "../lib/supabase-server";
+import { getLeaderboardData, getServerUser, maybeAwardLastWeek } from "../lib/supabase-server";
 
 /**
  * Page Classement - Optimisée avec données pré-chargées côté serveur
@@ -19,6 +19,9 @@ export default async function ClassementPage() {
   if (!user) {
     redirect("/auth/login");
   }
+
+  // Attribution des récompenses de la semaine précédente si besoin (idempotent)
+  await maybeAwardLastWeek();
 
   // Pré-chargement des données du classement (tri par score par défaut)
   const initialLeaderboard = await getLeaderboardData("score", 20);

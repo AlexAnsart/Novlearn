@@ -13,6 +13,7 @@ interface ChapterRow {
   id: number;
   name: string;
   order_index: number;
+  emoji: string;
 }
 
 interface CompetenceRow {
@@ -27,7 +28,7 @@ export const fetchTaxonomyFromDB = async () => {
   const [chaptersResult, competencesResult] = await Promise.all([
     supabase
       .from("chapters")
-      .select("id, name, order_index")
+      .select("id, name, order_index, emoji")
       .order("order_index", { ascending: true }),
     supabase
       .from("competences")
@@ -44,6 +45,9 @@ export const fetchTaxonomyFromDB = async () => {
     []) as unknown as CompetenceRow[];
 
   const chapterOrder = chapters.map((c) => c.name);
+  const chapterEmojis: Record<string, string> = Object.fromEntries(
+    chapters.map((c) => [c.name, c.emoji ?? "📚"]),
+  );
 
   const competences: CompetenceConfig[] = rawCompetences.map((c) => ({
     id: c.id,
@@ -53,5 +57,5 @@ export const fetchTaxonomyFromDB = async () => {
     max_points: c.max_points,
   }));
 
-  return { chapterOrder, competences };
+  return { chapterOrder, chapterEmojis, competences };
 };

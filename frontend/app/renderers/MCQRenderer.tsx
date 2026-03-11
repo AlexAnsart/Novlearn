@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import MathText from "../components/ui/MathText";
+import { useAudioFeedback } from "../hooks/useAudioFeedback";
 import { MCQContent, RendererProps } from "../types/exercise";
 
 interface MCQRendererProps extends RendererProps<MCQContent> {
@@ -31,18 +32,27 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
   variables,
   onSubmit,
 }) => {
+  const { playSuccess, playError } = useAudioFeedback();
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [isFinished, setIsFinished] = useState(false);
-  const [status, setStatus] = useState<"idle" | "correct" | "incorrect">("idle");
+  const [status, setStatus] = useState<"idle" | "correct" | "incorrect">(
+    "idle",
+  );
   const [showExplanation, setShowExplanation] = useState(false);
 
   const isMultipleChoice = content?.multipleChoice ?? false;
 
   // Mélanger les options une seule fois au montage
+  // Les options "Aucune des réponses..." restent toujours en dernier
   const shuffledOptions = useMemo(() => {
-    return shuffleArray(content?.options || []);
+    const options = content?.options || [];
+    const pinnedPattern =
+      /aucune\s+(des|de\s+la|de\s+l'|des\s+autres|des\s+r[eé]ponses)/i;
+    const pinned = options.filter((opt) => pinnedPattern.test(opt.text));
+    const rest = options.filter((opt) => !pinnedPattern.test(opt.text));
+    return [...shuffleArray(rest), ...pinned];
   }, [content?.options]);
 
   const handleSelect = (index: number) => {
@@ -71,20 +81,22 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
     const correctIndices = new Set(
       shuffledOptions
         .map((opt, idx) => (opt.correct ? idx : -1))
-        .filter((idx) => idx !== -1)
+        .filter((idx) => idx !== -1),
     );
 
     const allCorrectSelected = [...correctIndices].every((idx) =>
-      selectedIndices.has(idx)
+      selectedIndices.has(idx),
     );
     const noIncorrectSelected = [...selectedIndices].every(
-      (idx) => shuffledOptions[idx].correct
+      (idx) => shuffledOptions[idx].correct,
     );
     const isCorrect = allCorrectSelected && noIncorrectSelected;
 
     setStatus(isCorrect ? "correct" : "incorrect");
     setIsFinished(true);
     setShowExplanation(true); // Afficher l'explication automatiquement à la fin
+    if (isCorrect) playSuccess();
+    else playError();
     onSubmit?.([...selectedIndices][0], isCorrect);
   };
 
@@ -96,8 +108,8 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
   // Si pas de contenu valide
   if (!content || !shuffledOptions.length) {
     return (
-      <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-200">
-        <p className="text-slate-500">Chargement du QCM...</p>
+      <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-200 dark:bg-slate-800/80 dark:border-slate-700">
+        <p className="text-slate-500 dark:text-slate-400">Chargement du QCM...</p>
       </div>
     );
   }
@@ -106,10 +118,10 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
     <div
       className={`my-6 p-6 rounded-xl shadow-sm border transition-all duration-500 ${
         isFinished && status === "correct"
-          ? "bg-green-50/30 border-green-200"
+          ? "bg-green-50/30 border-green-200 dark:bg-green-950/25 dark:border-green-800/60"
           : isFinished && status === "incorrect"
-          ? "bg-red-50/30 border-red-200"
-          : "bg-white border-slate-200"
+            ? "bg-red-50/30 border-red-200 dark:bg-red-950/25 dark:border-red-800/60"
+            : "bg-white border-slate-200 dark:bg-slate-800/80 dark:border-slate-700"
       }`}
     >
       {/* --- EN-TÊTE QUESTION --- */}
@@ -118,22 +130,22 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
           className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm transition-colors
           ${
             isFinished && status === "correct"
-              ? "bg-green-100 text-green-700"
+              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
               : isFinished && status === "incorrect"
-              ? "bg-red-100 text-red-700"
-              : "bg-indigo-100 text-indigo-600"
+                ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                : "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400"
           }`}
         >
-          {isFinished ? status === "correct" ? "✓" : "✗" : "?"}
+          {isFinished ? (status === "correct" ? "✓" : "✗") : "?"}
         </div>
         <div className="flex-grow pt-1">
           <MathText
             content={content.question}
             variables={variables}
-            className="font-medium text-lg text-slate-800"
+            className="font-medium text-lg text-slate-800 dark:text-slate-200"
           />
           {isMultipleChoice && !isFinished && (
-            <p className="text-sm text-slate-500 mt-2 italic flex items-center gap-1">
+            <p className="text-sm text-slate-500 mt-2 italic flex items-center gap-1 dark:text-slate-400">
               <span className="inline-block w-1 h-1 rounded-full bg-slate-400"></span>
               Plusieurs réponses possibles
             </p>
@@ -147,29 +159,30 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
           {shuffledOptions.map((option, index) => {
             const isSelected = selectedIndices.has(index);
             const isCorrect = option.correct;
-            
+
             // Calcul du style dynamique
-            let containerStyle = "border-slate-200 hover:border-slate-300 hover:bg-slate-50";
-            let indicatorStyle = "bg-slate-100 text-slate-500";
-            
+            let containerStyle =
+              "border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-700/40";
+            let indicatorStyle = "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400";
+
             if (!isFinished) {
               if (isSelected) {
-                containerStyle = "border-indigo-500 bg-indigo-50/50";
+                containerStyle = "border-indigo-500 bg-indigo-50/50 dark:border-indigo-500 dark:bg-indigo-900/25";
                 indicatorStyle = "bg-indigo-500 text-white";
               }
             } else {
               // État terminé
               if (isCorrect) {
                 // C'était une bonne réponse (qu'elle soit sélectionnée ou non, on la montre en vert)
-                containerStyle = "border-green-500 bg-green-50/50";
+                containerStyle = "border-green-500 bg-green-50/50 dark:border-green-600 dark:bg-green-900/20";
                 indicatorStyle = "bg-green-500 text-white";
               } else if (isSelected && !isCorrect) {
                 // Mauvaise réponse sélectionnée
-                containerStyle = "border-red-500 bg-red-50/50";
+                containerStyle = "border-red-500 bg-red-50/50 dark:border-red-600 dark:bg-red-900/20";
                 indicatorStyle = "bg-red-500 text-white";
               } else {
                 // Option neutre non sélectionnée
-                containerStyle = "border-slate-100 opacity-50";
+                containerStyle = "border-slate-100 opacity-50 dark:border-slate-700";
               }
             }
 
@@ -185,9 +198,13 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
                     isMultipleChoice ? "rounded-md" : "rounded-full"
                   } ${indicatorStyle}`}
                 >
-                   {isFinished && isCorrect ? "✓" : isFinished && isSelected ? "✗" : String.fromCharCode(65 + index)}
+                  {isFinished && isCorrect
+                    ? "✓"
+                    : isFinished && isSelected
+                      ? "✗"
+                      : String.fromCharCode(65 + index)}
                 </span>
-                <div className="flex-grow text-slate-800">
+                <div className="flex-grow text-slate-800 dark:text-slate-200">
                   <MathText
                     content={option.text}
                     variables={variables}
@@ -201,18 +218,18 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
 
         {/* --- BOUTON VALIDER --- */}
         {!isFinished && (
-            <button
-              onClick={handleValidate}
-              disabled={selectedIndices.size === 0}
-              className={`px-6 py-2.5 text-white font-medium rounded-lg transition-all shadow-md active:scale-95 w-full sm:w-auto
+          <button
+            onClick={handleValidate}
+            disabled={selectedIndices.size === 0}
+            className={`px-6 py-2.5 text-white font-medium rounded-lg transition-all shadow-md active:scale-95 w-full sm:w-auto
                 ${
-                    selectedIndices.size === 0
+                  selectedIndices.size === 0
                     ? "bg-slate-400 cursor-not-allowed opacity-50 shadow-none"
                     : "bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg"
                 }`}
-            >
-              Valider
-            </button>
+          >
+            Valider
+          </button>
         )}
 
         {/* --- RÉSULTAT FINAL --- */}
@@ -220,7 +237,7 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <div
               className={`flex items-center gap-2 text-lg font-bold
-              ${status === "correct" ? "text-green-600" : "text-red-600"}`}
+              ${status === "correct" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
             >
               {status === "correct" ? (
                 <>
@@ -237,19 +254,22 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
 
             {/* --- CORRECTION (Réponses attendues) --- */}
             {status === "incorrect" && (
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm">
-                <span className="font-bold text-sm uppercase text-slate-500 tracking-wider">
-                    Réponse(s) attendue(s) :
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                <span className="font-bold text-sm uppercase text-slate-500 tracking-wider dark:text-slate-400">
+                  Réponse(s) attendue(s) :
                 </span>
                 <div className="flex flex-col gap-2">
-                    {correctOptionTexts.map((text, i) => (
-                    <div key={i} className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                         <span className="text-green-600 text-sm">●</span>
-                        <MathText content={text} variables={variables} />
+                  {correctOptionTexts.map((text, i) => (
+                    <div
+                      key={i}
+                      className="font-bold text-lg text-slate-800 flex items-center gap-2 dark:text-slate-200"
+                    >
+                      <span className="text-green-600 text-sm dark:text-green-400">●</span>
+                      <MathText content={text} variables={variables} />
                     </div>
-                    ))}
+                  ))}
                 </div>
-                </div>
+              </div>
             )}
 
             {/* --- EXPLICATION --- */}
@@ -258,9 +278,9 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowExplanation(!showExplanation)}
-                  className="group flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+                  className="group flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors dark:text-slate-400 dark:hover:text-indigo-400"
                 >
-                  <div className="p-1 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors">
+                  <div className="p-1 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors dark:bg-slate-700 dark:group-hover:bg-indigo-900/40">
                     {showExplanation ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
@@ -273,16 +293,16 @@ const MCQRenderer: React.FC<MCQRendererProps> = ({
                 </button>
 
                 {showExplanation && (
-                  <div className="mt-3 p-5 rounded-xl bg-blue-50/50 border border-blue-100 animate-in fade-in slide-in-from-top-2">
+                  <div className="mt-3 p-5 rounded-xl bg-blue-50/50 border border-blue-100 animate-in fade-in slide-in-from-top-2 dark:bg-blue-950/20 dark:border-blue-800/40">
                     <div className="flex items-start gap-3">
-                      <div className="mt-1 p-1.5 bg-blue-100 text-blue-600 rounded-lg">
+                      <div className="mt-1 p-1.5 bg-blue-100 text-blue-600 rounded-lg dark:bg-blue-900/40 dark:text-blue-400">
                         <Lightbulb className="w-5 h-5" />
                       </div>
                       <div className="space-y-1 flex-1">
-                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">
+                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1 dark:text-blue-400">
                           Détails du raisonnement
                         </p>
-                        <div className="text-slate-800 text-base leading-relaxed">
+                        <div className="text-slate-800 text-base leading-relaxed dark:text-slate-200">
                           <MathText
                             content={content.explanation}
                             variables={variables}

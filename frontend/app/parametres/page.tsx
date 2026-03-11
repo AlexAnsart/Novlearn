@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useAudioFeedback } from "../hooks/useAudioFeedback";
 
 export default function SettingsPage() {
   const { user, profile } = useAuth();
@@ -50,6 +51,7 @@ export default function SettingsPage() {
 
   // --- ÉTAT : PRÉFÉRENCES ---
   const { theme, setTheme } = useTheme();
+  const { playSlide } = useAudioFeedback();
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [notifications, setNotifications] = useState(true);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -409,7 +411,13 @@ export default function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <Switch checked={soundEnabled} onChange={setSoundEnabled} />
+                  <Switch
+                    checked={soundEnabled}
+                    onChange={(val) => {
+                      playSlide();
+                      setSoundEnabled(val);
+                    }}
+                  />
                 </div>
 
                 {/* Notifications */}
@@ -433,7 +441,13 @@ export default function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <Switch checked={notifications} onChange={setNotifications} />
+                  <Switch
+                    checked={notifications}
+                    onChange={(val) => {
+                      playSlide();
+                      setNotifications(val);
+                    }}
+                  />
                 </div>
 
                 {/* Animations */}
@@ -455,7 +469,10 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={!reduceMotion}
-                    onChange={(val) => setReduceMotion(!val)}
+                    onChange={(val) => {
+                      playSlide();
+                      setReduceMotion(!val);
+                    }}
                   />
                 </div>
               </section>

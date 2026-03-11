@@ -52,15 +52,12 @@ export function DuelNotifications() {
       isCancelled = true;
       clearInterval(intervalId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, hasMounted]);
 
   const handleAccept = async (request: DuelRequest) => {
     try {
       const result = await duelsApi.acceptDuel(request.id);
-      setDuelRequests((current) =>
-        current.filter((r) => r.id !== request.id),
-      );
+      setDuelRequests((current) => current.filter((r) => r.id !== request.id));
       toast.success(`Duel accepté avec ${request.from_user_name} !`);
       router.push(`/duel/active/${result.duel.id}`);
     } catch (error: any) {
@@ -72,9 +69,7 @@ export function DuelNotifications() {
   const handleDecline = async (request: DuelRequest) => {
     try {
       await duelsApi.declineDuel(request.id);
-      setDuelRequests((current) =>
-        current.filter((r) => r.id !== request.id),
-      );
+      setDuelRequests((current) => current.filter((r) => r.id !== request.id));
     } catch (error: any) {
       console.error("[DuelNotifications] Error declining duel", error);
       toast.error(error.message || "Erreur lors du refus du duel");
@@ -101,10 +96,7 @@ export function DuelNotifications() {
             >
               Défi reçu
             </p>
-            <p
-              className="text-sm text-white"
-              style={{ fontWeight: 600 }}
-            >
+            <p className="text-sm text-white" style={{ fontWeight: 600 }}>
               {latestRequest.from_user_name} vous provoque en duel !
             </p>
           </div>
@@ -136,4 +128,3 @@ export function DuelNotifications() {
     </div>
   );
 }
-

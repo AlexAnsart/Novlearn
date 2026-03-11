@@ -1,4 +1,4 @@
-import { evaluate as mathEvaluate } from "mathjs";
+import { evaluate as mathEvaluate, parse as mathParse } from "mathjs";
 import { AnswerFormat, VariableValues } from "../../types/exercise";
 import { substituteVariables } from "./parsing";
 
@@ -188,6 +188,23 @@ export const toLatex = (value: string | number | undefined | null): string => {
   if (value === Infinity) return "+\\infty";
   if (value === -Infinity) return "-\\infty";
   return String(value).replace(".", ",");
+};
+
+/**
+ * Convertit une expression MathJS (ou LaTeX) en LaTeX lisible.
+ * Substitue d'abord les variables @nom, puis utilise mathjs parse().toTex().
+ */
+export const mathJsExprToLatex = (
+  expr: string,
+  variables: VariableValues = {},
+): string => {
+  if (!expr) return "";
+  try {
+    const substituted = substituteVariables(expr, variables);
+    return mathParse(toMathJsSyntax(substituted)).toTex();
+  } catch {
+    return substituteVariables(expr, variables);
+  }
 };
 
 // ==========================================
