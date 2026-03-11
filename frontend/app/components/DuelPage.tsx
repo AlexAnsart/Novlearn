@@ -3,6 +3,7 @@
 import { Swords, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   DuelRequest as ApiDuelRequest,
   DuelHistoryItem,
@@ -87,10 +88,10 @@ export function DuelPage() {
     try {
       await duelsApi.createDuel(friendId);
       setSentDuels([...sentDuels, friendId]);
-      alert(`Demande de duel envoyée à ${friendName} !`);
+      toast.success(`Demande de duel envoyée à ${friendName} !`);
     } catch (error: any) {
       console.error("Error sending duel:", error);
-      alert(error.message || "Erreur lors de l'envoi de la demande");
+      toast.error(error.message || "Erreur lors de l'envoi de la demande");
     }
   };
 
@@ -98,13 +99,13 @@ export function DuelPage() {
     try {
       const result = await duelsApi.acceptDuel(parseInt(requestId));
       setDuelRequests(duelRequests.filter((r) => r.id !== requestId));
-      alert(`Duel accepté avec ${fromName} !`);
+      toast.success(`Duel accepté avec ${fromName} !`);
 
       // Redirect to active duel
       router.push(`/duel/active/${result.duel.id}`);
     } catch (error: any) {
       console.error("Error accepting duel:", error);
-      alert(error.message || "Erreur lors de l'acceptation du duel");
+      toast.error(error.message || "Erreur lors de l'acceptation du duel");
     }
   };
 
@@ -114,7 +115,7 @@ export function DuelPage() {
       setDuelRequests(duelRequests.filter((r) => r.id !== requestId));
     } catch (error: any) {
       console.error("Error declining duel:", error);
-      alert(error.message || "Erreur lors du refus du duel");
+      toast.error(error.message || "Erreur lors du refus du duel");
     }
   };
 
