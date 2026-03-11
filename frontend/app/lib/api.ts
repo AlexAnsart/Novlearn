@@ -327,24 +327,13 @@ export const friendsApi = {
 // DUELS API
 // ============================================
 
-export interface Duel {
+/** Minimal duel row returned by lobby/redirect endpoints (not the live game state). */
+export interface DuelLobby {
   id: number;
   player1_id: string;
   player2_id: string;
-  exercise_id: number;
   status: "waiting" | "active" | "finished";
-  player1_score: number;
-  player2_score: number;
-  player1_time: number | null;
-  player2_time: number | null;
-  winner_id: string | null;
   created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  exercise_data: any;
-  exercise?: any;
-  player1?: any;
-  player2?: any;
 }
 
 export interface DuelRequest {
@@ -367,99 +356,42 @@ export interface DuelHistoryItem {
 }
 
 export const duelsApi = {
-  /**
-   * Create a new duel
-   */
-  async createDuel(
-    friendId: string,
-    exerciseId?: number,
-  ): Promise<{ message: string; duel_id: number; duel: Duel }> {
+  /** Create a duel challenge (friend must exist). */
+  async createDuel(friendId: string): Promise<{ message: string; duel_id: number; duel: DuelLobby }> {
     return apiRequest("/api/duels/create", {
       method: "POST",
-      body: JSON.stringify({ friend_id: friendId, exercise_id: exerciseId }),
+      body: JSON.stringify({ friend_id: friendId }),
     });
   },
 
   /**
-   * Accept a duel
+   * Accept a duel — marks it "active" in DB so player1 gets the Supabase Realtime
+   * notification and navigates to /duel/active/[id].
+   * Both players then connect to the Colyseus room for the actual game.
    */
-  async acceptDuel(duelId: number): Promise<{ message: string; duel: Duel }> {
-    return apiRequest(`/api/duels/${duelId}/accept`, {
-      method: "POST",
-    });
+  async acceptDuel(duelId: number): Promise<{ message: string; duel: DuelLobby }> {
+    return apiRequest(`/api/duels/${duelId}/accept`, { method: "POST" });
   },
 
-  /**
-   * Decline a duel
-   */
+  /** Decline / cancel a pending duel. */
   async declineDuel(duelId: number): Promise<{ message: string }> {
-    return apiRequest(`/api/duels/${duelId}/decline`, {
-      method: "POST",
-    });
+    return apiRequest(`/api/duels/${duelId}/decline`, { method: "POST" });
   },
 
-  /**
-   * Get duel config (duration, exercise timeout). Single source of truth from backend.
-   */
-  async getDuelConfig(): Promise<{
-    duelDurationSeconds: number;
-    exerciseTimeoutSeconds: number;
-    correctionDisplaySeconds: number;
-  }> {
-    return apiRequest("/api/duels/config");
-  },
-
-  /**
-   * Get pending duels (waiting for acceptance)
-   */
+  /** Pending duels waiting for the current user to accept/decline. */
   async getPendingDuels(): Promise<{ duels: DuelRequest[] }> {
     return apiRequest("/api/duels/pending");
   },
 
   /**
-   * Get active duels
+   * Active duels (used as fallback redirect check by DuelAcceptedRedirect).
+   * The real game state lives in the Colyseus room, not here.
    */
-  async getActiveDuels(): Promise<{ duels: Duel[] }> {
+  async getActiveDuels(): Promise<{ duels: DuelLobby[] }> {
     return apiRequest("/api/duels/active");
   },
 
-  /**
-   * Get specific duel details
-   */
-  async getDuel(duelId: number): Promise<{ duel: Duel }> {
-    return apiRequest(`/api/duels/${duelId}`);
-  },
-
-  /**
-   * Submit answer in a duel
-   */
-  async submitAnswer(
-    duelId: number,
-    elementId: number,
-    answer: string,
-    isCorrect: boolean,
-    timeSpent: number,
-  ): Promise<{
-    message: string;
-    correct: boolean;
-    new_score?: number;
-    duel?: Duel;
-  }> {
-    return apiRequest(`/api/duels/${duelId}/submit`, {
-      method: "POST",
-      body: JSON.stringify({
-        duel_id: duelId,
-        element_id: elementId,
-        answer,
-        is_correct: isCorrect,
-        time_spent: timeSpent,
-      }),
-    });
-  },
-
-  /**
-   * Get duel history (finished duels) for current user
-   */
+  /** Finished duels history for the current user. */
   async getHistory(): Promise<{ history: DuelHistoryItem[] }> {
     return apiRequest("/api/duels/history");
   },

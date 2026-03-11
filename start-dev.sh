@@ -41,10 +41,26 @@ python main.py &
 BACKEND_PID=$!
 cd ..
 
-# Attendre un peu pour que le backend démarre
-sleep 3
+sleep 2
 
-# Installer les dépendances npm si nécessaire
+# Installer les dépendances npm du duel-server si nécessaire
+if [ ! -d "duel-server/node_modules" ]; then
+    echo "[Duel Server] Installation des dépendances npm..."
+    cd duel-server
+    npm install
+    cd ..
+fi
+
+# Démarrer le duel server Colyseus
+echo "[Duel Server] Démarrage du serveur Colyseus..."
+cd duel-server
+npm run dev &
+DUEL_PID=$!
+cd ..
+
+sleep 2
+
+# Installer les dépendances npm du frontend si nécessaire
 if [ ! -d "frontend/node_modules" ]; then
     echo "[Frontend] Installation des dépendances npm..."
     cd frontend
@@ -62,13 +78,13 @@ cd ..
 echo ""
 echo "===================================="
 echo "  Serveurs démarrés !"
-echo "  Frontend: http://localhost:3000"
-echo "  Backend:  http://localhost:8010"
+echo "  Frontend:     http://localhost:3000"
+echo "  Backend:      http://localhost:8010"
+echo "  Duel Server:  http://localhost:2567"
 echo "===================================="
 echo ""
 echo "Appuyez sur Ctrl+C pour arrêter les serveurs..."
 
-# Attendre l'interruption
-trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM
+trap "kill $BACKEND_PID $DUEL_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM
 wait
 
