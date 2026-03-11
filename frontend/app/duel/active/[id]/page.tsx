@@ -134,15 +134,23 @@ export default function ActiveDuelPage() {
         });
 
         // ── Exercise (sent by server when game starts and after each solve/timeout) ──
-        room.onMessage("exercise", (msg: ExerciseMsg) => {
-          console.log("[Duel] exercise received", { id: msg.exercise.id, title: msg.exercise.title });
+        const handleExercise = (msg: ExerciseMsg) => {
+          console.log("[Duel] exercise received", {
+            id: msg.exercise.id,
+            title: msg.exercise.title,
+          });
           exerciseCountRef.current++;
           submittingRef.current = false;
           setCorrection(null);
           setExercise(buildExercise(msg.exercise));
           setVariables(msg.variables ?? {});
           setConnected(true);
-        });
+        };
+
+        // New message name used by the rewritten duel-server
+        room.onMessage("exercise", handleExercise);
+        // Backwards-compatibility with older room code that still emits "exercise_loaded"
+        room.onMessage("exercise_loaded", handleExercise);
 
         // ── Someone scored ──────────────────────────────────────────────────
         room.onMessage("point_scored", (_msg: { scoredBy: string }) => {

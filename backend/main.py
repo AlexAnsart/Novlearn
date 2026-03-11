@@ -614,9 +614,22 @@ async def accept_duel(duel_id: int, user: dict = Depends(verify_token)):
         if duel_data["player2_id"] != user_id:
             raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à accepter ce duel")
 
+        player1_id = duel_data["player1_id"]
+        now_iso = datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
+
+        # Close any stale active duels involving either player (exclude this duel).
+        # This prevents the redirect from picking an old duel instead of the new one.
+        for pid in {player1_id, user_id}:
+            supabase.table("duels").update({
+                "status": "finished",
+                "finished_at": now_iso,
+            }).eq("status", "active").neq("id", duel_id).or_(
+                f"player1_id.eq.{pid},player2_id.eq.{pid}"
+            ).execute()
+
         result = supabase.table("duels").update({
             "status": "active",
-            "started_at": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
+            "started_at": now_iso,
         }).eq("id", duel_id).execute()
 
         logger.info("[API] duel accepted duel_id=%s player2=%s", duel_id, user_id[:8])
@@ -704,6 +717,8 @@ async def get_active_duels(user: dict = Depends(verify_token)):
             .select("id, player1_id, player2_id, status, created_at")\
             .or_(f"player1_id.eq.{user_id},player2_id.eq.{user_id}")\
             .eq("status", "active")\
+            .order("created_at", desc=True)\
+            .limit(1)\
             .execute()
 
         return {"duels": result.data or []}

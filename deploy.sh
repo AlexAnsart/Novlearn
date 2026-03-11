@@ -11,9 +11,11 @@ echo "🚀 Démarrage du déploiement Novlearn..."
 APP_DIR="/opt/novlearn"
 BACKEND_DIR="$APP_DIR/backend"
 FRONTEND_DIR="$APP_DIR/frontend"
+DUEL_DIR="$APP_DIR/duel-server"
 VENV_DIR="$BACKEND_DIR/venv"
 BACKEND_SERVICE="novlearn-backend"
 FRONTEND_SERVICE="novlearn-frontend"
+DUEL_SERVICE="novlearn-duel-server"
 
 # ===== BACKEND =====
 echo "📦 Déploiement du backend..."
@@ -131,6 +133,44 @@ if systemctl list-unit-files | grep -q "^${FRONTEND_SERVICE}.service"; then
     fi
 else
     echo "⚠️  Le service $FRONTEND_SERVICE n'existe pas encore. Il sera créé par le workflow GitHub Actions."
+fi
+
+# ===== DUEL-SERVER (Colyseus) =====
+echo "📦 Déploiement du duel-server (Colyseus)..."
+
+if [ -d "$DUEL_DIR" ]; then
+    cd "$DUEL_DIR"
+
+    # Installer les dépendances Node.js pour le duel-server
+    echo "📦 Installation des dépendances duel-server..."
+    npm install --production=false
+
+    # Build TypeScript -> dist/
+    echo "🔨 Build du duel-server..."
+    npm run build
+
+    # Créer le fichier .env si nécessaire (les variables sont déjà copiées par le workflow)
+    if [ ! -f ".env" ]; then
+        echo "⚠️  Aucun .env trouvé pour le duel-server. Pensez à le créer avec SUPABASE_URL et SUPABASE_SERVICE_KEY."
+    fi
+
+    # Redémarrer le service systemd duel-server
+    echo "🔄 Redémarrage du service duel-server..."
+    if systemctl list-unit-files | grep -q "^${DUEL_SERVICE}.service"; then
+        sudo systemctl restart $DUEL_SERVICE
+
+        if sudo systemctl is-active --quiet $DUEL_SERVICE; then
+            echo "✅ Service $DUEL_SERVICE démarré avec succès"
+        else
+            echo "❌ Erreur: le service $DUEL_SERVICE n'a pas démarré"
+            sudo systemctl status $DUEL_SERVICE
+            exit 1
+        fi
+    else
+        echo "⚠️  Le service $DUEL_SERVICE n'existe pas encore. Il sera créé par le workflow GitHub Actions."
+    fi
+else
+    echo "⚠️  Répertoire duel-server introuvable, saut de cette étape."
 fi
 
 echo "✅ Déploiement terminé avec succès!"

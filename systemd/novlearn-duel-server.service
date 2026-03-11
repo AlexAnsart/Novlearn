@@ -1,0 +1,19 @@
+[Unit]
+Description=Novlearn Colyseus Duel Server
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/opt/novlearn/duel-server
+Environment="NODE_ENV=production"
+Environment="PORT=2567"
+EnvironmentFile=/opt/novlearn/duel-server/.env
+Environment="PATH=/usr/bin:/bin:/usr/local/bin"
+ExecStart=/usr/bin/env node dist/app.config.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+

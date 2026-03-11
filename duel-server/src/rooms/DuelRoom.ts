@@ -100,16 +100,9 @@ export class DuelRoom extends Room {
     });
   }
 
-  async onLeave(client: Client, _code?: number) {
+  onLeave(client: Client, _code?: number) {
     const auth = client.userData as PlayerAuth | undefined;
     console.log("[DuelRoom] onLeave", { userId: auth?.userId.slice(0, 8), code: _code });
-    if (this.s.phase === "finished") return;
-    try {
-      await this.allowReconnection(client, 60);
-      console.log("[DuelRoom] reconnected", { userId: auth?.userId.slice(0, 8) });
-    } catch {
-      console.log("[DuelRoom] reconnection timeout", { userId: auth?.userId.slice(0, 8) });
-    }
   }
 
   onDispose() {

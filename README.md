@@ -40,10 +40,28 @@ python main.py
 
 Le backend sera accessible sur [http://localhost:8000](http://localhost:8000)
 
+#### 3. Duel-server (Colyseus, temps réel 1v1)
+
+Le système de duels temps réel repose sur un **troisième service** dédié :
+
+```bash
+cd duel-server
+npm install
+npm run dev
+```
+
+- Le duel-server écoute par défaut sur `http://localhost:2567`.
+- Le frontend y accède via WebSocket (`NEXT_PUBLIC_COLYSEUS_URL`, par défaut `http://localhost:2567` en dev).
+
+> **En dev**, pour lancer les trois services d’un coup, vous pouvez utiliser les scripts racine :
+> - Windows : `start-dev.bat`
+> - Linux/Mac : `./start-dev.sh`
+
 ### Vérification
 
 - Frontend : [http://localhost:3000](http://localhost:3000)
 - Backend API : [http://localhost:8000](http://localhost:8000)
+- Duel-server WebSocket : `ws://localhost:2567` (Colyseus)
 - Health check : [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
 > **Note** : Pour que l'authentification fonctionne en local, voir [GUIDE_LOCAL_SETUP.md](GUIDE_LOCAL_SETUP.md)
