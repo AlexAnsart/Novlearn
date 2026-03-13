@@ -27,7 +27,6 @@ interface Feedback {
   exercise_id?: number | null;
   user_id: string | null;
   profiles?: {
-    email: string;
     first_name: string;
     last_name: string;
   };
@@ -77,7 +76,6 @@ export default function FeedbackDashboard() {
           `
           *,
           profiles:user_id (
-            email,
             first_name,
             last_name
           )
@@ -448,11 +446,6 @@ export default function FeedbackDashboard() {
                             ? `${item.profiles.first_name} ${item.profiles.last_name || ""}`
                             : "Anonyme"}
                         </span>
-                        {item.profiles?.email && (
-                          <span className="text-slate-500 text-xs">
-                            {item.profiles.email}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>

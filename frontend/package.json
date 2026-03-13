@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@colyseus/sdk": "^0.17.35",
+    "@next/third-parties": "^16.1.6",
     "@serwist/next": "^9.5.6",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.86.0",

@@ -389,10 +389,10 @@ async def get_friends(user: dict = Depends(verify_token)):
 
         logger.info("[API /api/friends] friend_ids count=%s ids=%s", len(friend_ids), friend_ids[:5] if friend_ids else [])
         
-        # Get profiles for all friend IDs
+        # Get profiles for all friend IDs — public fields only (no email, no birth_date)
         if friend_ids:
             profiles_result = supabase.table("profiles")\
-                .select("id, first_name, last_name, email")\
+                .select("id, first_name, last_name")\
                 .in_("id", friend_ids)\
                 .execute()
             
@@ -402,14 +402,12 @@ async def get_friends(user: dict = Depends(verify_token)):
             # Build friends data
             for friend_id in friend_ids:
                 profile = profiles_map.get(friend_id, {})
-                email = profile.get("email", "")
                 first_name = profile.get("first_name", "")
                 last_name = profile.get("last_name", "")
-                name = f"{first_name} {last_name}".strip() or email.split("@")[0] if email else ""
+                name = f"{first_name} {last_name}".strip() or "Utilisateur"
                 
                 friends_data.append({
                     "id": friend_id,
-                    "email": email,
                     "first_name": first_name,
                     "last_name": last_name,
                     "name": name

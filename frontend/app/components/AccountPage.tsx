@@ -26,7 +26,6 @@ import { supabase } from "../lib/supabase";
 interface Friend {
   id: string;
   name: string;
-  email: string;
   memberSince: string;
   exercisesCompleted: number;
   level: string;
@@ -183,7 +182,6 @@ export function AccountPage() {
         friendsData.map((f) => ({
           id: f.id,
           name: f.name,
-          email: f.email,
           memberSince: "2024",
           exercisesCompleted: 0,
           level: "Terminale",

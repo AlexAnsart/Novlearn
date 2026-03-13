@@ -164,7 +164,7 @@ export interface RecommendExerciseResponse {
   competences?: string[]; // Array of competences (preferred)
   difficulty_level: number;
   difficulty: string;
-  mode?: 'test' | 'recommendation';
+  mode?: "test" | "recommendation";
   chapter?: string;
 }
 
@@ -180,10 +180,12 @@ export async function getRecommendedExercise(
   try {
     const endpoint = chapter
       ? `/api/recommend-exercise?chapter=${encodeURIComponent(chapter)}`
-      : '/api/recommend-exercise';
+      : "/api/recommend-exercise";
     const res = await apiRequest<RecommendExerciseResponse>(endpoint);
     if (res?.mode) {
-      console.log(`[Exercise] Recommendation: mode=${res.mode}${res.chapter ? ` chapter=${res.chapter}` : ''} exo=${res.exercise_id}`);
+      console.log(
+        `[Exercise] Recommendation: mode=${res.mode}${res.chapter ? ` chapter=${res.chapter}` : ""} exo=${res.exercise_id}`,
+      );
     }
     return res;
   } catch {
@@ -197,7 +199,7 @@ export interface ChapterTestNextResponse {
   competences?: string[];
   difficulty_level?: number;
   difficulty?: string;
-  mode?: 'test';
+  mode?: "test";
   chapter?: string;
   completed?: boolean;
 }
@@ -208,17 +210,22 @@ export interface ChapterTestNextResponse {
  */
 export async function postChapterTestNext(
   chapter: string,
-  lastSuccess: boolean
+  lastSuccess: boolean,
 ): Promise<ChapterTestNextResponse | null> {
   try {
-    const res = await apiRequest<ChapterTestNextResponse>('/api/chapter-test/next', {
-      method: 'POST',
-      body: JSON.stringify({ chapter, last_success: lastSuccess }),
-    });
+    const res = await apiRequest<ChapterTestNextResponse>(
+      "/api/chapter-test/next",
+      {
+        method: "POST",
+        body: JSON.stringify({ chapter, last_success: lastSuccess }),
+      },
+    );
     if (res?.completed) {
       console.log(`[Exercise] Chapter test completed for chapter=${chapter}`);
     } else if (res?.exercise_id) {
-      console.log(`[Exercise] Chapter test next: exo=${res.exercise_id} (lastSuccess=${lastSuccess})`);
+      console.log(
+        `[Exercise] Chapter test next: exo=${res.exercise_id} (lastSuccess=${lastSuccess})`,
+      );
     }
     return res;
   } catch {
@@ -237,7 +244,6 @@ export interface FriendCode {
 
 export interface Friend {
   id: string;
-  email: string;
   first_name: string;
   last_name: string;
   name: string;
@@ -284,7 +290,10 @@ export const friendsApi = {
    */
   async getFriends(): Promise<{ friends: Friend[] }> {
     const result = await apiRequest<{ friends: Friend[] }>("/api/friends");
-    console.log("[friendsApi] getFriends: count=", result?.friends?.length ?? 0);
+    console.log(
+      "[friendsApi] getFriends: count=",
+      result?.friends?.length ?? 0,
+    );
     return result;
   },
 
@@ -357,7 +366,9 @@ export interface DuelHistoryItem {
 
 export const duelsApi = {
   /** Create a duel challenge (friend must exist). */
-  async createDuel(friendId: string): Promise<{ message: string; duel_id: number; duel: DuelLobby }> {
+  async createDuel(
+    friendId: string,
+  ): Promise<{ message: string; duel_id: number; duel: DuelLobby }> {
     return apiRequest("/api/duels/create", {
       method: "POST",
       body: JSON.stringify({ friend_id: friendId }),
@@ -369,7 +380,9 @@ export const duelsApi = {
    * notification and navigates to /duel/active/[id].
    * Both players then connect to the Colyseus room for the actual game.
    */
-  async acceptDuel(duelId: number): Promise<{ message: string; duel: DuelLobby }> {
+  async acceptDuel(
+    duelId: number,
+  ): Promise<{ message: string; duel: DuelLobby }> {
     return apiRequest(`/api/duels/${duelId}/accept`, { method: "POST" });
   },
 

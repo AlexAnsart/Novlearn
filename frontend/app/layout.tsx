@@ -1,3 +1,4 @@
+import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
 import { Fredoka } from "next/font/google";
@@ -39,6 +40,8 @@ export const metadata: Metadata = {
   },
 };
 
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+
 export default function RootLayout({
   children,
 }: {
@@ -78,6 +81,7 @@ export default function RootLayout({
             <Toaster position="top-right" theme="dark" richColors closeButton />
           </ThemeProvider>
         </AuthProvider>
+        {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
       </body>
     </html>
   );

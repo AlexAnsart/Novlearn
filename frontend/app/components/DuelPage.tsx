@@ -4,6 +4,7 @@ import { Swords, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
 import {
   DuelRequest as ApiDuelRequest,
   DuelHistoryItem,
@@ -11,7 +12,6 @@ import {
   Friend,
   friendsApi,
 } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
 
 interface LocalDuelRequest {
   id: string;
@@ -37,7 +37,12 @@ export function DuelPage() {
     // If we used Promise.all with getPendingDuels/getHistory, one failure would prevent setFriends.
     try {
       const { friends: friendsList } = await friendsApi.getFriends();
-      console.log("[DuelPage] getFriends OK, count:", friendsList?.length ?? 0, "ids:", friendsList?.map((f) => f.id) ?? []);
+      console.log(
+        "[DuelPage] getFriends OK, count:",
+        friendsList?.length ?? 0,
+        "ids:",
+        friendsList?.map((f) => f.id) ?? [],
+      );
       setFriends(friendsList ?? []);
     } catch (error: any) {
       console.error("[DuelPage] getFriends error:", error?.message ?? error);
@@ -228,15 +233,6 @@ export function DuelPage() {
                     >
                       {friend.name}
                     </p>
-                    <p
-                      className="text-blue-200 text-sm"
-                      style={{
-                        fontFamily: "'Fredoka', sans-serif",
-                        fontWeight: 400,
-                      }}
-                    >
-                      {friend.email}
-                    </p>
                   </div>
                 </div>
                 <button
@@ -317,7 +313,10 @@ export function DuelPage() {
                     </div>
                     <span
                       className={`text-xs px-3 py-1 rounded-full border ${resultColor}`}
-                      style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                      }}
                     >
                       {resultLabel}
                     </span>
