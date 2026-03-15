@@ -404,7 +404,7 @@ async def get_friends(user: dict = Depends(verify_token)):
                 profile = profiles_map.get(friend_id, {})
                 first_name = profile.get("first_name", "")
                 last_name = profile.get("last_name", "")
-                name = f"{first_name} {last_name}".strip() or "Utilisateur"
+                name = f"{first_name}.{last_name[0].upper()}" if last_name else (first_name or "Utilisateur")
                 
                 friends_data.append({
                     "id": friend_id,
@@ -478,7 +478,7 @@ async def get_friend_requests(user: dict = Depends(verify_token)):
                 email = profile.get("email", "")
                 first_name = profile.get("first_name", "")
                 last_name = profile.get("last_name", "")
-                from_user_name = f"{first_name} {last_name}".strip() or email.split("@")[0] if email else ""
+                from_user_name = f"{first_name}.{last_name[0].upper()}" if last_name else first_name
                 
                 requests_data.append({
                     "id": req.get("id"),

@@ -306,8 +306,8 @@ export function MonthlyLeaderboard({
               }`}
             >
               {getRankIcon(entry.rank)}
-              <div className="flex-1 min-w-0">
-                <span className="text-white text-sm block truncate">
+              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                <span className="text-white text-sm truncate">
                   {getDisplayName(entry)}
                 </span>
                 <RewardBadges
@@ -386,8 +386,8 @@ export function MonthlyLeaderboard({
             </div>
 
             <div className="flex-1 flex items-center gap-3 min-w-0">
-              <div className="min-w-0">
-                <span className="text-white font-medium block truncate">
+              <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                <span className="text-white font-medium truncate">
                   {user?.id === entry.user_id ? "Vous" : getDisplayName(entry)}
                 </span>
                 <RewardBadges

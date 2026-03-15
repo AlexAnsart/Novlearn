@@ -119,6 +119,43 @@ function generateDecimalWithExclusions(
 }
 
 /**
+ * Évalue une expression de variable computed en parenthésant toutes les valeurs.
+ * Évite le piège -8^2 = -64 (au lieu de (-8)^2 = 64) causé par substituteVariables
+ * qui retourne -8 sans parenthèses pour l'affichage.
+ */
+function evaluateComputedExpression(
+  expr: string,
+  vars: Record<string, number>,
+): number {
+  const sortedKeys = Object.keys(vars).sort((a, b) => b.length - a.length);
+  let safeExpr = expr;
+  for (const key of sortedKeys) {
+    safeExpr = safeExpr.replace(
+      new RegExp(`@${key}(?![a-zA-Z0-9])`, "g"),
+      `(${vars[key]})`,
+    );
+  }
+  return evaluate(safeExpr, {});
+}
+
+/**
+ * Parse une chaîne de n-uplets "(1,2); (-1,3)" et retourne un n-uplet au hasard.
+ * Retourne null si le parsing échoue ou si aucun n-uplet ne correspond à `expected`.
+ */
+function parseTupleChoices(raw: string, expected: number): number[] | null {
+  const tuples = raw
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((s) => s.replace(/^\(|\)$/g, ""))
+    .map((s) => s.split(",").map((v) => parseFloat(v.trim())))
+    .filter((arr) => arr.length === expected && arr.every((n) => !isNaN(n)));
+
+  if (tuples.length === 0) return null;
+  return randomChoice(tuples);
+}
+
+/**
  * Génère des valeurs aléatoires pour les variables d'un exercice
  * Gère aussi les variables calculées (computed) et les exclusions
  */
@@ -160,7 +197,7 @@ export function generateVariables(variables: Variable[]): VariableValues {
         break;
 
       case "choice":
-        if (variable.choices && variable.choices.length > 0) {
+        if (Array.isArray(variable.choices) && variable.choices.length > 0) {
           // Pour choice, filtrer les choix exclus
           const availableChoices = variable.choices.filter((choice) => {
             const numValue = parseFloat(choice);
@@ -173,10 +210,63 @@ export function generateVariables(variables: Variable[]): VariableValues {
           if (availableChoices.length > 0) {
             values[variable.name] = randomChoice(availableChoices);
           } else {
-            values[variable.name] = randomChoice(variable.choices);
+            values[variable.name] = randomChoice(variable.choices as string[]);
           }
         }
         break;
+
+      case "doublet": {
+        const rawD =
+          typeof variable.choices === "string" ? variable.choices : undefined;
+        if (variable.mode === "choice" && rawD && variable.names?.length === 2) {
+          const picked = parseTupleChoices(rawD, 2);
+          if (picked) {
+            values[variable.names[0]] = picked[0];
+            values[variable.names[1]] = picked[1];
+          }
+        }
+        break;
+      }
+
+      case "triplet": {
+        const rawT =
+          typeof variable.choices === "string" ? variable.choices : undefined;
+        if (variable.mode === "choice" && rawT && variable.names?.length === 3) {
+          const picked = parseTupleChoices(rawT, 3);
+          if (picked) {
+            values[variable.names[0]] = picked[0];
+            values[variable.names[1]] = picked[1];
+            values[variable.names[2]] = picked[2];
+          }
+        } else if (
+          variable.mode === "perfect_square" &&
+          variable.min !== undefined &&
+          variable.max !== undefined &&
+          variable.names?.length === 3
+        ) {
+          const excl = Array.isArray(variable.exclusions)
+            ? variable.exclusions
+            : variable.exclusions
+              ? [variable.exclusions]
+              : undefined;
+          const p = generateIntegerWithExclusions(
+            variable.min,
+            variable.max,
+            excl,
+            values,
+          );
+          const q = generateIntegerWithExclusions(
+            variable.min,
+            variable.max,
+            excl,
+            values,
+          );
+          values[variable.names[0]] = p * p;      // A = p²
+          values[variable.names[1]] = 2 * p * q;  // B = 2pq
+          values[variable.names[2]] = q * q;      // C = q²
+        }
+        break;
+      }
     }
   }
 
@@ -208,8 +298,8 @@ export function generateVariables(variables: Variable[]): VariableValues {
             }
           }
 
-          // Evaluate the expression
-          const result = evaluate(variable.expression, numericValues);
+          // Evaluate the expression (parenthèses autour des valeurs pour éviter -8^2 = -64)
+          const result = evaluateComputedExpression(variable.expression, numericValues);
 
           if (!isNaN(result) && isFinite(result)) {
             values[variable.name] = result;

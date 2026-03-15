@@ -13,14 +13,22 @@ export type AnswerFormat =
 export interface Variable {
   id: number;
   name: string;
-  type: "integer" | "decimal" | "choice" | "computed";
+  type: "integer" | "decimal" | "choice" | "computed" | "doublet" | "triplet";
+  // integer / decimal
   min?: number;
   max?: number;
   decimals?: number;
-  choices?: string[];
-  expression?: string;
   /** Valeurs interdites (nombres ou expressions avec variables, ex: "0", "@a", "@a+1") */
   exclusions?: (string | number)[];
+  // choice (scalaire) : tableau de valeurs
+  // doublet / triplet mode "choice" : chaîne de n-uplets ex: "(1,2); (-1,3)"
+  choices?: string[] | string;
+  // computed
+  expression?: string;
+  // doublet / triplet
+  mode?: "choice" | "perfect_square";
+  /** Noms des variables produites, ex: ["p","q"] ou ["A","B","C"] */
+  names?: string[];
 }
 
 export interface TextContent {
