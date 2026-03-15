@@ -33,6 +33,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SITE_URL: https://novlearn.fr
           NEXT_PUBLIC_COLYSEUS_URL: https://novlearn.fr/duel-ws
+          NEXT_PUBLIC_GA_ID: ${{ secrets.NEXT_PUBLIC_GA_ID }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ADMIN_API_SECRET: ${{ secrets.ADMIN_API_SECRET }}
 
@@ -356,6 +357,7 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_SITE_URL=https://novlearn.fr" >> /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_COLYSEUS_URL=https://novlearn.fr/duel-ws" >> /opt/novlearn/frontend/.env.local
+            echo "NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}" >> /opt/novlearn/frontend/.env.local
             echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> /opt/novlearn/frontend/.env.local
             echo "ADMIN_API_SECRET=${{ secrets.ADMIN_API_SECRET }}" >> /opt/novlearn/frontend/.env.local
 
