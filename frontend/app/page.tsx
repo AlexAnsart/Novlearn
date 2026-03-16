@@ -4,24 +4,37 @@ import { MessageSquare, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ActionButton } from "./components/ActionButton";
+import { GuestConversionModal } from "./components/GuestLock/GuestConversionModal";
+import { LockedButton } from "./components/GuestLock/LockedButton";
 import { Layout } from "./components/Layout";
 import { MonthlyLeaderboard } from "./components/MonthlyLeaderboard";
 import { FeedbackModal } from "./components/ui/FeedbackModal";
 import { InteractiveTutorial } from "./components/ui/InteractiveTutorial";
 import { useAuth } from "./contexts/AuthContext";
+import { GUEST_EXERCISE_LIMIT, useGuestMode } from "./hooks/useGuestMode";
 
 export default function Home() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
+  const { getGuestAttemptCount } = useGuestMode();
 
-  // État pour la modale de feedback
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false); // <--- AJOUT STATE
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [showConversionModal, setShowConversionModal] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState(GUEST_EXERCISE_LIMIT);
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/auth/login");
+      router.push("/accueil");
     }
   }, [user, loading, router]);
+
+  // Récupérer le nombre de tentatives restantes pour l'invité
+  useEffect(() => {
+    if (!isGuest) return;
+    getGuestAttemptCount().then((count) => {
+      setRemainingAttempts(Math.max(0, GUEST_EXERCISE_LIMIT - count));
+    });
+  }, [isGuest, getGuestAttemptCount]);
 
   const handleStartTraining = () => {
     router.push("/exercices");
@@ -32,10 +45,35 @@ export default function Home() {
       {/* Tutoriel interactif pour la première connexion */}
       <InteractiveTutorial />
 
-      {/* 1. La Modale (Invisible par défaut) */}
+      {/* Bannière invité */}
+      {isGuest && (
+        <div className="bg-gradient-to-r from-indigo-900/60 to-purple-900/60 border-b border-indigo-700/50 px-4 py-2 flex items-center justify-between">
+          <span
+            style={{ fontFamily: "'Fredoka', sans-serif" }}
+            className="text-indigo-200 text-sm"
+          >
+            🎯 Mode découverte — {remainingAttempts} exercice(s) restant(s)
+          </span>
+          <button
+            onClick={() => setShowConversionModal(true)}
+            className="bg-indigo-500 hover:bg-indigo-400 text-white text-sm px-3 py-1 rounded-lg transition-all"
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+          >
+            Créer mon compte →
+          </button>
+        </div>
+      )}
+
+      {/* Modale de feedback */}
       <FeedbackModal
         isOpen={isFeedbackOpen}
         onClose={() => setIsFeedbackOpen(false)}
+      />
+
+      {/* Modale de conversion invité */}
+      <GuestConversionModal
+        isOpen={showConversionModal}
+        onClose={() => setShowConversionModal(false)}
       />
 
       <div className="flex-1 flex items-center justify-center px-8 pb-8">
@@ -120,10 +158,10 @@ export default function Home() {
                     className="
                     tour-start-test
                     relative inline-flex items-center gap-3 px-10 py-5 rounded-2xl
-                    bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white 
+                    bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white
                     shadow-[0_8px_0_0_rgba(67,56,202,1),0_15px_25px_rgba(99,102,241,0.4)]
-                    transform transition-all duration-200 hover:scale-105 
-                    active:shadow-[0_4px_0_0_rgba(67,56,202,1),0_8px_15px_rgba(99,102,241,0.4)] 
+                    transform transition-all duration-200 hover:scale-105
+                    active:shadow-[0_4px_0_0_rgba(67,56,202,1),0_8px_15px_rgba(99,102,241,0.4)]
                     active:translate-y-1
                     group
                   "
@@ -143,14 +181,20 @@ export default function Home() {
 
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-8 flex-wrap">
-            <ActionButton
-              variant="primary"
-              icon="⚔️"
-              onClick={() => router.push("/duel")}
-              className="tour-duels"
+            <LockedButton
+              isLocked={isGuest}
+              reason="Crée ton compte pour défier tes amis en 1VS1 !"
+              onUnlockClick={() => setShowConversionModal(true)}
             >
-              1VS1
-            </ActionButton>
+              <ActionButton
+                variant="primary"
+                icon="⚔️"
+                onClick={() => router.push("/duel")}
+                className="tour-duels"
+              >
+                1VS1
+              </ActionButton>
+            </LockedButton>
 
             <ActionButton
               variant="secondary"
@@ -168,7 +212,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 2. Bouton Flottant "Feedback" (En bas à droite) */}
+      {/* Bouton Flottant "Feedback" (En bas à droite) */}
       <button
         onClick={() => setIsFeedbackOpen(true)}
         className="fixed bottom-6 right-6 p-4 bg-white text-indigo-600 rounded-full shadow-xl hover:bg-indigo-50 hover:shadow-2xl hover:scale-110 transition-all duration-300 z-40 border border-indigo-100 group"
@@ -176,7 +220,6 @@ export default function Home() {
       >
         <MessageSquare className="w-6 h-6" />
 
-        {/* Tooltip au survol (Optionnel, pour le style) */}
         <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
           Un avis ? Un bug ?
         </span>

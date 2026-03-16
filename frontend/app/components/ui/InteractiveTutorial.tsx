@@ -9,6 +9,7 @@ export const InteractiveTutorial = () => {
   const [run, setRun] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const pathname = usePathname();
 
   // Détection du mobile
@@ -35,10 +36,7 @@ export const InteractiveTutorial = () => {
   }, [run]);
 
   useEffect(() => {
-    // Ne rien faire tant que le composant n'est pas monté sur le navigateur
     if (!isMounted) return;
-
-    // On ne lance ce tutoriel que si on est sur la page d'accueil
     if (pathname !== "/") return;
 
     const checkTutorialStatus = async () => {
@@ -47,6 +45,15 @@ export const InteractiveTutorial = () => {
       } = await supabase.auth.getUser();
       if (!user) return;
 
+      const anonymous = user.is_anonymous === true;
+      setIsGuest(anonymous);
+
+      if (anonymous) {
+        const seen = localStorage.getItem("novlearn-guest-tutorial-seen");
+        if (!seen) setTimeout(() => setRun(true), 1500);
+        return;
+      }
+
       const { data } = await supabase
         .from("profiles")
         .select("has_seen_tutorial")
@@ -54,7 +61,6 @@ export const InteractiveTutorial = () => {
         .single();
 
       if (data && data.has_seen_tutorial === false) {
-        // Petit délai pour s'assurer que toutes les classes CSS (les cibles) sont bien rendues
         setTimeout(() => setRun(true), 1500);
       }
     };
@@ -62,64 +68,82 @@ export const InteractiveTutorial = () => {
     checkTutorialStatus();
   }, [pathname, isMounted]);
 
-  // Définition des étapes avec placements responsives
+  // Textes selon statut invité
   const steps: Step[] = [
     {
       target: "body",
-      content:
-        "Bienvenue sur Novlearn ! 👋 Faisons un petit tour rapide de l'interface pour te montrer comment tout fonctionne.",
+      content: isGuest
+        ? "Bienvenue sur NovLearn ! 👋 Voici un tour rapide de la plateforme. Certaines fonctionnalités sont réservées aux membres — tu pourras les débloquer en créant ton compte gratuit !"
+        : "Bienvenue sur Novlearn ! 👋 Faisons un petit tour rapide de l'interface pour te montrer comment tout fonctionne.",
       placement: "center",
       disableBeacon: true,
     },
     {
       target: ".tour-account",
-      content:
-        "Voici ton Compte. C'est ici que tu retrouveras tes informations, et surtout que tu pourras ajouter tes amis pour comparer vos scores !",
+      content: isGuest
+        ? "🔒 Ton profil — crée ton compte pour accéder à ta page personnelle, ajouter des amis et comparer vos scores !"
+        : "Voici ton Compte. C'est ici que tu retrouveras tes informations, et surtout que tu pourras ajouter tes amis pour comparer vos scores !",
       placement: isMobile ? "top" : "left",
     },
     {
       target: ".tour-progress",
-      content:
-        "La page Progression te permet de suivre ton évolution chapitre par chapitre, tes séries de victoires et tes points de compétence.",
+      content: isGuest
+        ? "🔒 Progression — avec un compte, tu peux suivre ton évolution chapitre par chapitre, tes séries de victoires et tes points de compétence."
+        : "La page Progression te permet de suivre ton évolution chapitre par chapitre, tes séries de victoires et tes points de compétence.",
       placement: isMobile ? "top" : "right",
     },
     {
       target: ".tour-training",
       content:
-        "Dans l'Entraînement, tu peux chercher des exercices à la carte. 💡 Astuce : tu pourras y sélectionner uniquement les chapitres que tu as déjà vus en cours, ou ceux qu'il te reste à découvrir !",
+        "Dans l'Entraînement, tu peux chercher des exercices à la carte. 💡 Sélectionne les chapitres que tu as déjà vus en cours ou ceux qu'il te reste à découvrir !",
       placement: isMobile ? "top" : "right",
     },
     {
       target: ".tour-leaderboard",
-      content:
-        "Le Classement te montre la compétition de la semaine ! Accumule des points en t'entraînant et en gagnant des duels pour grimper dans le classement et devenir le meilleur de la semaine. 🏆",
+      content: isGuest
+        ? "🔒 Classement — crée un compte pour apparaître dans le classement de la semaine et rivaliser avec les autres élèves. 🏆"
+        : "Le Classement te montre la compétition de la semaine ! Accumule des points en t'entraînant et en gagnant des duels pour grimper dans le classement et devenir le meilleur de la semaine. 🏆",
       placement: isMobile ? "top" : "right",
     },
     {
       target: ".tour-settings",
-      content:
-        "Un petit tour dans les Paramètres si tu as besoin d'ajuster tes préférences ou de changer de mot de passe.",
+      content: isGuest
+        ? "🔒 Paramètres — disponible après inscription pour personnaliser ton expérience et gérer ton mot de passe."
+        : "Un petit tour dans les Paramètres si tu as besoin d'ajuster tes préférences ou de changer de mot de passe.",
       placement: "top",
     },
     {
       target: ".tour-duels",
-      content:
-        "Envie d'un défi ? La zone 1V1 te permet de lancer des duels mathématiques en temps réel contre tes amis. Que le meilleur gagne !",
+      content: isGuest
+        ? "🔒 Duels 1V1 — affronte tes amis en mathématiques en temps réel ! Disponible en créant ton compte gratuit. ⚔️"
+        : "Envie d'un défi ? La zone 1V1 te permet de lancer des duels mathématiques en temps réel contre tes amis. Que le meilleur gagne !",
       placement: isMobile ? "bottom" : "right",
     },
     {
       target: ".tour-start-test",
-      content:
-        "Maintenant, à toi de jouer ! Clique ici pour lancer ton premier exercice. Il s'agit d'un test de positionnement qui nous aidera à adapter la difficulté rien que pour toi. 🚀 Tu trouveras un bouton ? d'aide pour comprendre comment répondre.",
+      content: isGuest
+        ? "C'est parti ! Tu as 5 exercices gratuits pour tester la plateforme. Clique ici pour commencer — et si tu aimes, crée ton compte pour continuer sans limite ! 🚀"
+        : "Maintenant, à toi de jouer ! Clique ici pour lancer ton premier exercice. Il s'agit d'un test de positionnement qui nous aidera à adapter la difficulté rien que pour toi. 🚀 Tu trouveras un bouton ? d'aide pour comprendre comment répondre.",
       placement: "bottom",
     },
-    // Étape PWA (mobile uniquement)
-    ...(isMobile
+    // Étape finale pour les invités : invitation à créer un compte
+    ...(isGuest
       ? [
           {
             target: "body",
             content:
-              "Astuce : Tu peux installer Novlearn comme une vraie application sur ton téléphone ! Clique sur le bouton 'Partager' ou le menu de ton navigateur, puis choisis 'Ajouter à l'écran d'accueil' pour profiter du mode plein écran et des notifications.",
+              "Tu peux commencer tout de suite ! Et quand tu es prêt, clique sur « Créer mon compte » en haut de la page pour débloquer tout NovLearn — c'est gratuit et ta progression est conservée. 🎯",
+            placement: "center" as const,
+          },
+        ]
+      : []),
+    // Étape PWA (mobile, non-invité uniquement)
+    ...(!isGuest && isMobile
+      ? [
+          {
+            target: "body",
+            content:
+              "Astuce : Tu peux installer Novlearn comme une vraie application sur ton téléphone ! Clique sur 'Partager' ou le menu de ton navigateur, puis choisis 'Ajouter à l'écran d'accueil'.",
             placement: "center" as const,
           },
         ]
@@ -130,39 +154,42 @@ export const InteractiveTutorial = () => {
     const { status } = data;
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
 
-    // Si le tuto est fini ou passé
     if (finishedStatuses.includes(status)) {
       setRun(false);
 
-      // On sauvegarde dans la base de données pour ne plus jamais l'afficher
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        await supabase
-          .from("profiles")
-          .update({ has_seen_tutorial: true })
-          .eq("id", user.id);
+        if (user.is_anonymous) {
+          localStorage.setItem("novlearn-guest-tutorial-seen", "true");
+        } else {
+          await supabase
+            .from("profiles")
+            .update({ has_seen_tutorial: true })
+            .eq("id", user.id);
+        }
       }
     }
   };
 
-  // 3. Sécurité d'affichage : On ne rend rien tant qu'on n'est pas côté client ou hors de la page d'accueil
   if (!isMounted || pathname !== "/") return null;
+
+  const stepCount = steps.length;
 
   return (
     <Joyride
       steps={steps}
       run={run}
-      continuous={true} // Affiche un bouton "Suivant"
+      continuous={true}
       showSkipButton={true}
       showProgress={true}
-      disableOverlayClose={true} // Empêche de fermer en cliquant à côté
+      disableOverlayClose={true}
       callback={handleJoyrideCallback}
       styles={{
         options: {
-          primaryColor: "#4f46e5", // Indigo-600
-          textColor: "#334155", // Slate-700
+          primaryColor: "#4f46e5",
+          textColor: "#334155",
           zIndex: 1000,
         },
         tooltip: {
@@ -195,7 +222,7 @@ export const InteractiveTutorial = () => {
         last: "C'est parti !",
         next: "Suivant",
         skip: "Passer le tutoriel",
-        nextLabelWithProgress: "Suivant ({step}/8)",
+        nextLabelWithProgress: `Suivant ({step}/${stepCount})`,
       }}
     />
   );

@@ -1,9 +1,10 @@
 "use client";
 
-import { User } from "lucide-react";
+import { Lock, User } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { GuestConversionModal } from "./GuestLock/GuestConversionModal";
 import { Footer } from "./Footer";
 import { Logo } from "./Logo";
 import { SidebarIcon } from "./SidebarIcon";
@@ -15,11 +16,34 @@ interface LayoutProps {
   isFullScreen?: boolean;
 }
 
+// Icône de sidebar verrouillée pour les invités
+function LockedSidebarIcon({
+  emoji,
+  onUnlockClick,
+  className,
+}: {
+  emoji: string;
+  onUnlockClick: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={`relative cursor-pointer ${className ?? ""}`} onClick={onUnlockClick}>
+      <div className="pointer-events-none opacity-40">
+        <SidebarIcon emoji={emoji} active={false} onClick={() => {}} />
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Lock className="w-4 h-4 text-white/60" />
+      </div>
+    </div>
+  );
+}
+
 export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const [showConversionModal, setShowConversionModal] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isGuest } = useAuth();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -47,6 +71,8 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   // Vérification du rôle admin (cast as any si le type n'est pas encore mis à jour partout)
   const isAdmin = (profile as any)?.role === "admin";
 
+  const openConversionModal = () => setShowConversionModal(true);
+
   // Contenu de la barre de navigation (Sidebar Desktop OU Bottom Bar Mobile)
   const sidebarContent = (
     <>
@@ -55,24 +81,32 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         active={isHome}
         onClick={() => router.push("/")}
       />
-      <SidebarIcon
-        emoji="📊"
-        active={isProgress}
-        onClick={() => router.push("/progression")}
-        className="tour-progress"
-      />
+      {isGuest ? (
+        <LockedSidebarIcon emoji="📊" onUnlockClick={openConversionModal} className="tour-progress" />
+      ) : (
+        <SidebarIcon
+          emoji="📊"
+          active={isProgress}
+          onClick={() => router.push("/progression")}
+          className="tour-progress"
+        />
+      )}
       <SidebarIcon
         emoji="🏋️"
         active={isTraining}
         onClick={() => router.push("/entrainement")}
         className="tour-training"
       />
-      <SidebarIcon
-        emoji={"🏆"}
-        active={isLeaderboard}
-        onClick={() => router.push("/classement")}
-        className="tour-leaderboard"
-      />
+      {isGuest ? (
+        <LockedSidebarIcon emoji="🏆" onUnlockClick={openConversionModal} className="tour-leaderboard" />
+      ) : (
+        <SidebarIcon
+          emoji={"🏆"}
+          active={isLeaderboard}
+          onClick={() => router.push("/classement")}
+          className="tour-leaderboard"
+        />
+      )}
 
       {/* Espaceur : Uniquement sur Desktop pour pousser les réglages en bas */}
       {!isMobile && <div className="flex-1" />}
@@ -93,22 +127,30 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         </>
       )}
 
-      {/* NOUVEAU : Icône Compte -> Uniquement sur Mobile */}
+      {/* Icône Compte -> Uniquement sur Mobile */}
       {isMobile && (
-        <SidebarIcon
-          emoji={"👤"}
-          active={isAccount}
-          onClick={() => router.push("/compte")}
-          className="tour-account"
-        />
+        isGuest ? (
+          <LockedSidebarIcon emoji="👤" onUnlockClick={openConversionModal} className="tour-account" />
+        ) : (
+          <SidebarIcon
+            emoji={"👤"}
+            active={isAccount}
+            onClick={() => router.push("/compte")}
+            className="tour-account"
+          />
+        )
       )}
 
-      <SidebarIcon
-        emoji="⚙️"
-        active={isSettings}
-        onClick={() => router.push("/parametres")}
-        className="tour-settings"
-      />
+      {isGuest ? (
+        <LockedSidebarIcon emoji="⚙️" onUnlockClick={openConversionModal} className="tour-settings" />
+      ) : (
+        <SidebarIcon
+          emoji="⚙️"
+          active={isSettings}
+          onClick={() => router.push("/parametres")}
+          className="tour-settings"
+        />
+      )}
     </>
   );
 
@@ -133,7 +175,26 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                 </div>
 
                 {/* User Profile Desktop (Gros bouton en haut à droite) */}
-                {user ? (
+                {user && isGuest ? (
+                  <button
+                    onClick={openConversionModal}
+                    className="tour-account flex items-center gap-3 bg-gradient-to-r from-indigo-600/80 to-purple-600/80 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:from-indigo-500/80 hover:to-purple-500/80 transition-all cursor-pointer"
+                  >
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <span className="text-xl">🎯</span>
+                    </div>
+                    <span
+                      className="text-white"
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 600,
+                        fontSize: "1.125rem",
+                      }}
+                    >
+                      Créer un compte
+                    </span>
+                  </button>
+                ) : user ? (
                   <button
                     onClick={() => router.push("/compte")}
                     className="tour-account flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer relative"
@@ -222,6 +283,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
       <DuelAcceptedRedirect />
       {/* Global duel notifications (fixed top-right) */}
       <DuelNotifications />
+      {/* Modal de conversion invité */}
+      <GuestConversionModal
+        isOpen={showConversionModal}
+        onClose={() => setShowConversionModal(false)}
+      />
     </div>
   );
 }
