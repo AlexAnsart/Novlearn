@@ -14,6 +14,11 @@ import random
 from config import settings
 from auth import verify_token, get_supabase_client
 from recommandation import recommander_exercice
+from ds import (
+    initialiser_scores_ds,
+    recommander_exercice_ds,
+    soumettre_reponse_ds,
+)
 from chapter_placement_test import (
     fetch_or_start_test,
     get_next_test_exercise,
@@ -71,6 +76,19 @@ class CreateDuelRequest(BaseModel):
 
 class DuelActionRequest(BaseModel):
     duel_id: int
+
+
+class CreateDSRequest(BaseModel):
+    title: str
+    deadline: str
+    competence_ids: List[str]
+
+
+class SubmitDSAnswerRequest(BaseModel):
+    exercise_id: str
+    competence_ids: List[str]
+    is_correct: bool
+    difficulty: str
 
 
 
@@ -787,6 +805,212 @@ async def get_duel_history(user: dict = Depends(verify_token)):
     except Exception as e:
         logger.error(f"Error getting duel history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# DS (DEVOIRS SURVEILLÉS)
+# ============================================================
+
+@app.post("/api/ds")
+async def create_ds(
+    body: CreateDSRequest,
+    user: dict = Depends(verify_token),
+):
+    """Crée un nouveau DS et initialise les scores par compétence."""
+    user_id = user["user_id"]
+    supabase = get_supabase_client()
+
+    if not body.title.strip():
+        raise HTTPException(status_code=400, detail="Le titre est obligatoire")
+    if not body.competence_ids:
+        raise HTTPException(status_code=400, detail="Sélectionnez au moins une compétence")
+
+    try:
+        deadline_dt = datetime.fromisoformat(body.deadline.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Format de deadline invalide (ISO 8601 attendu)")
+
+    if deadline_dt <= datetime.now(deadline_dt.tzinfo):
+        raise HTTPException(status_code=400, detail="La deadline doit être dans le futur")
+
+    r = supabase.table("ds").insert({
+        "user_id": user_id,
+        "title": body.title.strip(),
+        "deadline": body.deadline,
+        "competence_ids": body.competence_ids,
+        "current_streak": 0,
+    }).execute()
+
+    if not r.data:
+        raise HTTPException(status_code=500, detail="Erreur lors de la création du DS")
+
+    ds = r.data[0]
+    initialiser_scores_ds(supabase, ds["id"], body.competence_ids)
+
+    logger.info("[DS] Créé par user=%s ds_id=%s titre='%s'", user_id, ds["id"], body.title)
+    return ds
+
+
+@app.get("/api/ds")
+async def list_ds(
+    user: dict = Depends(verify_token),
+):
+    """Liste tous les DS de l'utilisateur avec leur statut (active/expired)."""
+    user_id = user["user_id"]
+    supabase = get_supabase_client()
+
+    r = (
+        supabase.table("ds")
+        .select("id, title, deadline, competence_ids, current_streak, created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    now = datetime.now(timezone.utc)
+    ds_list = []
+    for ds in (r.data or []):
+        try:
+            deadline_dt = datetime.fromisoformat(ds["deadline"].replace("Z", "+00:00"))
+            status = "active" if deadline_dt > now else "expired"
+        except Exception:
+            status = "expired"
+        ds_list.append({**ds, "status": status})
+
+    return {"ds": ds_list}
+
+
+@app.get("/api/ds/{ds_id}")
+async def get_ds(
+    ds_id: str,
+    user: dict = Depends(verify_token),
+):
+    """Détail d'un DS : infos + scores par compétence."""
+    user_id = user["user_id"]
+    supabase = get_supabase_client()
+
+    r = (
+        supabase.table("ds")
+        .select("id, title, deadline, competence_ids, current_streak, created_at")
+        .eq("id", ds_id)
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(status_code=404, detail="DS introuvable")
+
+    ds = r.data
+    now = datetime.now(timezone.utc)
+    try:
+        deadline_dt = datetime.fromisoformat(ds["deadline"].replace("Z", "+00:00"))
+        status = "active" if deadline_dt > now else "expired"
+    except Exception:
+        status = "expired"
+
+    r_scores = (
+        supabase.table("ds_competence_scores")
+        .select("competence_id, points, max_points, updated_at")
+        .eq("ds_id", ds_id)
+        .execute()
+    )
+
+    return {
+        **ds,
+        "status": status,
+        "scores": r_scores.data or [],
+    }
+
+
+@app.get("/api/ds/{ds_id}/recommend")
+async def ds_recommend(
+    ds_id: str,
+    user: dict = Depends(verify_token),
+):
+    """Recommande un exercice dans le contexte du DS."""
+    user_id = user["user_id"]
+    supabase = get_supabase_client()
+
+    r = (
+        supabase.table("ds")
+        .select("id, competence_ids, current_streak, deadline")
+        .eq("id", ds_id)
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(status_code=404, detail="DS introuvable")
+
+    ds = r.data
+    result = recommander_exercice_ds(
+        supabase,
+        ds_id=ds_id,
+        competence_ids=ds["competence_ids"],
+        current_streak=ds["current_streak"],
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Aucun exercice disponible pour ce DS")
+
+    logger.info(
+        "[DS] Recommandation ds_id=%s user=%s → exo=%s",
+        ds_id,
+        user_id,
+        result.get("exercise_id"),
+    )
+    return result
+
+
+@app.delete("/api/ds/{ds_id}")
+async def delete_ds(ds_id: str, user: dict = Depends(verify_token)):
+    """Supprime un DS appartenant à l'utilisateur connecté."""
+    user_id = user["user_id"]
+    supabase = get_supabase_client()
+
+    r = (
+        supabase.table("ds")
+        .select("id")
+        .eq("id", ds_id)
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(status_code=404, detail="DS introuvable")
+
+    supabase.table("ds_competence_scores").delete().eq("ds_id", ds_id).execute()
+    supabase.table("ds").delete().eq("id", ds_id).eq("user_id", user_id).execute()
+    return {"message": "DS supprimé"}
+
+
+@app.post("/api/ds/{ds_id}/submit")
+async def ds_submit(
+    ds_id: str,
+    body: SubmitDSAnswerRequest,
+    user: dict = Depends(verify_token),
+):
+    """Soumet une réponse dans le contexte du DS et met à jour les scores."""
+    user_id = user["user_id"]
+    supabase = get_supabase_client()
+
+    r = (
+        supabase.table("ds")
+        .select("id")
+        .eq("id", ds_id)
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    if not r.data:
+        raise HTTPException(status_code=404, detail="DS introuvable")
+
+    soumettre_reponse_ds(
+        supabase,
+        ds_id=ds_id,
+        competence_ids=body.competence_ids,
+        is_correct=body.is_correct,
+        difficulty=body.difficulty,
+    )
+    return {"message": "Réponse enregistrée"}
 
 
 # ============================================
