@@ -65,11 +65,12 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Supprimer les fichiers source obsolètes avant le déploiement
+            # Supprimer les fichiers obsolètes avant le déploiement
             # (scp n'efface pas les anciens fichiers supprimés du dépôt)
             rm -rf /opt/novlearn/frontend/app
             rm -rf /opt/novlearn/frontend/public
-            echo "✅ Anciens fichiers source supprimés"
+            rm -rf /opt/novlearn/frontend/.next
+            echo "✅ Anciens fichiers supprimés"
 
       - name: Deploy frontend code to VPS
         uses: appleboy/scp-action@master
@@ -78,6 +79,16 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "frontend/**"
+          target: "/opt/novlearn"
+          strip_components: 0
+
+      - name: Deploy frontend build artifacts to VPS
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "frontend/.next/**"
           target: "/opt/novlearn"
           strip_components: 0
 
@@ -263,10 +274,6 @@ jobs:
             # Créer les répertoires si nécessaire
             sudo mkdir -p /opt/novlearn
             sudo chown -R $USER:$USER /opt/novlearn
-
-            # On garde le nettoyage du cache pour assurer un build propre
-            echo "🧹 Nettoyage du cache .next..."
-            rm -rf /opt/novlearn/frontend/.next
 
             # Installer Node.js et npm si nécessaire
             if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then

@@ -95,18 +95,9 @@ fi
 # Aller dans le répertoire frontend
 cd "$FRONTEND_DIR"
 
-# Nettoyer le cache Next.js pour éviter les problèmes de build corrompu
-echo "🧹 Nettoyage du cache Next.js..."
-rm -rf .next
-rm -rf node_modules/.cache
-
-# Installer les dépendances npm
+# Installer les dépendances npm (le build .next est déployé depuis la CI)
 echo "📦 Installation des dépendances Node.js..."
 npm ci --production=false
-
-# Builder l'application Next.js
-echo "🔨 Build de l'application Next.js..."
-NODE_ENV=production npm run build
 
 # Démarrer/redémarrer le service systemd frontend
 echo "🔄 Démarrage/redémarrage du service frontend..."
