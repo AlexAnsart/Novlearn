@@ -174,7 +174,10 @@ def recommander_exercice(
     exos_par_comp: dict[str, list[list[int]]] = {
         cid: [[], [], []] for cid in competences
     }
-    diff_to_idx = {"easy": 0, "medium": 1, "hard": 2}
+    diff_to_idx = {
+        "easy": 0, "medium": 1, "hard": 2,
+        "Facile": 0, "Moyen": 1, "Difficile": 2,
+    }
     for row in r_ex.data or []:
         # competences is an array, iterate through it
         exercise_competences = row.get("competences") or []

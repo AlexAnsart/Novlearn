@@ -409,3 +409,95 @@ export const duelsApi = {
     return apiRequest("/api/duels/history");
   },
 };
+
+// ============================================
+// DS (DEVOIRS SURVEILLÉS) API
+// ============================================
+
+export interface DS {
+  id: string;
+  title: string;
+  deadline: string;
+  status: "active" | "expired";
+  competence_ids: string[];
+  current_streak: number;
+  created_at: string;
+}
+
+export interface DSCompetenceScore {
+  competence_id: string;
+  points: number;
+  max_points: number;
+  updated_at: string;
+}
+
+export interface DSDetail extends DS {
+  scores: DSCompetenceScore[];
+}
+
+export interface DSRecommendation {
+  exercise_id: number;
+  competence_id: string;
+  competences: string[];
+  difficulty: string;
+  difficulty_level: number;
+}
+
+export const dsApi = {
+  /** Crée un nouveau DS. */
+  async createDS(
+    title: string,
+    deadline: string,
+    competenceIds: string[],
+  ): Promise<DS> {
+    return apiRequest("/api/ds", {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        deadline,
+        competence_ids: competenceIds,
+      }),
+    });
+  },
+
+  /** Liste tous les DS de l'utilisateur. */
+  async getDSList(): Promise<{ ds: DS[] }> {
+    return apiRequest("/api/ds");
+  },
+
+  /** Détail d'un DS avec scores par compétence. */
+  async getDSDetail(dsId: string): Promise<DSDetail> {
+    return apiRequest(`/api/ds/${encodeURIComponent(dsId)}`);
+  },
+
+  /** Recommande un exercice dans le contexte du DS. */
+  async getDSRecommendation(dsId: string): Promise<DSRecommendation> {
+    return apiRequest(`/api/ds/${encodeURIComponent(dsId)}/recommend`);
+  },
+
+  /** Supprime un DS. */
+  async deleteDS(dsId: string): Promise<{ message: string }> {
+    return apiRequest(`/api/ds/${encodeURIComponent(dsId)}`, {
+      method: "DELETE",
+    });
+  },
+
+  /** Soumet une réponse dans le contexte du DS. */
+  async submitDSAnswer(
+    dsId: string,
+    exerciseId: string,
+    competenceIds: string[],
+    isCorrect: boolean,
+    difficulty: string,
+  ): Promise<{ message: string }> {
+    return apiRequest(`/api/ds/${encodeURIComponent(dsId)}/submit`, {
+      method: "POST",
+      body: JSON.stringify({
+        exercise_id: exerciseId,
+        competence_ids: competenceIds,
+        is_correct: isCorrect,
+        difficulty,
+      }),
+    });
+  },
+};

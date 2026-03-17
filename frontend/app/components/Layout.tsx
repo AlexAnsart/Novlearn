@@ -40,6 +40,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const isHome = pathname === "/";
   const isProgress = pathname === "/progression";
   const isTraining = pathname === "/entrainement";
+  const isDS = pathname.startsWith("/ds");
   const isLeaderboard = pathname === "/classement";
   const isSettings = pathname === "/parametres";
   const isAccount = pathname === "/compte";
@@ -66,6 +67,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         active={isTraining}
         onClick={() => router.push("/entrainement")}
         className="tour-training"
+      />
+      <SidebarIcon
+        emoji="📝"
+        active={isDS}
+        onClick={() => router.push("/ds")}
       />
       <SidebarIcon
         emoji={"🏆"}
