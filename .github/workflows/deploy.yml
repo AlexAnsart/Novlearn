@@ -189,6 +189,10 @@ jobs:
               sudo apt-get install -y nodejs
             fi
 
+            # Ensure we serve a consistent Next build (HTML + assets must match)
+            echo "🧹 Removing previous Next build artifacts (.next)..."
+            rm -rf .next
+
             # Write .env.local for staging build (Next.js reads these at build time)
             cat > .env.local << 'ENVSTAGING'
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -203,15 +207,23 @@ jobs:
             npm install --prefer-offline --no-audit
             npm run build
 
-            # Kill previous staging frontend if any
-            if [ -f frontend-staging.pid ]; then
-              OLD_FP=$(cat frontend-staging.pid || echo "")
-              if [ ! -z "$OLD_FP" ] && ps -p $OLD_FP > /dev/null 2>&1; then
-                kill $OLD_FP || true
-                sleep 2
-              fi
+            # Kill any process already bound to port 3001 (avoid mixing old/new builds)
+            if command -v lsof >/dev/null 2>&1; then
+              for pid in $(lsof -ti :3001 2>/dev/null || true); do
+                kill -TERM "$pid" 2>/dev/null || true
+              done
+              sleep 2
             fi
-            nohup npm start -- --port 3001 > ../frontend-staging.log 2>&1 &
+            if command -v ss >/dev/null 2>&1; then
+              # Fallback: attempt best-effort kill by PID from ss
+              for pid in $(ss -tlnp 2>/dev/null | awk 'index($0,":3001")>0 {print $NF}' | sed 's/.*pid=//' | tr -d ' ,()' 2>/dev/null | sort -u | head -n 20); do
+                [ -n "$pid" ] && kill -TERM "$pid" 2>/dev/null || true
+              done
+              sleep 2
+            fi
+
+            # Start Next.js on port 3001 (use next start explicitly for correct port binding)
+            nohup ./node_modules/.bin/next start -p 3001 > ../frontend-staging.log 2>&1 &
             echo $! > frontend-staging.pid
 
       - name: Verify staging deployment
