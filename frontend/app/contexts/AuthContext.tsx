@@ -28,6 +28,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean; // Chargement de l'auth initiale (critique)
   profileLoading: boolean; // Chargement du profil (secondaire)
+  isGuest: boolean; // true si l'utilisateur est anonyme
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (
     email: string,
@@ -93,9 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(session);
           setUser(session?.user ?? null);
 
-          if (session?.user) {
+          if (session?.user && !session.user.is_anonymous) {
             // On lance la récupération du profil SANS attendre (fire and forget)
-            // pour que setLoading(false) se déclenche tout de suite.
+            // Les invités (anonymes) n'ont pas de profil — on saute cet appel.
             fetchProfile(session.user.id);
           }
         }
@@ -130,8 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           updateGoogleProfile(session.user);
         }
 
-        // Recharger le profil si c'est une nouvelle connexion
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        // Recharger le profil si c'est une nouvelle connexion (non anonyme)
+        if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && !session.user.is_anonymous) {
           fetchProfile(session.user.id);
         }
       } else if (event === "SIGNED_OUT") {
@@ -257,6 +258,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchProfile(user.id);
   };
 
+  const isGuest = user?.is_anonymous === true;
+
   return (
     <AuthContext.Provider
       value={{
@@ -264,7 +267,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         session,
         loading,
-        profileLoading, // Tu peux utiliser ça pour afficher un petit spinner discret à côté du nom de l'utilisateur
+        profileLoading,
+        isGuest,
         signIn,
         signUp,
         signInWithGoogle,
