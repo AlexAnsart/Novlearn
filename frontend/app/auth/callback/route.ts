@@ -10,9 +10,10 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
 
-  // Utilisation de la variable d'environnement garantie par le deploy.yml
-  // Si elle n'existe pas (sur ton PC), on garde l'origin (http://localhost:3000)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin;
+  // IMPORTANT (staging/prod):
+  // Redirect back to the SAME origin that handled the OAuth callback.
+  // This avoids hardcoding NEXT_PUBLIC_SITE_URL into redirect logic.
+  const siteUrl = origin;
 
   if (code) {
     const cookieStore = await cookies();

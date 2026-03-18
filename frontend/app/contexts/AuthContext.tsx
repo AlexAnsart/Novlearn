@@ -233,25 +233,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    
-    // ✅ Détection basée sur le hostname (plus fiable)
-    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-    
-    console.group('🔍 [AuthDebug] signInWithGoogle');
-    console.log('1. hostname:', hostname);
-    console.log('2. isLocalhost:', isLocalhost);
-    console.log('3. NEXT_PUBLIC_SITE_URL:', siteUrl);
-    
-    // ✅ Si pas localhost ET qu'on a NEXT_PUBLIC_SITE_URL, on l'utilise
-    // Sinon, on utilise l'origin actuel
-    const redirectTo = !isLocalhost && siteUrl
-      ? `${siteUrl}/auth/callback`
-      : `${window.location.origin}/auth/callback`;
-      
-    console.log('4. 🎯 Final redirectTo:', redirectTo);
-    console.groupEnd();
+    // IMPORTANT (staging/prod):
+    // We must redirect back to the SAME host the user is visiting.
+    // Using NEXT_PUBLIC_SITE_URL can be wrong if the build/env lags behind.
+    const redirectTo = `${window.location.origin}/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
