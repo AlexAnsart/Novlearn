@@ -23,6 +23,7 @@ function ExercisePageContent() {
   const [mode, setMode] = useState<'test' | 'recommendation' | undefined>(undefined);
   const [testChapter, setTestChapter] = useState<string | undefined>(undefined);
   const [nextKey, setNextKey] = useState(0);
+  const [currentExerciseTitle, setCurrentExerciseTitle] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("id") || undefined;
@@ -139,8 +140,9 @@ function ExercisePageContent() {
     [idFromUrl, mode, testChapter, chapterFromUrl]
   );
 
-  const handleLoad = useCallback((_exercise: Exercise) => {
-    // Exercise loaded successfully
+  const handleLoad = useCallback((exercise: Exercise) => {
+    // Keep track of the public title for display (fallback to internal title if needed)
+    setCurrentExerciseTitle(exercise.app_title || exercise.title || null);
   }, []);
 
   const handleError = useCallback((err: Error) => {
@@ -237,9 +239,11 @@ function ExercisePageContent() {
           <p className="text-blue-200 text-xs leading-relaxed" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
             {mode === 'test'
               ? "Test de placement : évalue ton niveau pour des recommandations adaptées"
-              : exerciseId
-                ? `Exercice #${exerciseId}${mode === 'recommendation' ? ' (recommandation)' : ''}`
-                : "Mode découverte (exercice aléatoire)"}
+              : currentExerciseTitle
+                ? `${currentExerciseTitle}${mode === 'recommendation' ? ' (recommandation)' : ''}`
+                : exerciseId
+                  ? "Mode découverte (exercice aléatoire)"
+                  : "Mode découverte (exercice aléatoire)"}
           </p>
         </div>
       </div>
