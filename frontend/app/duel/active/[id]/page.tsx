@@ -306,13 +306,6 @@ export default function ActiveDuelPage() {
     [exercise, phase, exStartedAt, graceRemaining, firstSolverId, user],
   );
 
-  const handleSkipClick = useCallback(() => {
-    const room = roomRef.current;
-    if (!room || phase !== "playing" || duelFinished || mySkipRequested) return;
-    room.send("skip", {});
-    setMySkipRequested(true);
-  }, [phase, duelFinished, mySkipRequested]);
-
   // ─── Derived ──────────────────────────────────────────────────────────────
 
   const isP1 = user?.id === p1Id;
@@ -326,6 +319,13 @@ export default function ActiveDuelPage() {
   const ss = safeGlobal % 60;
   const formattedTime = `${mm.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}`;
   const duelFinished = phase === "finished" || safeGlobal === 0;
+
+  const handleSkipClick = useCallback(() => {
+    const room = roomRef.current;
+    if (!room || phase !== "playing" || duelFinished || mySkipRequested) return;
+    room.send("skip", {});
+    setMySkipRequested(true);
+  }, [phase, duelFinished, mySkipRequested]);
 
   const exMm = Math.floor(Math.max(0, exRemaining) / 60);
   const exSs = Math.max(0, exRemaining) % 60;
