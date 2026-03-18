@@ -492,7 +492,7 @@ export function TrainingPage() {
                         className="w-full text-left bg-slate-800/60 hover:bg-slate-700/60 rounded-xl px-4 py-3 flex items-center justify-between gap-2 transition-all"
                       >
                         <span className="text-white truncate">
-                          {ex.title || `Exercice #${ex.id}`}
+                          {ex.title ?? "Exercice"}
                         </span>
                         {uiDiff && (
                           <span
