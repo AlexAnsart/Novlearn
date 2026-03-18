@@ -207,19 +207,19 @@ jobs:
             npm install --prefer-offline --no-audit
             npm run build
 
-            # Kill any process already bound to port 3001 (avoid mixing old/new builds)
-            if command -v lsof >/dev/null 2>&1; then
-              for pid in $(lsof -ti :3001 2>/dev/null || true); do
-                kill -TERM "$pid" 2>/dev/null || true
-              done
-              sleep 2
+            # Force cleanup on port 3001 (avoid mixing old/new Next builds).
+            # Without this, `next start` fails with EADDRINUSE and Apache serves stale hashes => 404 for CSS/chunks.
+            echo "🛑 Forcing cleanup on port 3001..."
+            if command -v fuser >/dev/null 2>&1; then
+              sudo fuser -k 3001/tcp 2>/dev/null || true
             fi
+            if command -v lsof >/dev/null 2>&1; then
+              sudo lsof -ti :3001 2>/dev/null | xargs -r sudo kill -9 2>/dev/null || true
+            fi
+            # Ensure port is actually free before starting.
+            sleep 2
             if command -v ss >/dev/null 2>&1; then
-              # Fallback: attempt best-effort kill by PID from ss
-              for pid in $(ss -tlnp 2>/dev/null | awk 'index($0,":3001")>0 {print $NF}' | sed 's/.*pid=//' | tr -d ' ,()' 2>/dev/null | sort -u | head -n 20); do
-                [ -n "$pid" ] && kill -TERM "$pid" 2>/dev/null || true
-              done
-              sleep 2
+              ss -tlnp 2>/dev/null | rg ":3001" || true
             fi
 
             # Start Next.js on port 3001 (use next start explicitly for correct port binding)
