@@ -152,9 +152,10 @@ jobs:
               OLD_PID=$(cat backend-staging.pid || echo "")
               if [ ! -z "$OLD_PID" ] && ps -p $OLD_PID > /dev/null 2>&1; then
                 kill $OLD_PID || true
+                sleep 2
               fi
             fi
-            nohup venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8011 --log-level info > ../backend-staging.log 2>&1 &
+            nohup venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8011 --log-level info > ../backend-staging.log 2>&1 &
             echo $! > backend-staging.pid
 
             # Frontend build + start (port 3001)
@@ -183,6 +184,7 @@ jobs:
               OLD_FP=$(cat frontend-staging.pid || echo "")
               if [ ! -z "$OLD_FP" ] && ps -p $OLD_FP > /dev/null 2>&1; then
                 kill $OLD_FP || true
+                sleep 2
               fi
             fi
             nohup npm start -- --port 3001 > ../frontend-staging.log 2>&1 &
