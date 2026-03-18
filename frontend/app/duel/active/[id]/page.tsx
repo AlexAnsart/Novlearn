@@ -18,6 +18,7 @@ interface ExerciseMsg {
   exercise: {
     id: number;
     title: string;
+    app_title?: string | null;
     chapter: string;
     difficulty: string;
     content: { variables: unknown[]; elements: unknown[] };
@@ -31,7 +32,8 @@ function buildExercise(raw: ExerciseMsg["exercise"]): Exercise {
   return {
     id: raw.id,
     title: raw.title,
-    app_title: raw.title,
+    // Always prefer public app_title when available
+    app_title: raw.app_title || raw.title,
     chapter: raw.chapter,
     difficulty: raw.difficulty as Exercise["difficulty"],
     competences: [],
@@ -150,7 +152,7 @@ export default function ActiveDuelPage() {
         const handleExercise = (msg: ExerciseMsg) => {
           console.log("[Duel] exercise received", {
             id: msg.exercise.id,
-            title: msg.exercise.title,
+            title: msg.exercise.app_title || msg.exercise.title,
           });
           exerciseCountRef.current++;
           submittingRef.current = false;
@@ -466,7 +468,9 @@ export default function ActiveDuelPage() {
               <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
                 <div className="mb-6">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <h2 className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{exercise.title}</h2>
+                    <h2 className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>
+                      {exercise.app_title || exercise.title}
+                    </h2>
                     <span className="bg-amber-500/20 text-amber-200 px-3 py-1 rounded-full text-sm tabular-nums" style={{ fontFamily: "'Fredoka', sans-serif" }}>
                       Question : {exMm}:{exSs.toString().padStart(2, "0")}
                     </span>

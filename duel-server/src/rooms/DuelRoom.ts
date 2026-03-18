@@ -263,7 +263,10 @@ export class DuelRoom extends Room {
     this.currentVariables = variables;
     this.solvedPlayers.clear();
     this.skipRequests.clear();
-    console.log("[DuelRoom] loadNextExercise", { id: row.id, title: row.title });
+    console.log("[DuelRoom] loadNextExercise", {
+      id: row.id,
+      title: row.app_title || row.title,
+    });
   }
 
   private broadcastExercise() {

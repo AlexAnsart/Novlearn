@@ -25,6 +25,7 @@ export interface ExerciseElement {
 export interface ExerciseRow {
   id: number;
   title: string;
+  app_title?: string | null;
   chapter: string;
   difficulty: string;
   content: {
@@ -114,7 +115,7 @@ export async function getRandomExercise(): Promise<{
 }> {
   const { data, error } = await supabase
     .from("exercises")
-    .select("id, title, chapter, difficulty, content")
+    .select("id, title, app_title, chapter, difficulty, content")
     // For duels we only want "flash" exercises that do NOT require a calculator.
     // Column names follow the Supabase schema (case‑sensitive).
     .eq("Is_Flash", true)
