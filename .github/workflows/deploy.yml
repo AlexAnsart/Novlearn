@@ -2,11 +2,245 @@ name: Deploy to VPS
 
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
 
 jobs:
-  deploy:
+  # ---- STAGING: only on push to develop ----
+  deploy_staging:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies (staging)
+        working-directory: ./frontend
+        run: npm install --prefer-offline --no-audit
+
+      - name: Build frontend (staging)
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: https://staging.novlearn.fr
+          NEXT_PUBLIC_COLYSEUS_URL: https://staging.novlearn.fr/duel-ws
+          NEXT_PUBLIC_GA_ID: ${{ secrets.NEXT_PUBLIC_GA_ID }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_API_SECRET: ${{ secrets.ADMIN_API_SECRET }}
+
+      - name: Create .env file for backend (staging)
+        run: |
+          mkdir -p backend
+          echo "# Novlearn Backend Configuration (staging)" > backend/.env
+          echo "APP_ENV=staging" >> backend/.env
+          echo "DEBUG=False" >> backend/.env
+          echo "HOST=0.0.0.0" >> backend/.env
+          echo "PORT=8011" >> backend/.env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> backend/.env
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> backend/.env
+          echo "SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> backend/.env
+          echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> backend/.env
+          echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr,https://staging.novlearn.fr" >> backend/.env
+          echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
+
+      - name: Create .env file for duel-server (staging)
+        run: |
+          mkdir -p duel-server
+          echo "# Novlearn Duel-server (Colyseus) Configuration - staging" > duel-server/.env
+          echo "PORT=2568" >> duel-server/.env
+          echo "SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> duel-server/.env
+          echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> duel-server/.env
+
+      - name: Clean stale frontend source files on VPS (staging)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            rm -rf /opt/novlearn-staging/frontend/app
+            rm -rf /opt/novlearn-staging/frontend/public
+            echo "✅ Anciens fichiers source staging supprimés"
+
+      - name: Deploy frontend code to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "frontend/**"
+          target: "/opt/novlearn-staging"
+          strip_components: 0
+
+      - name: Deploy shared config to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "shared/**"
+          target: "/opt/novlearn-staging"
+          strip_components: 0
+
+      - name: Deploy backend code and .env to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "backend/**,backend/.env"
+          target: "/opt/novlearn-staging"
+          strip_components: 0
+
+      - name: Deploy duel-server code to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "duel-server/**"
+          target: "/opt/novlearn-staging"
+          strip_components: 0
+
+      - name: Deploy deploy script to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "deploy.sh"
+          target: "/opt/novlearn-staging"
+          strip_components: 0
+
+      - name: Deploy Apache configuration to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "apache/*.conf"
+          target: "/tmp/"
+          strip_components: 1
+
+      - name: Configure Apache vhost for staging
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "🔧 Configuration d'Apache (staging)..."
+
+            if ! command -v apache2 &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y apache2
+            fi
+
+            sudo a2enmod proxy proxy_http proxy_wstunnel ssl rewrite headers
+
+            if [ -f /tmp/staging.novlearn.fr.conf ]; then
+              sudo cp /tmp/staging.novlearn.fr.conf /etc/apache2/sites-available/staging.novlearn.fr.conf
+            else
+              echo "❌ /tmp/staging.novlearn.fr.conf introuvable"
+              exit 1
+            fi
+
+            if [ -f /tmp/staging.novlearn.fr-le-ssl.conf ]; then
+              sudo cp /tmp/staging.novlearn.fr-le-ssl.conf /etc/apache2/sites-available/staging.novlearn.fr-le-ssl.conf
+            else
+              echo "❌ /tmp/staging.novlearn.fr-le-ssl.conf introuvable"
+              exit 1
+            fi
+
+            sudo a2ensite staging.novlearn.fr.conf
+            sudo a2ensite staging.novlearn.fr-le-ssl.conf
+
+            sudo apache2ctl configtest
+            sudo systemctl reload apache2 || sudo systemctl restart apache2
+
+            sudo mkdir -p /var/www/staging.novlearn.fr/.well-known
+            sudo chown -R $USER:$USER /var/www/staging.novlearn.fr
+
+      - name: Setup and run staging stack (no systemd)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            sudo mkdir -p /opt/novlearn-staging
+            sudo chown -R $USER:$USER /opt/novlearn-staging
+            cd /opt/novlearn-staging
+
+            # Backend venv + deps
+            cd backend
+            if ! command -v python3 &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y python3 python3-venv python3-pip
+            fi
+            if [ ! -d venv ]; then
+              python3 -m venv venv
+            fi
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+
+            # Restart staging backend (port 8011)
+            if [ -f backend-staging.pid ]; then
+              OLD_PID=$(cat backend-staging.pid || echo "")
+              if [ ! -z "$OLD_PID" ] && ps -p $OLD_PID > /dev/null 2>&1; then
+                kill $OLD_PID || true
+              fi
+            fi
+            nohup venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8011 --log-level info > ../backend-staging.log 2>&1 &
+            echo $! > backend-staging.pid
+
+            # Frontend build + start (port 3001)
+            cd /opt/novlearn-staging/frontend
+            if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt-get install -y nodejs
+            fi
+            npm install --prefer-offline --no-audit
+            npm run build
+
+            # Kill previous staging frontend if any
+            if [ -f frontend-staging.pid ]; then
+              OLD_FP=$(cat frontend-staging.pid || echo "")
+              if [ ! -z "$OLD_FP" ] && ps -p $OLD_FP > /dev/null 2>&1; then
+                kill $OLD_FP || true
+              fi
+            fi
+            nohup npm start -- --port 3001 > ../frontend-staging.log 2>&1 &
+            echo $! > frontend-staging.pid
+
+      - name: Verify staging deployment
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            sleep 5
+            curl -f http://localhost:8011/health || { echo "❌ Backend staging error"; exit 1; }
+            curl -f http://localhost:3001 || { echo "❌ Frontend staging error"; exit 1; }
+            echo "✅ Déploiement staging vérifié"
+
+  # ---- PRODUCTION: only on push to main ----
+  deploy_production:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -65,8 +299,6 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Supprimer les fichiers source obsolètes avant le déploiement
-            # (scp n'efface pas les anciens fichiers supprimés du dépôt)
             rm -rf /opt/novlearn/frontend/app
             rm -rf /opt/novlearn/frontend/public
             echo "✅ Anciens fichiers source supprimés"
@@ -128,7 +360,6 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Supprimer les fichiers systemd s'ils existent déjà dans /tmp/
             rm -rf /tmp/novlearn-backend.service
             rm -rf /tmp/novlearn-frontend.service
             rm -rf /tmp/novlearn-duel-server.service
@@ -162,14 +393,12 @@ jobs:
           script: |
             echo "🔧 Configuration d'Apache..."
 
-            # Installer Apache si nécessaire
             if ! command -v apache2 &> /dev/null; then
               echo "📦 Installation d'Apache..."
               sudo apt-get update
               sudo apt-get install -y apache2
             fi
 
-            # Installer les modules Apache nécessaires
             echo "📦 Activation des modules Apache nécessaires..."
             sudo a2enmod proxy
             sudo a2enmod proxy_http
@@ -178,14 +407,12 @@ jobs:
             sudo a2enmod rewrite
             sudo a2enmod headers
 
-            # Vérifier si nginx est installé et en conflit
             if systemctl is-active --quiet nginx 2>/dev/null; then
               echo "⚠️  Nginx est actif. Arrêt de nginx pour éviter les conflits..."
               sudo systemctl stop nginx
               sudo systemctl disable nginx
             fi
 
-            # S'assurer qu'Apache est démarré et activé
             if ! systemctl is-active --quiet apache2; then
               echo "🚀 Démarrage d'Apache..."
               sudo systemctl start apache2
@@ -195,10 +422,8 @@ jobs:
               sudo systemctl enable apache2
             fi
 
-            # Déployer les fichiers de configuration Apache
             echo "📝 Déploiement des configurations Apache..."
 
-            # Copier la configuration HTTP
             if [ -f /tmp/novlearn.fr.conf ]; then
               sudo cp /tmp/novlearn.fr.conf /etc/apache2/sites-available/novlearn.fr.conf
               echo "✅ Configuration HTTP déployée"
@@ -207,7 +432,6 @@ jobs:
               exit 1
             fi
 
-            # Copier la configuration HTTPS
             if [ -f /tmp/novlearn.fr-le-ssl.conf ]; then
               sudo cp /tmp/novlearn.fr-le-ssl.conf /etc/apache2/sites-available/novlearn.fr-le-ssl.conf
               echo "✅ Configuration HTTPS déployée"
@@ -216,18 +440,15 @@ jobs:
               exit 1
             fi
 
-            # Activer les sites Apache
             echo "🔗 Activation des sites Apache..."
             sudo a2ensite novlearn.fr.conf
             sudo a2ensite novlearn.fr-le-ssl.conf
 
-            # Désactiver le site par défaut d'Apache s'il existe
             if [ -f /etc/apache2/sites-enabled/000-default.conf ]; then
               echo "🔇 Désactivation du site par défaut d'Apache..."
               sudo a2dissite 000-default.conf
             fi
 
-            # Tester la configuration Apache
             echo "🔍 Test de la configuration Apache..."
             if sudo apache2ctl configtest; then
               echo "✅ Configuration Apache valide"
@@ -236,11 +457,9 @@ jobs:
               exit 1
             fi
 
-            # Recharger Apache
             echo "🔄 Rechargement d'Apache..."
             sudo systemctl reload apache2 || sudo systemctl restart apache2
 
-            # Vérifier qu'Apache est actif
             if systemctl is-active --quiet apache2; then
               echo "✅ Apache est actif et fonctionne"
             else
@@ -249,7 +468,6 @@ jobs:
               exit 1
             fi
 
-            # Créer le répertoire .well-known si nécessaire
             sudo mkdir -p /var/www/novlearn/.well-known
             sudo chown -R $USER:$USER /var/www/novlearn
 
@@ -260,15 +478,12 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Créer les répertoires si nécessaire
             sudo mkdir -p /opt/novlearn
             sudo chown -R $USER:$USER /opt/novlearn
 
-            # On garde le nettoyage du cache pour assurer un build propre
             echo "🧹 Nettoyage du cache .next..."
             rm -rf /opt/novlearn/frontend/.next
 
-            # Installer Node.js et npm si nécessaire
             if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
               echo "📦 Installation de Node.js et npm..."
               curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -278,14 +493,11 @@ jobs:
               fi
             fi
 
-            # Trouver les emplacements de node et npm
             NODE_PATH=$(which node 2>/dev/null || echo "/usr/bin/node")
             NPM_PATH=$(which npm 2>/dev/null || echo "/usr/bin/npm")
 
-            # Vérifier et mettre à jour le PATH pour Node.js/npm
             export PATH="/usr/bin:/usr/local/bin:$PATH"
 
-            # Si node ou npm sont dans un autre répertoire, l'ajouter au PATH
             if [ -f "$NODE_PATH" ]; then
               NODE_DIR=$(dirname "$NODE_PATH")
               export PATH="$NODE_DIR:$PATH"
@@ -295,10 +507,8 @@ jobs:
               export PATH="$NPM_DIR:$PATH"
             fi
 
-            # Installer les services systemd
             echo "🔧 Configuration des services systemd..."
 
-            # Service backend
             sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-backend.service > /tmp/novlearn-backend.service.tmp
             sudo mv /tmp/novlearn-backend.service.tmp /etc/systemd/system/novlearn-backend.service
             sudo systemctl daemon-reload
@@ -314,7 +524,6 @@ jobs:
               sudo systemctl start novlearn-backend
             fi
 
-            # Service frontend
             sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-frontend.service > /tmp/novlearn-frontend.service.tmp
             sudo mv /tmp/novlearn-frontend.service.tmp /etc/systemd/system/novlearn-frontend.service
             sudo systemctl daemon-reload
@@ -330,7 +539,6 @@ jobs:
               sudo systemctl start novlearn-frontend
             fi
 
-            # Service duel-server (Colyseus)
             sudo sed "s/YOUR_USERNAME/$USER/g" /tmp/novlearn-duel-server.service > /tmp/novlearn-duel-server.service.tmp
             sudo mv /tmp/novlearn-duel-server.service.tmp /etc/systemd/system/novlearn-duel-server.service
             sudo systemctl daemon-reload
@@ -346,13 +554,10 @@ jobs:
               sudo systemctl start novlearn-duel-server
             fi
 
-            # Naviguer vers le répertoire de déploiement
             cd /opt/novlearn
 
-            # Rendre le script de déploiement exécutable
             chmod +x deploy.sh
 
-            # Créer le fichier .env pour le frontend
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" > /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> /opt/novlearn/frontend/.env.local
             echo "NEXT_PUBLIC_SITE_URL=https://novlearn.fr" >> /opt/novlearn/frontend/.env.local
@@ -361,7 +566,6 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> /opt/novlearn/frontend/.env.local
             echo "ADMIN_API_SECRET=${{ secrets.ADMIN_API_SECRET }}" >> /opt/novlearn/frontend/.env.local
 
-            # Exécuter le script de déploiement
             export PATH="/usr/bin:/usr/local/bin:$PATH"
             ./deploy.sh
 
@@ -374,7 +578,6 @@ jobs:
           script: |
             sleep 5
 
-            # Vérifications simples
             if ! systemctl is-active --quiet apache2; then
               echo "❌ Apache inactif"
               exit 1
