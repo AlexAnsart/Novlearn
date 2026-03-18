@@ -195,9 +195,41 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            # Laisser un peu de temps au backend et au frontend pour démarrer
             sleep 5
-            curl -f http://localhost:8011/health || { echo "❌ Backend staging error"; exit 1; }
-            curl -f http://localhost:3001 || { echo "❌ Frontend staging error"; exit 1; }
+
+            echo "🔍 Vérification du backend staging (port 8011)..."
+            BACKEND_OK=false
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if curl -f http://localhost:8011/health > /dev/null 2>&1; then
+                BACKEND_OK=true
+                echo "✅ Backend staging OK"
+                break
+              fi
+              echo "⏳ Tentative $i/10: backend pas encore prêt, nouvelle tentative dans 3s..."
+              sleep 3
+            done
+            if [ "$BACKEND_OK" != "true" ]; then
+              echo "❌ Backend staging error après plusieurs tentatives"
+              exit 1
+            fi
+
+            echo "🔍 Vérification du frontend staging (port 3001)..."
+            FRONTEND_OK=false
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if curl -f http://localhost:3001 > /dev/null 2>&1; then
+                FRONTEND_OK=true
+                echo "✅ Frontend staging OK"
+                break
+              fi
+              echo "⏳ Tentative $i/10: frontend pas encore prêt, nouvelle tentative dans 3s..."
+              sleep 3
+            done
+            if [ "$FRONTEND_OK" != "true" ]; then
+              echo "❌ Frontend staging error après plusieurs tentatives"
+              exit 1
+            fi
+
             echo "✅ Déploiement staging vérifié"
 
   # ---- PRODUCTION: only on push to main ----
