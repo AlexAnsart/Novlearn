@@ -34,7 +34,8 @@ interface Feedback {
 
 interface ExerciseInfo {
   id: number;
-  title: string;
+  title: string | null;
+  app_title: string | null;
 }
 
 type FilterType =
@@ -95,12 +96,15 @@ export default function FeedbackDashboard() {
       if (exerciseIds.length > 0) {
         const { data: exercisesData } = await supabase
           .from("exercises")
-          .select("id, title")
+          .select("id, title, app_title")
           .in("id", exerciseIds);
 
         if (exercisesData) {
           const map = new Map<number, string>();
-          exercisesData.forEach((ex: ExerciseInfo) => map.set(ex.id, ex.title));
+          exercisesData.forEach((ex: ExerciseInfo) => {
+            const publicTitle = ex.app_title ?? ex.title ?? "Exercice";
+            map.set(ex.id, publicTitle);
+          });
           setExercisesMap(map);
         }
       }
@@ -339,10 +343,8 @@ export default function FeedbackDashboard() {
                           : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
                       }`}
                     >
-                      <BookOpen className="w-3 h-3" />#{exId}
-                      {exercisesMap.get(exId)
-                        ? ` - ${exercisesMap.get(exId)}`
-                        : ""}
+                      <BookOpen className="w-3 h-3" />
+                      {exercisesMap.get(exId) || "Exercice"}
                       <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-500">
                         {
                           ratingFeedbacks.filter((f) => f.exercise_id === exId)
@@ -384,9 +386,9 @@ export default function FeedbackDashboard() {
                       {/* Badge Exercice ID + Nom */}
                       {item.exercise_id && (
                         <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
-                          <BookOpen className="w-3 h-3" />#{item.exercise_id} -{" "}
+                          <BookOpen className="w-3 h-3" />
                           {exercisesMap.get(item.exercise_id) ||
-                            "Exercice inconnu"}
+                            "Exercice"}
                         </div>
                       )}
 

@@ -410,12 +410,26 @@ async def get_friends(user: dict = Depends(verify_token)):
         # Get profiles for all friend IDs — public fields only (no email, no birth_date)
         if friend_ids:
             profiles_result = supabase.table("profiles")\
-                .select("id, first_name, last_name")\
+                .select("id, first_name, last_name, created_at")\
                 .in_("id", friend_ids)\
                 .execute()
             
             # Create a map of user_id -> profile
             profiles_map = {p["id"]: p for p in (profiles_result.data or [])}
+
+            # Compute exercises completed (distinct exercise_id) for all friends
+            attempts_result = supabase.table("exercise_attempts")\
+                .select("user_id, exercise_id")\
+                .in_("user_id", friend_ids)\
+                .execute()
+
+            exercises_completed_map: dict[str, set] = {}
+            for row in (attempts_result.data or []):
+                uid = row.get("user_id")
+                eid = row.get("exercise_id")
+                if not uid or eid is None:
+                    continue
+                exercises_completed_map.setdefault(uid, set()).add(eid)
             
             # Build friends data
             for friend_id in friend_ids:
@@ -423,12 +437,16 @@ async def get_friends(user: dict = Depends(verify_token)):
                 first_name = profile.get("first_name", "")
                 last_name = profile.get("last_name", "")
                 name = f"{first_name}.{last_name[0].upper()}" if last_name else (first_name or "Utilisateur")
+                created_at = profile.get("created_at")
+                exercises_completed = len(exercises_completed_map.get(friend_id, set()))
                 
                 friends_data.append({
                     "id": friend_id,
                     "first_name": first_name,
                     "last_name": last_name,
-                    "name": name
+                    "name": name,
+                    "created_at": created_at,
+                    "exercises_completed": exercises_completed,
                 })
 
         logger.info("[API /api/friends] response friends count=%s", len(friends_data))

@@ -6,13 +6,25 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const url = new URL(request.url);
+  const { searchParams } = url;
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
 
-  // Utilisation de la variable d'environnement garantie par le deploy.yml
-  // Si elle n'existe pas (sur ton PC), on garde l'origin (http://localhost:3000)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || origin;
+  // IMPORTANT (reverse proxy):
+  // When Apache proxies to the Next server, `request.url` may be based on the internal
+  // upstream (e.g. http://localhost:3001). We must reconstruct the *public* origin
+  // from forwarded headers / Host header.
+  const forwardedProto =
+    request.headers.get("x-forwarded-proto") ||
+    request.headers.get("X-Forwarded-Proto") ||
+    url.protocol.replace(":", "");
+  const forwardedHost =
+    request.headers.get("x-forwarded-host") ||
+    request.headers.get("X-Forwarded-Host") ||
+    request.headers.get("host") ||
+    "";
+  const siteUrl = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin;
 
   if (code) {
     const cookieStore = await cookies();

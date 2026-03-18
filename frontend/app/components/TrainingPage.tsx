@@ -118,7 +118,7 @@ export function TrainingPage() {
     (async () => {
       const { data, error } = await supabase
         .from("exercises")
-        .select("id, title, chapter, difficulty")
+        .select("id, title, app_title, chapter, difficulty")
         .eq("chapter", chapterNameInDb);
       if (cancelled) return;
       setChapterExercisesLoading(false);
@@ -126,9 +126,10 @@ export function TrainingPage() {
         setChapterExercises([]);
         return;
       }
-      const list: ExerciseListItem[] = (data || []).map((r) => ({
+      const list: ExerciseListItem[] = (data || []).map((r: any) => ({
         id: r.id,
-        title: r.title ?? null,
+        // Always use public app_title when available
+        title: (r.app_title as string | null) ?? (r.title as string | null) ?? null,
         chapter: r.chapter ?? "",
         difficulty: r.difficulty ?? "",
       }));
@@ -491,7 +492,7 @@ export function TrainingPage() {
                         className="w-full text-left bg-slate-800/60 hover:bg-slate-700/60 rounded-xl px-4 py-3 flex items-center justify-between gap-2 transition-all"
                       >
                         <span className="text-white truncate">
-                          {ex.title || `Exercice #${ex.id}`}
+                          {ex.title ?? "Exercice"}
                         </span>
                         {uiDiff && (
                           <span

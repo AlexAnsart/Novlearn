@@ -18,6 +18,7 @@ interface ExerciseMsg {
   exercise: {
     id: number;
     title: string;
+    app_title?: string | null;
     chapter: string;
     difficulty: string;
     content: { variables: unknown[]; elements: unknown[] };
@@ -31,7 +32,8 @@ function buildExercise(raw: ExerciseMsg["exercise"]): Exercise {
   return {
     id: raw.id,
     title: raw.title,
-    app_title: raw.title,
+    // Always prefer public app_title when available
+    app_title: raw.app_title || raw.title,
     chapter: raw.chapter,
     difficulty: raw.difficulty as Exercise["difficulty"],
     competences: [],
@@ -88,6 +90,15 @@ export default function ActiveDuelPage() {
   const exerciseCountRef = useRef(0);
   const submittingRef = useRef(false);
 
+  // Grace / pause state
+  const [graceRemaining, setGraceRemaining] = useState<number | null>(null);
+  const graceDeadlineRef = useRef<number | null>(null);
+  const [firstSolverId, setFirstSolverId] = useState<string | null>(null);
+
+  // Skip state
+  const [mySkipRequested, setMySkipRequested] = useState(false);
+  const [opponentSkipRequested, setOpponentSkipRequested] = useState(false);
+
   const [globalRemaining, setGlobalRemaining] = useState(300);
   const [exRemaining, setExRemaining] = useState(45);
 
@@ -141,7 +152,7 @@ export default function ActiveDuelPage() {
         const handleExercise = (msg: ExerciseMsg) => {
           console.log("[Duel] exercise received", {
             id: msg.exercise.id,
-            title: msg.exercise.title,
+            title: msg.exercise.app_title || msg.exercise.title,
           });
           exerciseCountRef.current++;
           submittingRef.current = false;
@@ -157,9 +168,36 @@ export default function ActiveDuelPage() {
         room.onMessage("exercise_loaded", handleExercise);
 
         // ── Someone scored ──────────────────────────────────────────────────
-        room.onMessage("point_scored", (_msg: { scoredBy: string }) => {
-          console.log("[Duel] point_scored");
-        });
+        room.onMessage(
+          "point_scored",
+          (msg: { scoredBy: string; graceSeconds?: number; isFirstSolver?: boolean }) => {
+            console.log("[Duel] point_scored", msg);
+            setFirstSolverId(msg.scoredBy);
+            setMySkipRequested(false);
+            setOpponentSkipRequested(false);
+
+            if (msg.graceSeconds && msg.isFirstSolver) {
+              const deadline = nowSec() + msg.graceSeconds;
+              graceDeadlineRef.current = deadline;
+              setGraceRemaining(msg.graceSeconds);
+
+              const tick = () => {
+                if (!graceDeadlineRef.current) return;
+                const remaining = Math.max(0, graceDeadlineRef.current - nowSec());
+                setGraceRemaining(remaining);
+                if (remaining <= 0) {
+                  graceDeadlineRef.current = null;
+                } else {
+                  requestAnimationFrame(tick);
+                }
+              };
+              requestAnimationFrame(tick);
+            } else {
+              graceDeadlineRef.current = null;
+              setGraceRemaining(null);
+            }
+          },
+        );
 
         // ── Exercise timed out (nobody solved) ──────────────────────────────
         room.onMessage("exercise_timeout", (msg: { correctAnswer: { expression: string; elementId: number } | null }) => {
@@ -167,6 +205,28 @@ export default function ActiveDuelPage() {
           if (msg.correctAnswer?.expression) {
             setCorrection(msg.correctAnswer.expression);
           }
+          setGraceRemaining(null);
+          graceDeadlineRef.current = null;
+          setMySkipRequested(false);
+          setOpponentSkipRequested(false);
+        });
+
+        // Skip flow
+        room.onMessage("skip_proposed", (msg: { by: string }) => {
+          if (!user) return;
+          const myId = user.id;
+          if (msg.by === myId) {
+            setMySkipRequested(true);
+          } else {
+            setOpponentSkipRequested(true);
+          }
+        });
+
+        room.onMessage("exercise_skipped", () => {
+          setMySkipRequested(false);
+          setOpponentSkipRequested(false);
+          setGraceRemaining(null);
+          graceDeadlineRef.current = null;
         });
 
         room.onLeave((code: number) => {
@@ -228,6 +288,12 @@ export default function ActiveDuelPage() {
     (answer: string, isCorrect: boolean) => {
       const room = roomRef.current;
       if (!room || !exercise || phase !== "playing") return;
+       // During the 5‑second grace period, only the player who has NOT yet
+       // solved should be allowed to answer.
+      if (graceRemaining && graceRemaining > 0 && firstSolverId && user) {
+        const isFirst = user.id === firstSolverId;
+        if (isFirst) return;
+      }
       if (isCorrect && submittingRef.current) return;
       if (isCorrect) submittingRef.current = true;
 
@@ -239,7 +305,7 @@ export default function ActiveDuelPage() {
 
       room.send("submitAnswer", { elementId, answer, isCorrect, timeSpent: Math.floor(timeSpent) });
     },
-    [exercise, phase, exStartedAt],
+    [exercise, phase, exStartedAt, graceRemaining, firstSolverId, user],
   );
 
   // ─── Derived ──────────────────────────────────────────────────────────────
@@ -255,6 +321,13 @@ export default function ActiveDuelPage() {
   const ss = safeGlobal % 60;
   const formattedTime = `${mm.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}`;
   const duelFinished = phase === "finished" || safeGlobal === 0;
+
+  const handleSkipClick = useCallback(() => {
+    const room = roomRef.current;
+    if (!room || phase !== "playing" || duelFinished || mySkipRequested) return;
+    room.send("skip", {});
+    setMySkipRequested(true);
+  }, [phase, duelFinished, mySkipRequested]);
 
   const exMm = Math.floor(Math.max(0, exRemaining) / 60);
   const exSs = Math.max(0, exRemaining) % 60;
@@ -329,18 +402,53 @@ export default function ActiveDuelPage() {
 
           {/* Finished */}
           {duelFinished ? (
-            <div className="bg-slate-900/70 backdrop-blur-sm rounded-3xl p-8 shadow-[0_10px_40px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
-              <div className="text-center space-y-3">
-                <h2 className="text-3xl text-white" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{finalTitle}</h2>
-                <p className="text-slate-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>{finalSub}</p>
-              </div>
-              <div className="mt-6 flex items-center justify-center gap-10">
-                <div className="text-center"><p className="text-sm text-slate-300 mb-1">Vous</p><p className="text-3xl text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{myScore}</p></div>
-                <div className="text-slate-400 text-lg">-</div>
-                <div className="text-center"><p className="text-sm text-slate-300 mb-1">{opponentName}</p><p className="text-3xl text-purple-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{opponentScore}</p></div>
-              </div>
-              <div className="mt-8 flex justify-center">
-                <button onClick={() => router.push("/duel")} className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-semibold shadow-lg hover:scale-105 transition-transform" style={{ fontFamily: "'Fredoka', sans-serif" }}>Retour aux duels</button>
+            <div className="relative overflow-hidden bg-slate-900/70 backdrop-blur-sm rounded-3xl p-8 shadow-[0_10px_40px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
+              {/* Win / lose animation */}
+              <div
+                className={`pointer-events-none absolute inset-0 opacity-60 mix-blend-screen ${
+                  myScore > opponentScore
+                    ? "bg-[radial-gradient(circle_at_top,_#22c55e40,_transparent_60%),radial-gradient(circle_at_bottom,_#38bdf840,_transparent_60%)] animate-pulse"
+                    : myScore < opponentScore
+                      ? "bg-[radial-gradient(circle_at_top,_#f9737340,_transparent_60%),radial-gradient(circle_at_bottom,_#fb718540,_transparent_60%)] animate-[pulse_2.5s_ease-in-out_infinite]"
+                      : "bg-[radial-gradient(circle,_#38bdf840,_transparent_60%)]"
+                }`}
+              />
+              <div className="relative z-10">
+                <div className="text-center space-y-3">
+                  <h2
+                    className={`text-3xl text-white ${
+                      myScore > opponentScore
+                        ? "animate-[bounce_1.4s_ease-out_1]"
+                        : myScore < opponentScore
+                          ? "animate-[fadeIn_0.8s_ease-out_1]"
+                          : ""
+                    }`}
+                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
+                  >
+                    {finalTitle}
+                  </h2>
+                  <p className="text-slate-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>{finalSub}</p>
+                </div>
+                <div className="mt-6 flex items-center justify-center gap-10">
+                  <div className={`text-center ${myScore > opponentScore ? "scale-110 drop-shadow-[0_0_25px_rgba(34,197,94,0.7)]" : ""}`}>
+                    <p className="text-sm text-slate-300 mb-1">Vous</p>
+                    <p className="text-3xl text-blue-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{myScore}</p>
+                  </div>
+                  <div className="text-slate-400 text-lg">-</div>
+                  <div className={`text-center ${myScore < opponentScore ? "scale-110 drop-shadow-[0_0_25px_rgba(248,113,113,0.7)]" : ""}`}>
+                    <p className="text-sm text-slate-300 mb-1">{opponentName}</p>
+                    <p className="text-3xl text-purple-200" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{opponentScore}</p>
+                  </div>
+                </div>
+                <div className="mt-8 flex justify-center">
+                  <button
+                    onClick={() => router.push("/duel")}
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-semibold shadow-lg hover:scale-105 transition-transform"
+                    style={{ fontFamily: "'Fredoka', sans-serif" }}
+                  >
+                    Retour aux duels
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -360,7 +468,9 @@ export default function ActiveDuelPage() {
               <div className="bg-slate-800/60 backdrop-blur-sm rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
                 <div className="mb-6">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <h2 className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{exercise.title}</h2>
+                    <h2 className="text-white text-2xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>
+                      {exercise.app_title || exercise.title}
+                    </h2>
                     <span className="bg-amber-500/20 text-amber-200 px-3 py-1 rounded-full text-sm tabular-nums" style={{ fontFamily: "'Fredoka', sans-serif" }}>
                       Question : {exMm}:{exSs.toString().padStart(2, "0")}
                     </span>
@@ -372,6 +482,23 @@ export default function ActiveDuelPage() {
                 </div>
 
                 <div className="space-y-6">
+                  {/* Grace / pause banners */}
+                  {graceRemaining !== null && graceRemaining > 0 && user && firstSolverId && (
+                    <div className="mb-4 rounded-xl border border-amber-400/60 bg-amber-500/10 px-4 py-3 text-amber-100" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                      {user.id === firstSolverId ? (
+                        <p className="text-sm">
+                          Ton adversaire a <span className="font-semibold tabular-nums">{Math.ceil(graceRemaining)}</span> secondes pour finir cet exercice.
+                        </p>
+                      ) : (
+                        <p className="text-sm">
+                          Ton adversaire a déjà réussi. Tu as{" "}
+                          <span className="font-semibold tabular-nums">{Math.ceil(graceRemaining)}</span>{" "}
+                          secondes pour terminer et obtenir l'égalité.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {exercise.elements.map((element) => {
                     if (element.type === "text") {
                       return (
@@ -403,9 +530,33 @@ export default function ActiveDuelPage() {
                 </div>
               </div>
 
-              <div className="text-center">
-                <p className="text-blue-200 text-sm" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
-                  {`Pendant ${Math.floor(duelDuration / 60)} min, enchaîne les exercices. Premier à répondre correctement = +1 point.`}
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSkipClick}
+                  disabled={mySkipRequested || !!(graceRemaining && graceRemaining > 0)}
+                  className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${
+                    mySkipRequested
+                      ? "border-slate-500 text-slate-300 bg-slate-800/60 cursor-not-allowed"
+                      : "border-slate-600 text-slate-100 bg-slate-900/60 hover:bg-slate-800"
+                  }`}
+                  style={{ fontFamily: "'Fredoka', sans-serif" }}
+                >
+                  {mySkipRequested ? "En attente de la confirmation de ton adversaire..." : "Passer cet exercice"}
+                </button>
+
+                {opponentSkipRequested && !mySkipRequested && (
+                  <p
+                    className="text-amber-200 text-xs text-center max-w-xl"
+                    style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+                  >
+                    Ton adversaire souhaite passer cet exercice. Si tu cliques aussi sur
+                    « Passer cet exercice », vous passerez au suivant sans attribuer de points.
+                  </p>
+                )}
+
+                <p className="text-blue-200 text-sm text-center" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}>
+                  {`Pendant ${Math.floor(duelDuration / 60)} min, enchaîne les exercices. Premier à répondre correctement = +1 point. Si vous répondez tous les deux correctement dans les 5 dernières secondes, l'exercice compte pour égalité.`}
                 </p>
               </div>
             </>

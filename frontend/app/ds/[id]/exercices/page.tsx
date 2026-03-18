@@ -18,6 +18,7 @@ function DSExercicesPage() {
   const [recommendLoading, setRecommendLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nextKey, setNextKey] = useState(0);
+  const [currentExerciseTitle, setCurrentExerciseTitle] = useState<string | null>(null);
 
   // Garde la recommandation courante pour la soumission (ref pour éviter les closures)
   const currentRecommendation = useRef<DSRecommendation | null>(null);
@@ -201,6 +202,9 @@ function DSExercicesPage() {
               shouldCountPoints={false}
               mode="recommendation"
               onNextClick={handleNextClick}
+              onLoad={(exercise) =>
+                setCurrentExerciseTitle(exercise.app_title || exercise.title || null)
+              }
             />
           ) : null}
         </div>
@@ -215,7 +219,7 @@ function DSExercicesPage() {
               className="text-violet-200 text-xs leading-relaxed"
               style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
             >
-              Exercice #{recommendation.exercise_id} · {recommendation.difficulty} · Recommandation DS
+              {currentExerciseTitle || "Exercice"} · {recommendation.difficulty} · Recommandation DS
             </p>
           </div>
         </div>

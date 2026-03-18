@@ -182,8 +182,9 @@ export function AccountPage() {
         friendsData.map((f) => ({
           id: f.id,
           name: f.name,
-          memberSince: "2024",
-          exercisesCompleted: 0,
+          // `created_at` vient du backend (pas de mock).
+          memberSince: f.created_at ?? "",
+          exercisesCompleted: f.exercises_completed ?? 0,
           level: "Terminale",
         })),
       );
@@ -436,7 +437,9 @@ export function AccountPage() {
   }
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "N/A";
     const months = [
       "Janvier",
       "Février",
@@ -509,7 +512,7 @@ export function AccountPage() {
                     fontWeight: 500,
                   }}
                 >
-                  {selectedFriend.memberSince}
+                  {formatDate(selectedFriend.memberSince)}
                 </p>
               </div>
 
