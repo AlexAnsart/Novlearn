@@ -35,11 +35,16 @@ export class DuelRoom extends Room {
   private duelId!: number;
   private currentExercise: ExerciseRow | null = null;
   private currentVariables: Record<string, number> = {};
-  private currentExerciseSolvedBy: string | null = null;
+  /** Players who solved the current exercise correctly (max 2). */
+  private solvedPlayers = new Set<string>();
   private readyPlayers = new Set<string>();
   private gameStarted = false;
   private duelTimer: ReturnType<typeof setTimeout> | null = null;
   private exerciseTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 5‑second grace timer allowing the second player to finish. */
+  private graceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Players who requested to skip the current exercise. */
+  private skipRequests = new Set<string>();
 
   async onAuth(client: Client, options: { token: string; duelId: number }) {
     const { userId } = await verifySupabaseToken(options.token);
@@ -88,6 +93,14 @@ export class DuelRoom extends Room {
       this.handleSubmitAnswer(client, msg).catch((err) =>
         console.error("[DuelRoom] submitAnswer error:", err),
       );
+    });
+
+    this.onMessage("skip", (client: Client) => {
+      try {
+        this.handleSkipRequest(client);
+      } catch (err) {
+        console.error("[DuelRoom] skip error:", err);
+      }
     });
   }
 
@@ -145,6 +158,10 @@ export class DuelRoom extends Room {
   }
 
   private async advanceToNextExercise() {
+    this.clearExerciseTimer();
+    this.clearGraceTimer();
+    this.solvedPlayers.clear();
+    this.skipRequests.clear();
     await this.loadNextExercise();
     this.s.exerciseStartedAt = Math.floor(Date.now() / 1000);
     this.broadcastExercise();
@@ -166,9 +183,12 @@ export class DuelRoom extends Room {
     ).catch((err) => console.error("[DuelRoom] recordAttempt failed:", err));
 
     if (!msg.isCorrect) return;
-    if (this.currentExerciseSolvedBy !== null) return;
+    // Already solved by this player for this exercise.
+    if (this.solvedPlayers.has(auth.userId)) return;
 
-    this.currentExerciseSolvedBy = auth.userId;
+    this.solvedPlayers.add(auth.userId);
+
+    const isFirstSolver = this.solvedPlayers.size === 1;
     const isP1 = auth.userId === this.s.player1Id;
     if (isP1) this.s.player1Score++;
     else this.s.player2Score++;
@@ -179,10 +199,41 @@ export class DuelRoom extends Room {
       p2Score: this.s.player2Score,
     });
 
-    this.broadcast("point_scored", { scoredBy: auth.userId });
+    // Inform clients who scored and whether we are in a 5‑second grace period.
+    this.broadcast("point_scored", {
+      scoredBy: auth.userId,
+      graceSeconds: 5,
+      isFirstSolver,
+    });
 
-    this.clearExerciseTimer();
+    // First solver: start 5‑second grace for the opponent.
+    if (isFirstSolver) {
+      this.clearExerciseTimer();
+      this.startGraceTimer();
+      return;
+    }
+
+    // Second solver within the grace window: move on immediately.
+    this.clearGraceTimer();
     await this.advanceToNextExercise();
+  }
+
+  // ─── Grace timer (second player has 5s to finish) ────────────────────────────
+
+  private startGraceTimer() {
+    this.clearGraceTimer();
+    this.graceTimer = setTimeout(async () => {
+      if (this.s.phase !== "playing") return;
+      // If only one player solved when grace expires, just move on.
+      await this.advanceToNextExercise();
+    }, 5 * 1000);
+  }
+
+  private clearGraceTimer() {
+    if (this.graceTimer) {
+      clearTimeout(this.graceTimer);
+      this.graceTimer = null;
+    }
   }
 
   private finishDuel() {
@@ -210,7 +261,8 @@ export class DuelRoom extends Room {
     const { row, variables } = await getRandomExercise();
     this.currentExercise = row;
     this.currentVariables = variables;
-    this.currentExerciseSolvedBy = null;
+    this.solvedPlayers.clear();
+    this.skipRequests.clear();
     console.log("[DuelRoom] loadNextExercise", { id: row.id, title: row.title });
   }
 
@@ -239,6 +291,37 @@ export class DuelRoom extends Room {
 
   private clearAllTimers() {
     this.clearExerciseTimer();
+    this.clearGraceTimer();
     if (this.duelTimer) { clearTimeout(this.duelTimer); this.duelTimer = null; }
+  }
+
+  // ─── Skip handling ──────────────────────────────────────────────────────────
+
+  /** Called when a player clicks "Passer" on the frontend. */
+  private handleSkipRequest(client: Client) {
+    if (this.s.phase !== "playing") return;
+    if (!this.currentExercise) return;
+
+    const auth = client.userData as PlayerAuth;
+    // If someone already solved, we no longer allow skipping this exercise.
+    if (this.solvedPlayers.size > 0) return;
+
+    if (this.skipRequests.has(auth.userId)) return;
+    this.skipRequests.add(auth.userId);
+
+    // Notify the other player that a skip was requested.
+    this.broadcast("skip_proposed", { by: auth.userId });
+
+    // Both players agreed to skip → move to next exercise with no points awarded.
+    if (this.skipRequests.size >= 2) {
+      this.clearExerciseTimer();
+      this.clearGraceTimer();
+      this.skipRequests.clear();
+      this.solvedPlayers.clear();
+      this.broadcast("exercise_skipped", {});
+      this.advanceToNextExercise().catch((err) =>
+        console.error("[DuelRoom] advanceToNextExercise after skip failed:", err),
+      );
+    }
   }
 }

@@ -3,7 +3,9 @@ Duel mode configuration: session duration and per-exercise timeout.
 """
 
 # Total duel duration in seconds (e.g. 180 = 3 minutes)
-DUEL_DURATION_SECONDS = 300
+# NOTE: Game logic now lives in the Colyseus duel-server. Keep this value
+# aligned with `duel-server/src/config.ts` and `frontend/app/settings/duelSettings.ts`.
+DUEL_DURATION_SECONDS = 180
 
 # If neither player scores within this time, move to next exercise (seconds)
 DUEL_EXERCISE_TIMEOUT_SECONDS = 45

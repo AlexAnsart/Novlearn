@@ -114,7 +114,11 @@ export async function getRandomExercise(): Promise<{
 }> {
   const { data, error } = await supabase
     .from("exercises")
-    .select("id, title, chapter, difficulty, content");
+    .select("id, title, chapter, difficulty, content")
+    // For duels we only want "flash" exercises that do NOT require a calculator.
+    // Column names follow the Supabase schema (case‑sensitive).
+    .eq("Is_Flash", true)
+    .eq("Need_Calculator", false);
 
   if (error || !data?.length) throw new Error("No exercises available");
 
