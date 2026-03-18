@@ -247,6 +247,8 @@ export interface Friend {
   first_name: string;
   last_name: string;
   name: string;
+  created_at: string | null;
+  exercises_completed: number;
 }
 
 export interface FriendRequest {
