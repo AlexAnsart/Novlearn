@@ -98,11 +98,16 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
         onClick={() => router.push("/entrainement")}
         className="tour-training"
       />
-      <SidebarIcon
-        emoji="📝"
-        active={isDS}
-        onClick={() => router.push("/ds")}
-      />
+      {isGuest ? (
+        <LockedSidebarIcon emoji="📝" onUnlockClick={openConversionModal} className="tour-ds" />
+      ) : (
+        <SidebarIcon
+          emoji="📝"
+          active={isDS}
+          onClick={() => router.push("/ds")}
+          className="tour-ds"
+        />
+      )}
       {isGuest ? (
         <LockedSidebarIcon emoji="🏆" onUnlockClick={openConversionModal} className="tour-leaderboard" />
       ) : (

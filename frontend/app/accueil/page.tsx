@@ -85,7 +85,7 @@ export default function AccueilPage() {
             className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl font-bold text-lg hover:from-indigo-400 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/30 disabled:opacity-60"
             style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
           >
-            {loading ? "Démarrage…" : "Essayer gratuitement →"}
+            {loading ? "Démarrage…" : "Essayer sans compte →"}
           </button>
         </div>
 

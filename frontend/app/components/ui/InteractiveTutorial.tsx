@@ -99,6 +99,13 @@ export const InteractiveTutorial = () => {
       placement: isMobile ? "top" : "right",
     },
     {
+      target: ".tour-ds",
+      content: isGuest
+        ? "🔒 DS — crée ton compte pour préparer tes devoirs surveillés ! Tu pourras créer un DS personnalisé, choisir les compétences à réviser et suivre ta progression avant le jour J. 📝"
+        : "La section DS te permet de préparer tes devoirs surveillés. Crée un DS, choisis les compétences à réviser et entraîne-toi jusqu'à les maîtriser avant le jour J ! 📝",
+      placement: isMobile ? "top" : "right",
+    },
+    {
       target: ".tour-leaderboard",
       content: isGuest
         ? "🔒 Classement — crée un compte pour apparaître dans le classement de la semaine et rivaliser avec les autres élèves. 🏆"
