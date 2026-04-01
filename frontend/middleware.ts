@@ -77,6 +77,7 @@ export async function middleware(request: NextRequest) {
     '/entrainement',
     '/duel',
     '/cours',
+    '/validation',
   ];
 
   const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));

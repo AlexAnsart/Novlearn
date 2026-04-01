@@ -91,6 +91,8 @@ export async function GET(request: Request) {
           chapter: data.chapter,
           difficulty: data.difficulty,
           competences: data.competences || [],
+          isFlash: data.is_flash ?? false,
+          needCalculator: data.need_calculator ?? false,
           ...data.content,
         },
       };

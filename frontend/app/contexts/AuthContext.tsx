@@ -22,6 +22,7 @@ interface Profile {
   star_count: number;
   current_streak: number;
   max_streak: number;
+  role: string;
 }
 
 interface AuthContextType {
