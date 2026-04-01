@@ -325,16 +325,7 @@ export function AccountPage() {
 
       if (abortController.signal.aborted || !isMountedRef.current) return;
 
-      // Récupérer la meilleure streak
-      const { data: streakData } = await supabase
-        .from("user_competence_scores")
-        .select("streak")
-        .eq("user_id", user.id);
-
-      const bestStreak =
-        streakData && streakData.length > 0
-          ? Math.max(...streakData.map((s) => s.streak))
-          : 0;
+      const bestStreak = profile?.max_streak ?? 0;
 
       if (attemptsError || !attemptsData) {
         setStats({
@@ -382,7 +373,7 @@ export function AccountPage() {
         setLoading(false);
       }
     }
-  }, [user]);
+  }, [user, profile]);
 
   useEffect(() => {
     isMountedRef.current = true;

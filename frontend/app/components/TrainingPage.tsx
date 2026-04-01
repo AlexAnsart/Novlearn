@@ -6,10 +6,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Dumbbell,
+  Eye,
+  EyeOff,
   Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import {
   dbToUiDifficulty,
   uiToDbDifficulty,
@@ -39,6 +42,7 @@ interface FlashCard {
 
 export function TrainingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const chapters_list = useTaxonomyStore((state) => state.chapters);
   const chapterEmojis = useTaxonomyStore((state) => state.chapterEmojis);
 
@@ -48,13 +52,12 @@ export function TrainingPage() {
       id: name,
       name: name,
       emoji: chapterEmojis[name] ?? "📚",
-      notSeenYet: true,
+      notSeenYet: false,
     }));
   }, [chapters_list, chapterEmojis]);
 
-  const [chapterStates, setChapterStates] = useState<Record<string, boolean>>(
-    chapters.reduce((acc, c) => ({ ...acc, [c.id]: c.notSeenYet }), {}),
-  );
+  // chapterStates[id] = true signifie "pas encore vu" (caché des reco)
+  const [chapterStates, setChapterStates] = useState<Record<string, boolean>>({});
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<"exercises" | "course" | null>(
     null,
@@ -80,6 +83,25 @@ export function TrainingPage() {
   const [flashcardsLoading, setFlashcardsLoading] = useState(false);
   const [currentFlashCardIndex, setCurrentFlashCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+
+  // Charger les chapitres "pas encore vus" depuis le profil utilisateur
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("hidden_chapters")
+        .eq("id", user.id)
+        .single();
+      if (cancelled || error || !data) return;
+      const hidden: string[] = data.hidden_chapters ?? [];
+      setChapterStates(
+        hidden.reduce((acc, name) => ({ ...acc, [name]: true }), {} as Record<string, boolean>),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Vérifier quels chapitres ont des exercices en base
   useEffect(() => {
@@ -175,11 +197,19 @@ export function TrainingPage() {
     };
   }, [selectedChapter, selectedTab]);
 
-  const handleToggleNotSeen = (chapterId: string) => {
-    setChapterStates((prev) => ({
-      ...prev,
-      [chapterId]: !prev[chapterId],
-    }));
+  const handleToggleNotSeen = async (chapterId: string) => {
+    const newState = !chapterStates[chapterId];
+    const newStates = { ...chapterStates, [chapterId]: newState };
+    setChapterStates(newStates);
+
+    if (!user) return;
+    const hiddenList = Object.entries(newStates)
+      .filter(([, hidden]) => hidden)
+      .map(([name]) => name);
+    await supabase
+      .from("profiles")
+      .update({ hidden_chapters: hiddenList })
+      .eq("id", user.id);
   };
 
   const handleChapterClick = (chapterId: string) => {
@@ -639,22 +669,26 @@ export function TrainingPage() {
             </button>
           </div>
 
-          <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isNotSeen}
-                onChange={() => handleToggleNotSeen(selectedChapter)}
-                className="w-5 h-5 rounded bg-slate-700 border-slate-600 text-blue-500 focus:ring-blue-500"
-              />
-              <span
-                className="text-white"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
-              >
-                Je n'ai pas encore vu ce chapitre
-              </span>
-            </label>
-          </div>
+          <button
+            onClick={() => handleToggleNotSeen(selectedChapter)}
+            className={`w-full flex items-center gap-3 rounded-2xl p-4 transition-all shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] ${
+              isNotSeen
+                ? "bg-purple-900/40 border border-purple-500/40"
+                : "bg-slate-800/60 hover:bg-slate-700/60"
+            }`}
+          >
+            {isNotSeen ? (
+              <EyeOff className="w-5 h-5 text-purple-300 flex-shrink-0" />
+            ) : (
+              <Eye className="w-5 h-5 text-slate-400 flex-shrink-0" />
+            )}
+            <span
+              className={`${isNotSeen ? "text-purple-200" : "text-slate-300"}`}
+              style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
+            >
+              {isNotSeen ? "Pas encore vu — cliquer pour marquer comme vu" : "Je n'ai pas encore vu ce chapitre"}
+            </span>
+          </button>
         </div>
       </div>
     );
@@ -684,35 +718,58 @@ export function TrainingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {chapters.map((chapter) => {
             const hasExercises = chapterHasExercises[chapter.id];
-            // On laisse "grisé" visuellement si pas d'exo, mais cliquable pour voir les astuces
-            const isGrayed = !hasExercises;
+            const isNotSeen = !!chapterStates[chapter.id];
             return (
-              <button
-                key={chapter.id}
-                onClick={() => handleChapterClick(chapter.id)}
-                className={`bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:scale-105 transition-transform ${
-                  isGrayed ? "opacity-60" : ""
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-5xl mb-3">{chapter.emoji}</div>
-                  <h3
-                    className="text-white"
-                    style={{
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontWeight: 700,
-                      fontSize: "1.125rem",
-                    }}
-                  >
-                    {chapter.name}
-                  </h3>
-                  {!hasExercises && (
-                    <p className="text-blue-200/80 text-xs mt-1">
-                      (Astuces seulement)
-                    </p>
+              <div key={chapter.id} className="relative group">
+                <button
+                  onClick={() => handleChapterClick(chapter.id)}
+                  className={`w-full bg-slate-800/60 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:scale-105 transition-transform ${
+                    isNotSeen ? "opacity-50" : ""
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-5xl mb-3">{chapter.emoji}</div>
+                    <h3
+                      className="text-white"
+                      style={{
+                        fontFamily: "'Fredoka', sans-serif",
+                        fontWeight: 700,
+                        fontSize: "1.125rem",
+                      }}
+                    >
+                      {chapter.name}
+                    </h3>
+                    {isNotSeen ? (
+                      <p className="text-purple-300/80 text-xs mt-1 font-semibold">
+                        Pas encore vu
+                      </p>
+                    ) : !hasExercises ? (
+                      <p className="text-blue-200/80 text-xs mt-1">
+                        (Astuces seulement)
+                      </p>
+                    ) : null}
+                  </div>
+                </button>
+                {/* Toggle "pas encore vu" — coin supérieur droit */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleNotSeen(chapter.id);
+                  }}
+                  title={isNotSeen ? "Marquer comme vu" : "Marquer comme pas encore vu"}
+                  className={`absolute top-3 right-3 p-1.5 rounded-full transition-all ${
+                    isNotSeen
+                      ? "bg-purple-500/30 text-purple-300 opacity-100"
+                      : "bg-slate-700/50 text-slate-400 opacity-0 group-hover:opacity-100"
+                  }`}
+                >
+                  {isNotSeen ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
                   )}
-                </div>
-              </button>
+                </button>
+              </div>
             );
           })}
         </div>

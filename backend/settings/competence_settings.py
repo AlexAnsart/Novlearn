@@ -96,12 +96,21 @@ def _module_getattr(name: str):  # PEP 562
 __getattr__ = _module_getattr
 
 
-def get_competences(chapter: str | None = None) -> dict[str, int]:
-    """Return {competence_id: max_points}. If chapter is set, filter by chapter."""
+def get_competences(
+    chapter: str | None = None,
+    exclude_chapters: list[str] | None = None,
+) -> dict[str, int]:
+    """Return {competence_id: max_points}.
+    If chapter is set, filter by chapter.
+    If exclude_chapters is set, skip competences in those chapters.
+    """
     out = {}
     for c in _get_taxonomy()["competences"]:
-        if chapter is None or c["chapter"] == chapter:
-            out[c["id"]] = c["max_points"]
+        if chapter is not None and c["chapter"] != chapter:
+            continue
+        if exclude_chapters and c["chapter"] in exclude_chapters:
+            continue
+        out[c["id"]] = c["max_points"]
     return out
 
 
