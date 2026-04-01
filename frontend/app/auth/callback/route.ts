@@ -27,33 +27,36 @@ export async function GET(request: Request) {
   const siteUrl = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin;
 
   if (code) {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options),
-              );
-            } catch {
-              // Ignorer si appelé depuis un Server Component
-            }
+    try {
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll();
+            },
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(({ name, value, options }) =>
+                  cookieStore.set(name, value, options),
+                );
+              } catch {
+                // Ignorer si appelé depuis un Server Component
+              }
+            },
           },
         },
-      },
-    );
+      );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error) {
-      // ✅ Redirection 100% fiable
-      return NextResponse.redirect(`${siteUrl}${next}`);
+      if (!error) {
+        return NextResponse.redirect(`${siteUrl}${next}`);
+      }
+    } catch (err) {
+      console.error("[auth/callback] exchangeCodeForSession threw:", err);
     }
   }
 
