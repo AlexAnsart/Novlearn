@@ -80,7 +80,7 @@ export function MonthlyLeaderboard({
 
   const [timeUntilReset, setTimeUntilReset] = useState("");
 
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const router = useRouter();
 
   // Compteur de temps avant réinitialisation (dimanche 23:59 UTC)
@@ -287,12 +287,18 @@ export function MonthlyLeaderboard({
               </p>
             )}
           </div>
-          <button
-            onClick={() => router.push("/classement")}
-            className="text-indigo-400 hover:text-indigo-300 text-xs flex items-center gap-1 transition-colors"
-          >
-            Voir tout <ChevronRight className="w-4 h-4" />
-          </button>
+          {isGuest ? (
+            <span className="text-slate-600 text-xs flex items-center gap-1 cursor-not-allowed" title="Crée un compte pour accéder au classement complet">
+              Voir tout <ChevronRight className="w-4 h-4" />
+            </span>
+          ) : (
+            <button
+              onClick={() => router.push("/classement")}
+              className="text-indigo-400 hover:text-indigo-300 text-xs flex items-center gap-1 transition-colors"
+            >
+              Voir tout <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {renderTabs()}
