@@ -72,6 +72,7 @@ jobs:
           script: |
             rm -rf /opt/novlearn-staging/frontend/app
             rm -rf /opt/novlearn-staging/frontend/public
+            rm -rf /opt/novlearn-staging/frontend/.next
             echo "✅ Anciens fichiers source staging supprimés"
 
       - name: Deploy frontend code to VPS (staging)
@@ -81,6 +82,16 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "frontend/**"
+          target: "/opt/novlearn-staging"
+          strip_components: 0
+
+      - name: Deploy frontend build artifacts to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "frontend/.next/**"
           target: "/opt/novlearn-staging"
           strip_components: 0
 
@@ -184,18 +195,14 @@ jobs:
             nohup venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8011 --log-level info > ../backend-staging.log 2>&1 &
             echo $! > backend-staging.pid
 
-            # Frontend build + start (port 3001)
+            # Frontend start (port 3001) — uses pre-built .next from CI
             cd /opt/novlearn-staging/frontend
             if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
               curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
               sudo apt-get install -y nodejs
             fi
 
-            # Ensure we serve a consistent Next build (HTML + assets must match)
-            echo "🧹 Removing previous Next build artifacts (.next)..."
-            rm -rf .next
-
-            # Write .env.local for staging build (Next.js reads these at build time)
+            # Write .env.local for server-side runtime vars (NEXT_PUBLIC_* are baked in CI build)
             cat > .env.local << 'ENVSTAGING'
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -207,9 +214,8 @@ jobs:
             ENVSTAGING
 
             npm install --prefer-offline --no-audit
-            npm run build
 
-            # Force cleanup on port 3001 (avoid mixing old/new Next builds).
+            # Force cleanup on port 3001 (avoid EADDRINUSE).
             # Without this, `next start` fails with EADDRINUSE and Apache serves stale hashes => 404 for CSS/chunks.
             echo "🛑 Forcing cleanup on port 3001..."
             if command -v fuser >/dev/null 2>&1; then
