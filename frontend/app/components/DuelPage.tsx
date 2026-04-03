@@ -1,9 +1,9 @@
 "use client";
 
-import { Swords, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import AvatarDisplay from "./account/AvatarDisplay";
 import { useAuth } from "../contexts/AuthContext";
 import {
   DuelRequest as ApiDuelRequest,
@@ -17,6 +17,8 @@ interface LocalDuelRequest {
   id: string;
   from: string;
   fromId: string;
+  fromAvatarId?: string;
+  fromAvatarColor?: string;
 }
 
 export function DuelPage() {
@@ -60,6 +62,8 @@ export function DuelPage() {
           id: d.id.toString(),
           from: d.from_user_name,
           fromId: d.from_user_id,
+          fromAvatarId: d.from_user_avatar_id,
+          fromAvatarColor: d.from_user_avatar_color,
         })),
       );
       setHistory(historyData.history ?? []);
@@ -165,9 +169,11 @@ export function DuelPage() {
                   className="bg-slate-900/40 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl flex items-center justify-center">
-                      <Swords className="w-6 h-6 text-white" />
-                    </div>
+                    <AvatarDisplay
+                      avatarId={request.fromAvatarId}
+                      avatarColor={request.fromAvatarColor}
+                      size="sm"
+                    />
                     <span
                       className="text-white"
                       style={{
@@ -220,9 +226,11 @@ export function DuelPage() {
                 className="bg-slate-900/40 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center">
-                    <Users className="w-6 h-6 text-white" />
-                  </div>
+                  <AvatarDisplay
+                    avatarId={friend.avatar_id}
+                    avatarColor={friend.avatar_color}
+                    size="sm"
+                  />
                   <div>
                     <p
                       className="text-white"

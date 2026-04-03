@@ -23,6 +23,8 @@ interface Profile {
   current_streak: number;
   max_streak: number;
   role: string;
+  avatar_id: string;
+  avatar_color: string;
 }
 
 interface AuthContextType {

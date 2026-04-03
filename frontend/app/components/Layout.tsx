@@ -1,6 +1,7 @@
 "use client";
 
 import { Lock, User } from "lucide-react";
+import AvatarDisplay from "./account/AvatarDisplay";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -215,9 +216,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                     onClick={() => router.push("/compte")}
                     className="tour-account flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer relative"
                   >
-                    <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
-                      <User className="w-7 h-7 text-white" />
-                    </div>
+                    <AvatarDisplay
+                      avatarId={profile?.avatar_id}
+                      avatarColor={profile?.avatar_color}
+                      size="sm"
+                    />
                     <span
                       className="text-white"
                       style={{

@@ -410,7 +410,7 @@ async def get_friends(user: dict = Depends(verify_token)):
         # Get profiles for all friend IDs — public fields only (no email, no birth_date)
         if friend_ids:
             profiles_result = supabase.table("profiles")\
-                .select("id, first_name, last_name, created_at")\
+                .select("id, first_name, last_name, created_at, avatar_id, avatar_color")\
                 .in_("id", friend_ids)\
                 .execute()
             
@@ -447,6 +447,8 @@ async def get_friends(user: dict = Depends(verify_token)):
                     "name": name,
                     "created_at": created_at,
                     "exercises_completed": exercises_completed,
+                    "avatar_id": profile.get("avatar_id", "fox"),
+                    "avatar_color": profile.get("avatar_color", "#6366f1"),
                 })
 
         logger.info("[API /api/friends] response friends count=%s", len(friends_data))
@@ -715,7 +717,7 @@ async def get_pending_duels(user: dict = Depends(verify_token)):
         player1_ids = [d["player1_id"] for d in result.data or [] if d.get("player1_id")]
         profiles_map = {}
         if player1_ids:
-            pr = supabase.table("profiles").select("id, first_name, last_name, email").in_("id", player1_ids).execute()
+            pr = supabase.table("profiles").select("id, first_name, last_name, email, avatar_id, avatar_color").in_("id", player1_ids).execute()
             profiles_map = {p["id"]: p for p in (pr.data or [])}
 
         duels_data = []
@@ -726,6 +728,8 @@ async def get_pending_duels(user: dict = Depends(verify_token)):
                 "id": duel["id"],
                 "from_user_id": duel.get("player1_id"),
                 "from_user_name": name,
+                "from_user_avatar_id": p.get("avatar_id"),
+                "from_user_avatar_color": p.get("avatar_color"),
                 "exercise_title": "Exercice",
                 "created_at": duel.get("created_at"),
             })
