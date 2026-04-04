@@ -25,6 +25,9 @@ interface Profile {
   role: string;
   avatar_id: string;
   avatar_color: string;
+  notif_pwa: boolean;
+  notif_email: boolean;
+  notif_newsletter: boolean;
 }
 
 interface AuthContextType {

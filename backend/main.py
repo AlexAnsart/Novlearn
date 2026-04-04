@@ -2,6 +2,8 @@
 API FastAPI pour Novlearn
 Backend principal de l'application avec système de duels et amis
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,10 +11,12 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
 import logging
+import os
 import random
 
 from config import settings
 from auth import verify_token, get_supabase_client
+from notifications import send_push_to_user, send_email, email_duel_challenge, setup_scheduler
 from recommandation import recommander_exercice
 from ds import (
     initialiser_scores_ds,
@@ -40,11 +44,18 @@ logging.getLogger("auth").setLevel(logging.WARNING)
 
 # duel_settings no longer needed — game logic moved to Colyseus duel-server
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_scheduler(get_supabase_client)
+    yield
+
+
 # Création de l'application FastAPI
 app = FastAPI(
     title="Novlearn API",
     description="API REST pour la plateforme Novlearn avec système de duels 1v1",
-    version="0.2.0"
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 # Configuration CORS
@@ -76,6 +87,22 @@ class CreateDuelRequest(BaseModel):
 
 class DuelActionRequest(BaseModel):
     duel_id: int
+
+
+class NotificationPreferencesRequest(BaseModel):
+    notif_pwa: bool
+    notif_email: bool
+    notif_newsletter: bool
+
+
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+
+class PushUnsubscribeRequest(BaseModel):
+    endpoint: str
 
 
 class CreateDSRequest(BaseModel):
@@ -618,10 +645,52 @@ async def create_duel(request: CreateDuelRequest, user: dict = Depends(verify_to
         }
         
         result = supabase.table("duels").insert(duel_data).execute()
-        
+
         if not result.data:
             raise HTTPException(status_code=500, detail="Erreur lors de la création du duel")
-        
+
+        # Récupérer le prénom du challenger pour les notifications
+        challenger_profile = (
+            supabase.table("profiles")
+            .select("first_name, email, notif_email")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        challenger_name = (
+            challenger_profile.data.get("first_name") or "Un adversaire"
+            if challenger_profile.data
+            else "Un adversaire"
+        )
+
+        # Notification push à l'adversaire (si activée)
+        send_push_to_user(
+            supabase,
+            request.friend_id,
+            "Défi reçu ! ⚔️",
+            f"{challenger_name} t'a lancé un défi. Relève-le !",
+            "/duel",
+        )
+
+        # Notification email à l'adversaire (si activée)
+        try:
+            opponent_profile = (
+                supabase.table("profiles")
+                .select("email, notif_email")
+                .eq("id", request.friend_id)
+                .maybe_single()
+                .execute()
+            )
+            if (
+                opponent_profile.data
+                and opponent_profile.data.get("notif_email")
+                and opponent_profile.data.get("email")
+            ):
+                subject, html = email_duel_challenge(challenger_name)
+                send_email(opponent_profile.data["email"], subject, html)
+        except Exception as notif_err:
+            logger.warning("[API] Erreur notification email duel: %s", notif_err)
+
         return {"message": "Duel créé avec succès", "duel_id": result.data[0]["id"], "duel": result.data[0]}
     
     except HTTPException:
@@ -1033,6 +1102,102 @@ async def ds_submit(
         difficulty=body.difficulty,
     )
     return {"message": "Réponse enregistrée"}
+
+
+# ============================================
+# NOTIFICATIONS ENDPOINTS
+# ============================================
+
+@app.get("/api/notifications/vapid-public-key")
+async def get_vapid_public_key():
+    """Retourne la clé publique VAPID pour les souscriptions push côté frontend."""
+    key = os.getenv("VAPID_PUBLIC_KEY", "")
+    if not key:
+        raise HTTPException(status_code=503, detail="Notifications push non configurées")
+    return {"publicKey": key}
+
+
+@app.get("/api/notifications/preferences")
+async def get_notification_preferences(user: dict = Depends(verify_token)):
+    """Retourne les préférences de notifications de l'utilisateur connecté."""
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        result = (
+            supabase.table("profiles")
+            .select("notif_pwa, notif_email, notif_newsletter")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Profil introuvable")
+        return result.data
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("get_notification_preferences error: %s", exc)
+        raise HTTPException(status_code=500, detail="Erreur lors de la récupération des préférences")
+
+
+@app.put("/api/notifications/preferences")
+async def update_notification_preferences(
+    body: NotificationPreferencesRequest,
+    user: dict = Depends(verify_token),
+):
+    """Met à jour les préférences de notifications de l'utilisateur connecté."""
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        supabase.table("profiles").update({
+            "notif_pwa": body.notif_pwa,
+            "notif_email": body.notif_email,
+            "notif_newsletter": body.notif_newsletter,
+        }).eq("id", user_id).execute()
+        return {"message": "Préférences mises à jour"}
+    except Exception as exc:
+        logger.error("update_notification_preferences error: %s", exc)
+        raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour des préférences")
+
+
+@app.post("/api/notifications/subscribe")
+async def subscribe_push(
+    body: PushSubscribeRequest,
+    user: dict = Depends(verify_token),
+):
+    """Enregistre une souscription Web Push pour l'utilisateur connecté."""
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        supabase.table("push_subscriptions").upsert({
+            "user_id": user_id,
+            "endpoint": body.endpoint,
+            "p256dh": body.p256dh,
+            "auth": body.auth,
+        }, on_conflict="user_id,endpoint").execute()
+        return {"message": "Souscription enregistrée"}
+    except Exception as exc:
+        logger.error("subscribe_push error: %s", exc)
+        raise HTTPException(status_code=500, detail="Erreur lors de l'enregistrement de la souscription")
+
+
+@app.delete("/api/notifications/subscribe")
+async def unsubscribe_push(
+    body: PushUnsubscribeRequest,
+    user: dict = Depends(verify_token),
+):
+    """Supprime une souscription Web Push pour l'utilisateur connecté."""
+    try:
+        supabase = get_supabase_client()
+        user_id = user["user_id"]
+        supabase.table("push_subscriptions").delete()\
+            .eq("user_id", user_id)\
+            .eq("endpoint", body.endpoint)\
+            .execute()
+        return {"message": "Souscription supprimée"}
+    except Exception as exc:
+        logger.error("unsubscribe_push error: %s", exc)
+        raise HTTPException(status_code=500, detail="Erreur lors de la suppression de la souscription")
 
 
 # ============================================

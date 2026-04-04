@@ -7,14 +7,18 @@ import { supabase } from "@/app/lib/supabase";
 import {
   Bell,
   BellOff,
+  BellRing,
   Eye,
   EyeOff,
   Loader2,
   Lock,
+  Mail,
   Monitor,
   Moon,
+  Newspaper,
   Save,
   Sliders,
+  Smartphone,
   Sun,
   User,
   Volume2,
@@ -29,9 +33,9 @@ export default function SettingsPage() {
   const { user, profile } = useAuth();
 
   // Gestion des onglets
-  const [activeTab, setActiveTab] = useState<"account" | "preferences">(
-    "account",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "account" | "preferences" | "notifications"
+  >("account");
   const [loading, setLoading] = useState(false);
 
   // --- ÉTAT : COMPTE ---
@@ -53,9 +57,17 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { playSlide } = useAudioFeedback();
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notifications, setNotifications] = useState(true);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // --- ÉTAT : NOTIFICATIONS ---
+  const [notifPwa, setNotifPwa] = useState(false);
+  const [notifEmail, setNotifEmail] = useState(true);
+  const [notifNewsletter, setNotifNewsletter] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("default");
+  const [notifLoading, setNotifLoading] = useState(false);
 
   // 1. Chargement Initial
   useEffect(() => {
@@ -65,24 +77,30 @@ export default function SettingsPage() {
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
       });
+      setNotifPwa(profile.notif_pwa ?? false);
+      setNotifEmail(profile.notif_email ?? true);
+      setNotifNewsletter(profile.notif_newsletter ?? false);
     }
 
     // Préférences (LocalStorage) — le thème est géré par ThemeContext
     const savedSound = localStorage.getItem("novlearn-sound");
-    const savedNotif = localStorage.getItem("novlearn-notif");
-
     if (savedSound !== null) setSoundEnabled(savedSound === "true");
-    if (savedNotif !== null) setNotifications(savedNotif === "true");
+
+    // État de la permission push navigateur
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission);
+    } else {
+      setNotifPermission("unsupported");
+    }
 
     setIsLoaded(true);
   }, [profile]);
 
-  // 2. Sauvegarde des préférences son et notifications
+  // 2. Sauvegarde de la préférence son
   useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem("novlearn-sound", String(soundEnabled));
-    localStorage.setItem("novlearn-notif", String(notifications));
-  }, [soundEnabled, notifications, isLoaded]);
+  }, [soundEnabled, isLoaded]);
 
   // --- LOGIQUE : MISE À JOUR PROFIL (Nom/Prénom) ---
   const handleUpdateInfo = async () => {
@@ -157,6 +175,125 @@ export default function SettingsPage() {
     }
   };
 
+  // --- LOGIQUE : NOTIFICATIONS EMAIL + NEWSLETTER ---
+  const handleSaveEmailPrefs = async (
+    newNotifEmail: boolean,
+    newNotifNewsletter: boolean,
+  ) => {
+    try {
+      const res = await fetch("/api/notifications/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notif_pwa: notifPwa,
+          notif_email: newNotifEmail,
+          notif_newsletter: newNotifNewsletter,
+        }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      toast.error("Erreur lors de la mise à jour des préférences.");
+    }
+  };
+
+  // --- LOGIQUE : TOGGLE NOTIFICATIONS PWA ---
+  const handleTogglePwa = async (enable: boolean) => {
+    if (notifPermission === "unsupported") {
+      toast.error("Les notifications push ne sont pas supportées sur ce navigateur.");
+      return;
+    }
+
+    setNotifLoading(true);
+    try {
+      if (enable) {
+        // 1. Demander la permission si pas encore accordée
+        let permission = notifPermission;
+        if (permission === "default") {
+          permission = await Notification.requestPermission();
+          setNotifPermission(permission);
+        }
+
+        if (permission !== "granted") {
+          toast.error(
+            "Permission refusée. Autorise les notifications dans les réglages du navigateur.",
+          );
+          return;
+        }
+
+        // 2. Récupérer la clé VAPID publique
+        const keyRes = await fetch("/api/notifications/vapid-public-key");
+        if (!keyRes.ok) throw new Error("Clé VAPID indisponible");
+        const { publicKey } = await keyRes.json();
+
+        // 3. Souscrire via le service worker
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+
+        const sub = subscription.toJSON();
+        if (!sub.keys?.p256dh || !sub.keys?.auth) throw new Error();
+
+        // 4. Enregistrer la souscription côté serveur
+        await fetch("/api/notifications/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: sub.endpoint,
+            p256dh: sub.keys.p256dh,
+            auth: sub.keys.auth,
+          }),
+        });
+
+        // 5. Mettre à jour la préférence en base
+        await fetch("/api/notifications/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            notif_pwa: true,
+            notif_email: notifEmail,
+            notif_newsletter: notifNewsletter,
+          }),
+        });
+
+        setNotifPwa(true);
+        toast.success("Notifications push activées !");
+      } else {
+        // Désabonnement
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          const endpoint = subscription.endpoint;
+          await subscription.unsubscribe();
+          await fetch("/api/notifications/subscribe", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endpoint }),
+          });
+        }
+
+        // Mettre à jour la préférence en base
+        await fetch("/api/notifications/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            notif_pwa: false,
+            notif_email: notifEmail,
+            notif_newsletter: notifNewsletter,
+          }),
+        });
+
+        setNotifPwa(false);
+        toast.success("Notifications push désactivées.");
+      }
+    } catch {
+      toast.error("Erreur lors de la gestion des notifications push.");
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="flex-1 px-4 md:px-8 pb-12 overflow-y-auto bg-app-bg">
@@ -169,7 +306,7 @@ export default function SettingsPage() {
           </h1>
 
           {/* --- NAVIGATION ONGLETS --- */}
-          <div className="flex gap-2 p-1 bg-app-surface/50 rounded-xl w-fit border border-app-border mb-6">
+          <div className="flex flex-wrap gap-2 p-1 bg-app-surface/50 rounded-xl w-fit border border-app-border mb-6">
             <TabButton
               active={activeTab === "account"}
               onClick={() => setActiveTab("account")}
@@ -181,6 +318,12 @@ export default function SettingsPage() {
               onClick={() => setActiveTab("preferences")}
               icon={<Sliders size={18} />}
               label="Préférences App"
+            />
+            <TabButton
+              active={activeTab === "notifications"}
+              onClick={() => setActiveTab("notifications")}
+              icon={<Bell size={18} />}
+              label="Notifications"
             />
           </div>
 
@@ -354,6 +497,158 @@ export default function SettingsPage() {
           )}
 
           {/* =======================================================
+              ONGLET 3 : NOTIFICATIONS
+             ======================================================= */}
+          {activeTab === "notifications" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              {/* Section Notifications Appareil (PWA) */}
+              <section className="bg-app-surface/50 border border-app-border rounded-2xl overflow-hidden">
+                <div className="px-6 pt-6 pb-4 border-b border-app-border/50">
+                  <h2 className="text-xl font-bold text-content-main flex items-center gap-2">
+                    <Smartphone className="text-indigo-400" /> Notifications
+                    appareil
+                  </h2>
+                  <p className="text-content-muted text-sm mt-1">
+                    Reçois des alertes sur ton appareil, même quand
+                    l&apos;application est fermée.
+                  </p>
+                </div>
+
+                {/* Toggle PWA */}
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`p-3 rounded-xl transition-colors ${
+                          notifPwa
+                            ? "bg-indigo-500/20 text-indigo-400"
+                            : "bg-app-surface text-content-muted"
+                        }`}
+                      >
+                        {notifPwa ? (
+                          <BellRing size={24} />
+                        ) : (
+                          <BellOff size={24} />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-content-main font-bold">
+                          Notifications push
+                        </h3>
+                        <p className="text-content-muted text-sm">
+                          Défis reçus, résultats de duels, rappels
+                          d&apos;entraînement
+                        </p>
+                      </div>
+                    </div>
+                    {notifLoading ? (
+                      <Loader2 className="animate-spin text-content-muted w-6 h-6" />
+                    ) : (
+                      <Switch
+                        checked={notifPwa}
+                        onChange={(val) => {
+                          playSlide();
+                          handleTogglePwa(val);
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Avertissement si permission refusée */}
+                  {notifPermission === "denied" && (
+                    <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-sm">
+                      Les notifications sont bloquées dans ton navigateur.
+                      Autorise-les dans les réglages du site pour activer cette
+                      option.
+                    </div>
+                  )}
+                  {notifPermission === "unsupported" && (
+                    <div className="mt-4 p-3 bg-app-surface border border-app-border rounded-xl text-content-muted text-sm">
+                      Ton navigateur ne supporte pas les notifications push.
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Section Email */}
+              <section className="bg-app-surface/50 border border-app-border rounded-2xl overflow-hidden">
+                <div className="px-6 pt-6 pb-4 border-b border-app-border/50">
+                  <h2 className="text-xl font-bold text-content-main flex items-center gap-2">
+                    <Mail className="text-emerald-400" /> Notifications par
+                    email
+                  </h2>
+                  <p className="text-content-muted text-sm mt-1">
+                    Reçois des résumés et alertes directement dans ta boîte
+                    mail.
+                  </p>
+                </div>
+
+                {/* Notifications email */}
+                <div className="p-6 flex items-center justify-between border-b border-app-border/50">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`p-3 rounded-xl transition-colors ${
+                        notifEmail
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-app-surface text-content-muted"
+                      }`}
+                    >
+                      <Mail size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-content-main font-bold">
+                        Emails de notifications
+                      </h3>
+                      <p className="text-content-muted text-sm">
+                        Défis reçus, rappels quotidiens
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifEmail}
+                    onChange={(val) => {
+                      playSlide();
+                      setNotifEmail(val);
+                      handleSaveEmailPrefs(val, notifNewsletter);
+                    }}
+                  />
+                </div>
+
+                {/* Newsletter */}
+                <div className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`p-3 rounded-xl transition-colors ${
+                        notifNewsletter
+                          ? "bg-purple-500/20 text-purple-400"
+                          : "bg-app-surface text-content-muted"
+                      }`}
+                    >
+                      <Newspaper size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-content-main font-bold">
+                        Newsletter
+                      </h3>
+                      <p className="text-content-muted text-sm">
+                        Nouveautés, conseils et mises à jour de Novlearn
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifNewsletter}
+                    onChange={(val) => {
+                      playSlide();
+                      setNotifNewsletter(val);
+                      handleSaveEmailPrefs(notifEmail, val);
+                    }}
+                  />
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* =======================================================
               ONGLET 2 : PRÉFÉRENCES (Apparence, Sons, etc.)
              ======================================================= */}
           {activeTab === "preferences" && (
@@ -420,36 +715,6 @@ export default function SettingsPage() {
                   />
                 </div>
 
-                {/* Notifications */}
-                <div className="p-6 flex items-center justify-between border-b border-app-border/50">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`p-3 rounded-xl transition-colors ${notifications ? "bg-blue-500/20 text-blue-400" : "bg-app-surface text-content-muted"}`}
-                    >
-                      {notifications ? (
-                        <Bell size={24} />
-                      ) : (
-                        <BellOff size={24} />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-content-main font-bold">
-                        Notifications
-                      </h3>
-                      <p className="text-content-muted text-sm">
-                        Rappels d'entraînement
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications}
-                    onChange={(val) => {
-                      playSlide();
-                      setNotifications(val);
-                    }}
-                  />
-                </div>
-
                 {/* Animations */}
                 <div className="p-6 flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -482,6 +747,17 @@ export default function SettingsPage() {
       </div>
     </Layout>
   );
+}
+
+// --- UTILITAIRE VAPID ---
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return new Uint8Array([...rawData].map((char) => char.charCodeAt(0)));
 }
 
 // --- PETITS COMPOSANTS UI ---

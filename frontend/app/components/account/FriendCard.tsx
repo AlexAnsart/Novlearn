@@ -1,7 +1,8 @@
 "use client";
 
-import { Trash2, Users } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Friend } from "./FriendDetail";
+import AvatarDisplay from "./AvatarDisplay";
 
 interface FriendCardProps {
   friend: Friend;
@@ -22,9 +23,7 @@ export default function FriendCard({
       className="bg-slate-900/40 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/60 transition-all"
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shrink-0">
-          <Users className="w-6 h-6 text-white" />
-        </div>
+        <AvatarDisplay avatarId={friend.avatarId} avatarColor={friend.avatarColor} size="sm" />
         <div className="min-w-0">
           <p
             className="text-white truncate"
