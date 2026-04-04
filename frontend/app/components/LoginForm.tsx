@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/app/contexts/AuthContext"; // Vérifiez votre chemin d'import
+import { translateAuthError } from "@/app/utils/authErrors";
 import { useGuestMode } from "@/app/hooks/useGuestMode";
 import { AlertCircle, Loader2, Lock, Mail } from "lucide-react";
 import Link from "next/link";
@@ -38,7 +39,7 @@ export function LoginForm() {
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message || "Erreur de connexion");
+      setError(translateAuthError(error.message));
       setLoading(false);
     } else {
       router.push("/");
