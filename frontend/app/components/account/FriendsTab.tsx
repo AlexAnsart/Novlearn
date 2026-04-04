@@ -110,7 +110,7 @@ export default function FriendsTab({ onPendingCountChange }: FriendsTabProps) {
     } finally {
       if (isMountedRef.current) setFriendCodeLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
