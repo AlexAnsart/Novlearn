@@ -43,35 +43,55 @@ export async function middleware(request: NextRequest) {
 
   // --- LOGIQUE DE PROTECTION DES ROUTES ---
 
-  // A. Routes toujours publiques (Auth)
+  // A. Routes toujours publiques
   const isAuthRoute = path.startsWith("/auth");
   const isCallback = path.startsWith("/auth/callback");
   const isUpdatePassword = path.startsWith("/auth/update-password");
+  const isPublicRoute =
+    isAuthRoute || path === "/accueil" || path.startsWith("/invite/");
 
-  // B. Si l'utilisateur est connecté et essaie d'aller sur Login/Signup, on le renvoie à l'accueil
+  // B. Si l'utilisateur est connecté (non anonyme) et essaie d'aller sur Login/Signup, on le renvoie à l'accueil
+  // Les invités (anonymes) peuvent accéder aux pages auth pour se connecter ou s'inscrire
   // SAUF si c'est update-password (car on peut vouloir changer son mdp en étant connecté)
-  if (user && isAuthRoute && !isUpdatePassword && !isCallback) {
+  const isAnonymous = (user as any)?.is_anonymous === true;
+  if (user && !isAnonymous && isAuthRoute && !isUpdatePassword && !isCallback) {
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
   // C. Cas Spécial "Mot de passe oublié" :
   // La page /auth/update-password nécessite impérativement d'être connecté.
-  // (L'utilisateur EST connecté grâce au lien email cliqué juste avant).
   if (isUpdatePassword && !user) {
-    // Si pas connecté, on renvoie au login car il n'a rien à faire là
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
-  // D. Protection des routes privées (Exemple)
-  // Ajoutez ici les dossiers qui nécessitent une connexion
-  // Exemple : si le path commence par /compte ou /dashboard
-  // const isProtectedRoute = path.startsWith('/compte') || path.startsWith('/parametres');
-  // if (isProtectedRoute && !user) {
-  //   url.pathname = '/auth/login';
-  //   return NextResponse.redirect(url);
-  // }
+  // D. Protection des routes privées :
+  // Les utilisateurs non connectés (pas de session du tout) sont redirigés.
+  // Les invités (user.is_anonymous) ont une session valide et passent librement.
+  const protectedRoutes = [
+    '/exercices',
+    '/parametres',
+    '/classement',
+    '/progression',
+    '/entrainement',
+    '/duel',
+    '/cours',
+    '/validation',
+  ];
+
+  const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
+
+  if (!user && isProtectedRoute) {
+    url.pathname = '/auth/login';
+    url.searchParams.set('redirectTo', path);
+    return NextResponse.redirect(url);
+  }
+
+  if (!user && !isPublicRoute) {
+    url.pathname = "/accueil";
+    return NextResponse.redirect(url);
+  }
 
   // Si tout est bon, on laisse passer avec les cookies mis à jour
   return supabaseResponse;

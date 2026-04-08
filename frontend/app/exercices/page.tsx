@@ -4,16 +4,21 @@ import { BookOpen, Loader2, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { ExerciseLoader } from "../components/Exercise/ExerciseLoader";
+import { GuestConversionModal } from "../components/GuestLock/GuestConversionModal";
 import { Layout } from "../components/Layout";
 import { Exercise } from "../types/exercise";
 import { getRecommendedExercise, postChapterTestNext } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
+import { useGuestMode } from "../hooks/useGuestMode";
 
 // Composant qui lit l'URL
 function ExercisePageContent() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isGuest } = useAuth();
+  const { hasReachedLimit } = useGuestMode();
   const [error, setError] = useState<string | null>(null);
+  const [showConversionModal, setShowConversionModal] = useState(false);
+  const [guestLimitReached, setGuestLimitReached] = useState(false);
   const [recommendedId, setRecommendedId] = useState<string | undefined>(
     undefined,
   );
@@ -31,8 +36,19 @@ function ExercisePageContent() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) router.push("/auth/login");
+    if (!user) router.push("/accueil");
   }, [user, authLoading, router]);
+
+  // Vérifier la limite invité au chargement de la page
+  useEffect(() => {
+    if (!isGuest || authLoading) return;
+    hasReachedLimit().then((reached) => {
+      if (reached) {
+        setGuestLimitReached(true);
+        setShowConversionModal(true);
+      }
+    });
+  }, [isGuest, authLoading, hasReachedLimit]);
 
   // Sans id dans l'URL : on demande une recommandation (optionnellement par chapitre)
   useEffect(() => {
@@ -171,6 +187,13 @@ function ExercisePageContent() {
 
   return (
     <div className="flex-1 flex flex-col px-4 md:px-8 py-6 max-w-[1400px] mx-auto w-full">
+      {isGuest && (
+        <GuestConversionModal
+          isOpen={showConversionModal}
+          onClose={() => { if (!guestLimitReached) setShowConversionModal(false); }}
+          canClose={!guestLimitReached}
+        />
+      )}
       {/* En-tête */}
       <div className="mb-6">
         <div className="flex items-center justify-center gap-3 mb-3">
@@ -216,6 +239,7 @@ function ExercisePageContent() {
             shouldCountPoints={!idFromUrl && (mode === undefined || mode === 'recommendation')}
             mode={mode}
             onNextClick={!idFromUrl ? handleNextClick : undefined}
+            onGuestLimitReached={isGuest ? () => { setGuestLimitReached(true); setShowConversionModal(true); } : undefined}
           />
           )}
 

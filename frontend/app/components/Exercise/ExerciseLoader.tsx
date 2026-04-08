@@ -6,6 +6,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../contexts/AuthContext";
+import { GUEST_EXERCISE_LIMIT, useGuestMode } from "../../hooks/useGuestMode";
 import React, {
   useCallback,
   useEffect,
@@ -90,6 +92,7 @@ interface ExerciseLoaderProps {
   shouldCountPoints?: boolean;
   mode?: "test" | "recommendation";
   onNextClick?: (hasErrors: boolean) => Promise<void>;
+  onGuestLimitReached?: () => void;
 }
 
 export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
@@ -102,8 +105,11 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   shouldCountPoints = false,
   mode,
   onNextClick,
+  onGuestLimitReached,
 }) => {
   const router = useRouter();
+  const { isGuest } = useAuth();
+  const { getGuestAttemptCount } = useGuestMode();
   const normalizeCompetenceId = useTaxonomyStore(
     (state) => state.normalizeCompetenceId,
   );
@@ -301,8 +307,17 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         exercise_id: exerciseIdNum,
         is_correct: isExerciseCorrect,
         time_spent: null,
+        is_guest: isGuest,
       });
       setLastSaveStatus(error ? "error" : "saved");
+
+      // Vérifier si l'invité a atteint sa limite
+      if (isGuest && !error) {
+        const count = await getGuestAttemptCount();
+        if (count >= GUEST_EXERCISE_LIMIT) {
+          onGuestLimitReached?.();
+        }
+      }
 
       // Mise à jour des scores de compétences (une seule fois, à la fin)
       const effectiveCompetences = competencesFromProps?.length
@@ -334,6 +349,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
     shouldCountPoints,
     competencesFromProps,
     normalizeCompetenceId,
+    isGuest,
+    getGuestAttemptCount,
+    onGuestLimitReached,
   ]);
 
   const proceedToNext = useCallback(() => {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useAuth } from "@/app/contexts/AuthContext"; // Vérifiez votre chemin d'import
+import { translateAuthError } from "@/app/utils/authErrors";
+import { useGuestMode } from "@/app/hooks/useGuestMode";
 import { AlertCircle, Loader2, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,9 +13,23 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
 
   const { signIn, signInWithGoogle } = useAuth();
+  const { startGuestSession } = useGuestMode();
   const router = useRouter();
+
+  const handleGuestAccess = async () => {
+    setGuestLoading(true);
+    setError("");
+    try {
+      await startGuestSession();
+      router.push("/");
+    } catch {
+      setError("Impossible de démarrer la session invité. Réessaie.");
+      setGuestLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +39,7 @@ export function LoginForm() {
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message || "Erreur de connexion");
+      setError(translateAuthError(error.message));
       setLoading(false);
     } else {
       router.push("/");
@@ -198,6 +214,24 @@ export function LoginForm() {
               S'inscrire
             </Link>
           </p>
+        </div>
+
+        {/* Accès invité */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={handleGuestAccess}
+            disabled={guestLoading}
+            className="text-slate-400 hover:text-slate-200 text-sm transition-colors disabled:opacity-50"
+            style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
+          >
+            {guestLoading ? (
+              <span className="flex items-center gap-1 justify-center">
+                <Loader2 className="w-3 h-3 animate-spin" /> Démarrage…
+              </span>
+            ) : (
+              "Essayer sans créer de compte →"
+            )}
+          </button>
         </div>
       </div>
     </div>

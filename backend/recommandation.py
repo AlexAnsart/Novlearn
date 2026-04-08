@@ -146,8 +146,27 @@ def recommander_exercice(
     chapter : si fourni, streak et exos/compétences sont limités à ce chapitre.
     Retourne {"exercise_id", "competence_id", "difficulty_level", "difficulty"} ou None.
     """
+    # Chapitres marqués "pas encore vus" par l'utilisateur
+    # Si un chapitre est explicitement choisi, on ne filtre pas (choix volontaire de l'élève)
+    hidden_chapters: list[str] = []
+    profile_current_streak: int | None = None
+    if chapter is None:
+        try:
+            profile_resp = (
+                supabase_client.table("profiles")
+                .select("hidden_chapters, current_streak")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            if profile_resp.data:
+                hidden_chapters = profile_resp.data.get("hidden_chapters") or []
+                profile_current_streak = profile_resp.data.get("current_streak")
+        except Exception as exc:
+            logger.warning("[Recommandation] Impossible de charger le profil: %s", exc)
+
     # Compétences et max_points (depuis settings, pas la DB)
-    competences = get_competences(chapter=chapter)
+    competences = get_competences(chapter=chapter, exclude_chapters=hidden_chapters or None)
     if not competences:
         return _fallback_random_exercise(supabase_client, chapter)
 
@@ -216,7 +235,10 @@ def recommander_exercice(
 
     non_acquises = _tri_fusion_par_ratio(non_acquises)
     n_non = len(non_acquises)
-    streak = compute_streak(supabase_client, user_id, chapter=chapter)
+    if chapter is None and profile_current_streak is not None:
+        streak = profile_current_streak
+    else:
+        streak = compute_streak(supabase_client, user_id, chapter=chapter)
 
     def choisir(
         cid: str, niveau: int

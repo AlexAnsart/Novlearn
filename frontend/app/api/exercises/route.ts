@@ -1,6 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -64,29 +62,14 @@ const getSupabaseAdmin = () => {
   return createClient(url, key);
 };
 
-// --- GET : PUBLIC ---
+// --- GET : Authentifié ---
 export async function GET(request: Request) {
   const corsHeaders = getCorsHeaders(request);
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    const cookieStore = await cookies();
 
-    if (
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Configuration Error" },
-        { status: 500, headers: corsHeaders },
-      );
-    }
-
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-    );
+    const supabase = getSupabaseAdmin();
 
     let dataToReturn;
 
@@ -108,6 +91,8 @@ export async function GET(request: Request) {
           chapter: data.chapter,
           difficulty: data.difficulty,
           competences: data.competences || [],
+          isFlash: data.is_flash ?? false,
+          needCalculator: data.need_calculator ?? false,
           ...data.content,
         },
       };

@@ -8,7 +8,9 @@ jobs:
   # ---- STAGING: only on push to develop ----
   deploy_staging:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    # Avoid running staging deploy for PR checks / merge refs.
+    # We only deploy staging on direct pushes to the develop branch.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
 
     steps:
       - name: Checkout code
@@ -52,6 +54,14 @@ jobs:
           echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> backend/.env
           echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr,https://staging.novlearn.fr" >> backend/.env
           echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
+          echo "VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" >> backend/.env
+          echo "VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}" >> backend/.env
+          echo "VAPID_MAILTO=mailto:admin@novlearn.fr" >> backend/.env
+          echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> backend/.env
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> backend/.env
+          echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> backend/.env
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> backend/.env
+          echo "SMTP_FROM=${{ secrets.SMTP_FROM }}" >> backend/.env
 
       - name: Create .env file for duel-server (staging)
         run: |
@@ -70,6 +80,7 @@ jobs:
           script: |
             rm -rf /opt/novlearn-staging/frontend/app
             rm -rf /opt/novlearn-staging/frontend/public
+            rm -rf /opt/novlearn-staging/frontend/.next
             echo "✅ Anciens fichiers source staging supprimés"
 
       - name: Deploy frontend code to VPS (staging)
@@ -79,6 +90,16 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "frontend/**"
+          target: "/opt/novlearn-staging"
+          strip_components: 0
+
+      - name: Deploy frontend build artifacts to VPS (staging)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "frontend/.next/**"
           target: "/opt/novlearn-staging"
           strip_components: 0
 
@@ -182,18 +203,14 @@ jobs:
             nohup venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8011 --log-level info > ../backend-staging.log 2>&1 &
             echo $! > backend-staging.pid
 
-            # Frontend build + start (port 3001)
+            # Frontend start (port 3001) — uses pre-built .next from CI
             cd /opt/novlearn-staging/frontend
             if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
               curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
               sudo apt-get install -y nodejs
             fi
 
-            # Ensure we serve a consistent Next build (HTML + assets must match)
-            echo "🧹 Removing previous Next build artifacts (.next)..."
-            rm -rf .next
-
-            # Write .env.local for staging build (Next.js reads these at build time)
+            # Write .env.local for server-side runtime vars (NEXT_PUBLIC_* are baked in CI build)
             cat > .env.local << 'ENVSTAGING'
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -205,9 +222,8 @@ jobs:
             ENVSTAGING
 
             npm install --prefer-offline --no-audit
-            npm run build
 
-            # Force cleanup on port 3001 (avoid mixing old/new Next builds).
+            # Force cleanup on port 3001 (avoid EADDRINUSE).
             # Without this, `next start` fails with EADDRINUSE and Apache serves stale hashes => 404 for CSS/chunks.
             echo "🛑 Forcing cleanup on port 3001..."
             if command -v fuser >/dev/null 2>&1; then
@@ -273,7 +289,8 @@ jobs:
   # ---- PRODUCTION: only on push to main ----
   deploy_production:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # Avoid running production deploy for PR checks / merge refs.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -317,6 +334,14 @@ jobs:
           echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> backend/.env
           echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr" >> backend/.env
           echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
+          echo "VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" >> backend/.env
+          echo "VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}" >> backend/.env
+          echo "VAPID_MAILTO=mailto:admin@novlearn.fr" >> backend/.env
+          echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> backend/.env
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> backend/.env
+          echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> backend/.env
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> backend/.env
+          echo "SMTP_FROM=${{ secrets.SMTP_FROM }}" >> backend/.env
 
       - name: Create .env file for duel-server
         run: |

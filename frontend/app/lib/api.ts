@@ -249,6 +249,8 @@ export interface Friend {
   name: string;
   created_at: string | null;
   exercises_completed: number;
+  avatar_id?: string;
+  avatar_color?: string;
 }
 
 export interface FriendRequest {
@@ -351,6 +353,8 @@ export interface DuelRequest {
   id: number;
   from_user_id: string;
   from_user_name: string;
+  from_user_avatar_id?: string;
+  from_user_avatar_color?: string;
   exercise_title: string;
   created_at: string;
 }

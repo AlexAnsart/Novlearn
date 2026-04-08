@@ -1,9 +1,10 @@
  "use client";
 
-import { Trophy, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Layout } from "../../../components/Layout";
+import AvatarDisplay from "../../../components/account/AvatarDisplay";
 import MathText from "../../../components/ui/MathText";
 import { useAuth } from "../../../contexts/AuthContext";
 import { getColyseusClient } from "../../../lib/colyseusClient";
@@ -64,7 +65,7 @@ function nowSec(): number {
 export default function ActiveDuelPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const duelId = parseInt(params.id as string);
 
   const roomRef = useRef<any>(null);
@@ -75,8 +76,13 @@ export default function ActiveDuelPage() {
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [p1Id, setP1Id] = useState("");
+  const [p2Id, setP2Id] = useState("");
   const [p1Name, setP1Name] = useState("");
   const [p2Name, setP2Name] = useState("");
+  const [p1AvatarId, setP1AvatarId] = useState<string | undefined>();
+  const [p1AvatarColor, setP1AvatarColor] = useState<string | undefined>();
+  const [p2AvatarId, setP2AvatarId] = useState<string | undefined>();
+  const [p2AvatarColor, setP2AvatarColor] = useState<string | undefined>();
   const [winnerId, setWinnerId] = useState("");
   const [duelStartedAt, setDuelStartedAt] = useState(0);
   const [exStartedAt, setExStartedAt] = useState(0);
@@ -138,6 +144,7 @@ export default function ActiveDuelPage() {
           setP1Score(state.player1Score);
           setP2Score(state.player2Score);
           setP1Id(state.player1Id);
+          setP2Id(state.player2Id);
           setP1Name(state.player1Name);
           setP2Name(state.player2Name);
           setWinnerId(state.winnerId);
@@ -282,6 +289,25 @@ export default function ActiveDuelPage() {
     return () => clearTimeout(id);
   }, [correction, correctionSec]);
 
+  // ─── Fetch avatars ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!p1Id || !p2Id) return;
+    async function fetchAvatars() {
+      const { supabase } = await import("../../../lib/supabase");
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, avatar_id, avatar_color")
+        .in("id", [p1Id, p2Id]);
+      if (!data) return;
+      for (const p of data) {
+        if (p.id === p1Id) { setP1AvatarId(p.avatar_id); setP1AvatarColor(p.avatar_color); }
+        if (p.id === p2Id) { setP2AvatarId(p.avatar_id); setP2AvatarColor(p.avatar_color); }
+      }
+    }
+    fetchAvatars();
+  }, [p1Id, p2Id]);
+
   // ─── Submit ───────────────────────────────────────────────────────────────
 
   const handleAnswerSubmit = useCallback(
@@ -377,7 +403,11 @@ export default function ActiveDuelPage() {
           <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 backdrop-blur-sm rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center"><Trophy className="w-8 h-8 text-white" /></div>
+                <AvatarDisplay
+                  avatarId={isP1 ? p1AvatarId : p2AvatarId}
+                  avatarColor={isP1 ? p1AvatarColor : p2AvatarColor}
+                  size="md"
+                />
                 <div>
                   <p className="text-white text-lg" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{myName || "Vous"}</p>
                   <p className="text-blue-200 text-3xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{myScore}</p>
@@ -391,7 +421,11 @@ export default function ActiveDuelPage() {
                 </div>
               </div>
               <div className="flex items-center gap-4 flex-row-reverse">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center"><Trophy className="w-8 h-8 text-white" /></div>
+                <AvatarDisplay
+                  avatarId={isP1 ? p2AvatarId : p1AvatarId}
+                  avatarColor={isP1 ? p2AvatarColor : p1AvatarColor}
+                  size="md"
+                />
                 <div className="text-right">
                   <p className="text-white text-lg" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{opponentName || "Adversaire"}</p>
                   <p className="text-purple-200 text-3xl" style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}>{opponentScore}</p>

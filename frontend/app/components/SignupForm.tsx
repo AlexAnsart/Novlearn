@@ -4,6 +4,7 @@ import { AlertCircle, Calendar, Lock, Mail, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { translateAuthError } from "../utils/authErrors";
 
 export function SignupForm() {
   const [email, setEmail] = useState("");
@@ -40,6 +41,10 @@ export function SignupForm() {
 
     // Vérifier l'âge
     const birth = new Date(birthDate);
+    if (!birthDate || isNaN(birth.getTime())) {
+      setError("Veuillez entrer une date de naissance valide");
+      return;
+    }
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
@@ -66,7 +71,7 @@ export function SignupForm() {
     );
 
     if (error) {
-      setError(error.message || "Erreur lors de l'inscription");
+      setError(translateAuthError(error.message));
       setLoading(false);
     } else {
       // Rediriger vers la page de vérification email ou accueil
@@ -183,6 +188,7 @@ export function SignupForm() {
                   type="date"
                   value={birthDate}
                   onChange={(e) => setBirthDate(e.target.value)}
+                  autoComplete="bday"
                   required
                   max={
                     new Date(

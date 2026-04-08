@@ -1,3 +1,5 @@
+/// <reference lib="webworker" />
+
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist } from "serwist";
@@ -9,7 +11,7 @@ declare global {
   }
 }
 
-declare const self: WorkerGlobalScope & typeof globalThis;
+declare const self: ServiceWorkerGlobalScope & SerwistGlobalConfig & { __SW_MANIFEST: (PrecacheEntry | string)[] | undefined };
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
@@ -30,3 +32,38 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// ============================================
+// NOTIFICATIONS PUSH
+// ============================================
+
+// Afficher la notification quand un push est reçu du serveur
+self.addEventListener("push", (event: PushEvent) => {
+  const data = event.data?.json() ?? {};
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? "Novlearn", {
+      body: data.body ?? "",
+      icon: "/icons/icon-192x192.png",
+      badge: "/icons/icon-72x72.png",
+      data: { url: data.url ?? "/" },
+    })
+  );
+});
+
+// Ouvrir l'app (ou la fenêtre déjà ouverte) au clic sur la notification
+self.addEventListener("notificationclick", (event: NotificationEvent) => {
+  event.notification.close();
+  const url: string = event.notification.data?.url ?? "/";
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url === url && "focus" in client) {
+            return (client as WindowClient).focus();
+          }
+        }
+        return self.clients.openWindow(url);
+      })
+  );
+});
