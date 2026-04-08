@@ -153,6 +153,7 @@ export default function ValidationPage() {
 
   const [exercises, setExercises] = useState<ClaudeExercise[]>([]);
   const [fetching, setFetching] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ClaudeExercise | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
 
@@ -165,12 +166,19 @@ export default function ValidationPage() {
   const fetchExercises = useCallback(async () => {
     if (!session) return;
     setFetching(true);
+    setFetchError(null);
     try {
       const res = await fetch("/api/admin/claude-exercises", {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const json = await res.json();
-      if (json.success) setExercises(json.exercises ?? []);
+      if (json.success) {
+        setExercises(json.exercises ?? []);
+      } else {
+        setFetchError(json.error ?? `Erreur HTTP ${res.status}`);
+      }
+    } catch (e: any) {
+      setFetchError(e.message ?? "Erreur réseau");
     } finally {
       setFetching(false);
     }
@@ -258,6 +266,12 @@ export default function ValidationPage() {
 
           {fetching ? (
             <div className="text-center py-12 text-slate-400">Chargement…</div>
+          ) : fetchError ? (
+            <div className="text-center py-16 bg-red-900/20 rounded-2xl border border-red-700">
+              <p className="text-4xl mb-3">⚠️</p>
+              <p className="text-red-400 font-medium">Erreur lors du chargement</p>
+              <p className="text-red-500 text-sm mt-1 font-mono">{fetchError}</p>
+            </div>
           ) : exercises.length === 0 ? (
             <div className="text-center py-16 bg-slate-800/50 rounded-2xl border border-slate-700">
               <p className="text-4xl mb-3">✓</p>
