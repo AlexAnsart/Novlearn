@@ -40,8 +40,10 @@ export default function SettingsPage() {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   // --- NOTIFICATIONS ---
-  const [notifPwa, setNotifPwa] = useState(false);
-  const [notifEmail, setNotifEmail] = useState(true);
+  const [notifPushDuels, setNotifPushDuels] = useState(false);
+  const [notifPushDaily, setNotifPushDaily] = useState(false);
+  const [notifEmailDuels, setNotifEmailDuels] = useState(true);
+  const [notifEmailDaily, setNotifEmailDaily] = useState(true);
   const [notifNewsletter, setNotifNewsletter] = useState(false);
   const [notifPermission, setNotifPermission] = useState<
     NotificationPermission | "unsupported"
@@ -55,8 +57,10 @@ export default function SettingsPage() {
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
       });
-      setNotifPwa(profile.notif_pwa ?? false);
-      setNotifEmail(profile.notif_email ?? true);
+      setNotifPushDuels(profile.notif_push_duels ?? false);
+      setNotifPushDaily(profile.notif_push_daily ?? false);
+      setNotifEmailDuels(profile.notif_email_duels ?? true);
+      setNotifEmailDaily(profile.notif_email_daily ?? true);
       setNotifNewsletter(profile.notif_newsletter ?? false);
     }
 
@@ -199,10 +203,14 @@ export default function SettingsPage() {
 
           {activeTab === "notifications" && (
             <NotificationsTab
-              notifPwa={notifPwa}
-              setNotifPwa={setNotifPwa}
-              notifEmail={notifEmail}
-              setNotifEmail={setNotifEmail}
+              notifPushDuels={notifPushDuels}
+              setNotifPushDuels={setNotifPushDuels}
+              notifPushDaily={notifPushDaily}
+              setNotifPushDaily={setNotifPushDaily}
+              notifEmailDuels={notifEmailDuels}
+              setNotifEmailDuels={setNotifEmailDuels}
+              notifEmailDaily={notifEmailDaily}
+              setNotifEmailDaily={setNotifEmailDaily}
               notifNewsletter={notifNewsletter}
               setNotifNewsletter={setNotifNewsletter}
               notifPermission={notifPermission}

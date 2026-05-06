@@ -53,11 +53,21 @@ Les clés VAPID servent à authentifier le serveur auprès des navigateurs pour 
 cd backend
 .venv\Scripts\activate
 python -c "
+import os
 from py_vapid import Vapid
+from py_vapid.utils import b64urlencode
+
 v = Vapid()
 v.generate_keys()
-print('VAPID_PUBLIC_KEY=' + v.public_key)
-print('VAPID_PRIVATE_KEY=' + v.private_pem().decode().strip())
+
+public_numbers = v.public_key.public_numbers()
+x = public_numbers.x.to_bytes(32, 'big')
+y = public_numbers.y.to_bytes(32, 'big')
+pub_bytes = b'\x04' + x + y
+pub_key_str = b64urlencode(pub_bytes)
+
+print('VAPID_PUBLIC_KEY=' + pub_key_str)
+print('VAPID_PRIVATE_KEY=' + v.private_pem().decode().replace('\n', '\\n'))
 "
 ```
 

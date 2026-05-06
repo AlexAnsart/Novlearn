@@ -3,11 +3,21 @@ Service de notifications : Web Push (PWA) + Email (SMTP) + Rappel quotidien (APS
 
 Générer les clés VAPID une seule fois :
     python -c "
+import os
 from py_vapid import Vapid
+from py_vapid.utils import b64urlencode
+
 v = Vapid()
 v.generate_keys()
+
+public_numbers = v.public_key.public_numbers()
+x = public_numbers.x.to_bytes(32, 'big')
+y = public_numbers.y.to_bytes(32, 'big')
+pub_bytes = b'\x04' + x + y
+pub_key_str = b64urlencode(pub_bytes)
+
+print('VAPID_PUBLIC_KEY=' + pub_key_str)
 print('VAPID_PRIVATE_KEY=' + v.private_pem().decode().replace('\\n', '\\\\n'))
-print('VAPID_PUBLIC_KEY=' + v.public_key)
 "
 Puis renseigner VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_MAILTO dans backend/.env
 """
@@ -45,22 +55,22 @@ def send_push_notification(subscription: dict, title: str, body: str, url: str =
     )
 
 
-def send_push_to_user(supabase, user_id: str, title: str, body: str, url: str = "/") -> None:
+def send_push_to_user(supabase, user_id: str, title: str, body: str, url: str = "/", preference_field: str = "notif_push_duels") -> None:
     """
     Récupère toutes les souscriptions d'un utilisateur et envoie la notification.
     Supprime automatiquement les souscriptions expirées (HTTP 410).
-    Vérifie que l'utilisateur a notif_pwa=true avant d'envoyer.
+    Vérifie que l'utilisateur a la préférence demandée avant d'envoyer.
     """
     try:
-        # Vérifier que l'utilisateur veut bien les notifications PWA
+        # Vérifier que l'utilisateur veut bien cette notification PWA
         pref = (
             supabase.table("profiles")
-            .select("notif_pwa")
+            .select(preference_field)
             .eq("id", user_id)
             .maybe_single()
             .execute()
         )
-        if not pref.data or not pref.data.get("notif_pwa"):
+        if not pref.data or not pref.data.get(preference_field):
             return
 
         subs = (
@@ -137,9 +147,12 @@ def email_duel_challenge(challenger_name: str) -> tuple[str, str]:
          style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:12px">
         Voir le défi
       </a>
-      <p style="color:#888;font-size:12px;margin-top:24px">
+      <div style="margin-top:40px;text-align:center;">
+        <img src="https://novlearn.fr/logo.png" alt="Novlearn" style="height:40px;width:auto;">
+      </div>
+      <p style="color:#888;font-size:12px;margin-top:24px;text-align:center;">
         Tu reçois cet email car tu as activé les notifications par email sur Novlearn.<br>
-        <a href="https://novlearn.fr/parametres">Gérer mes préférences</a>
+        <a href="https://novlearn.fr/parametres" style="color:#6366f1;">Gérer mes préférences</a>
       </p>
     </div>
     """
@@ -160,9 +173,12 @@ def email_daily_reminder(first_name: str, streak: int) -> tuple[str, str]:
          style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:12px">
         S'entraîner maintenant
       </a>
-      <p style="color:#888;font-size:12px;margin-top:24px">
+      <div style="margin-top:40px;text-align:center;">
+        <img src="https://novlearn.fr/logo.png" alt="Novlearn" style="height:40px;width:auto;">
+      </div>
+      <p style="color:#888;font-size:12px;margin-top:24px;text-align:center;">
         Tu reçois cet email car tu as activé les notifications par email sur Novlearn.<br>
-        <a href="https://novlearn.fr/parametres">Gérer mes préférences</a>
+        <a href="https://novlearn.fr/parametres" style="color:#6366f1;">Gérer mes préférences</a>
       </p>
     </div>
     """
@@ -189,11 +205,11 @@ def setup_scheduler(supabase_factory) -> None:
             try:
                 supabase = supabase_factory()
 
-                # Récupérer les utilisateurs ayant activé au moins une notification
+                # Récupérer les utilisateurs ayant activé au moins une notification de rappel
                 result = (
                     supabase.table("profiles")
-                    .select("id, email, first_name, current_streak, notif_pwa, notif_email")
-                    .or_("notif_pwa.eq.true,notif_email.eq.true")
+                    .select("id, email, first_name, current_streak, notif_push_daily, notif_email_daily")
+                    .or_("notif_push_daily.eq.true,notif_email_daily.eq.true")
                     .execute()
                 )
 
@@ -204,17 +220,18 @@ def setup_scheduler(supabase_factory) -> None:
                     first_name = profile.get("first_name") or "toi"
                     streak = profile.get("current_streak") or 0
 
-                    if profile.get("notif_pwa"):
+                    if profile.get("notif_push_daily"):
                         send_push_to_user(
                             supabase,
                             user_id,
                             "Entraîne-toi aujourd'hui ! 📚",
                             f"Ta série de {streak} jour{'s' if streak > 1 else ''} t'attend." if streak > 0 else "Un peu de maths pour commencer la journée ?",
                             "/entrainement",
+                            preference_field="notif_push_daily"
                         )
                         count_push += 1
 
-                    if profile.get("notif_email") and profile.get("email"):
+                    if profile.get("notif_email_daily") and profile.get("email"):
                         subject, html = email_daily_reminder(first_name, streak)
                         send_email(profile["email"], subject, html)
                         count_email += 1

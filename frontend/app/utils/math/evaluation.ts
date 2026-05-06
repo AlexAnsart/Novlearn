@@ -465,8 +465,12 @@ export const checkSet = (
   if (userSet.length !== correctSet.length) return false;
   if (userSet.length === 0 && correctSet.length === 0) return true;
 
-  for (let i = 0; i < userSet.length; i++) {
-    if (Math.abs(userSet[i] - correctSet[i]) > 0.0001) return false;
+  // Trier les deux ensembles pour être indépendant de l'ordre
+  const sortedUser = [...userSet].sort((a, b) => a - b);
+  const sortedCorrect = [...correctSet].sort((a, b) => a - b);
+
+  for (let i = 0; i < sortedUser.length; i++) {
+    if (Math.abs(sortedUser[i] - sortedCorrect[i]) > 0.0001) return false;
   }
   return true;
 };

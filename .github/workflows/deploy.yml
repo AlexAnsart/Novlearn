@@ -55,13 +55,13 @@ jobs:
           echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr,https://staging.novlearn.fr" >> backend/.env
           echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
           echo "VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" >> backend/.env
-          echo "VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}" >> backend/.env
-          echo "VAPID_MAILTO=mailto:admin@novlearn.fr" >> backend/.env
+          echo "VAPID_PRIVATE_KEY=\"${{ secrets.VAPID_PRIVATE_KEY }}\"" >> backend/.env
+          echo "VAPID_MAILTO=mailto:${{ secrets.SMTP_USER }}" >> backend/.env
           echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> backend/.env
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> backend/.env
           echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> backend/.env
           echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> backend/.env
-          echo "SMTP_FROM=${{ secrets.SMTP_FROM }}" >> backend/.env
+          echo "SMTP_FROM=\"${{ secrets.SMTP_FROM }}\"" >> backend/.env
 
       - name: Create .env file for duel-server (staging)
         run: |
@@ -335,13 +335,13 @@ jobs:
           echo "CORS_ORIGINS=https://novlearn.fr,https://www.novlearn.fr" >> backend/.env
           echo "LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }}" >> backend/.env
           echo "VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}" >> backend/.env
-          echo "VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}" >> backend/.env
-          echo "VAPID_MAILTO=mailto:admin@novlearn.fr" >> backend/.env
+          echo "VAPID_PRIVATE_KEY=\"${{ secrets.VAPID_PRIVATE_KEY }}\"" >> backend/.env
+          echo "VAPID_MAILTO=mailto:${{ secrets.SMTP_USER }}" >> backend/.env
           echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> backend/.env
           echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> backend/.env
           echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> backend/.env
           echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> backend/.env
-          echo "SMTP_FROM=${{ secrets.SMTP_FROM }}" >> backend/.env
+          echo "SMTP_FROM=\"${{ secrets.SMTP_FROM }}\"" >> backend/.env
 
       - name: Create .env file for duel-server
         run: |

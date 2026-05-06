@@ -30,16 +30,15 @@ export function Footer() {
             </p>
             <div className="flex gap-4 pt-2">
               <SocialLink
-                href="#"
-                icon={<Twitter size={20} />}
-                label="Twitter"
-              />
-              <SocialLink
-                href="#"
+                href="https://instagram.com/ton_compte_ici"
                 icon={<Instagram size={20} />}
                 label="Instagram"
               />
-              <SocialLink href="#" icon={<Github size={20} />} label="Github" />
+              <SocialLink 
+                href="https://github.com/AlexAnsart/Novlearn" 
+                icon={<Github size={20} />} 
+                label="Github" 
+              />
             </div>
           </div>
 
@@ -148,6 +147,8 @@ function SocialLink({
   return (
     <a
       href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       aria-label={label}
       className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-indigo-600 hover:text-white transition-all duration-300"
     >

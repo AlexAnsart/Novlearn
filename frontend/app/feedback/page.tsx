@@ -13,6 +13,8 @@ import {
   RefreshCw,
   Star,
   Trash2,
+  Calendar,
+  Activity,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -76,7 +78,7 @@ export default function FeedbackDashboard() {
         .select(
           `
           *,
-          profiles:user_id (
+          profiles (
             first_name,
             last_name
           )
@@ -153,6 +155,26 @@ export default function FeedbackDashboard() {
     return item.category === activeFilter;
   });
 
+  // --- STATS COMPUTATION ---
+  const now = new Date();
+  
+  // Début du mois
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  
+  // Début de la semaine (lundi)
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // ajustement pour lundi
+  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const feedbacksThisMonth = feedbacks.filter(
+    (f) => new Date(f.created_at) >= startOfMonth
+  ).length;
+  
+  const feedbacksThisWeek = feedbacks.filter(
+    (f) => new Date(f.created_at) >= startOfWeek
+  ).length;
+
   // --- UI HELPERS ---
   const getCategoryBadge = (category: string) => {
     const style =
@@ -220,7 +242,7 @@ export default function FeedbackDashboard() {
       <div className="flex-1 px-4 md:px-8 pb-8 overflow-y-auto bg-slate-900">
         <div className="max-w-6xl mx-auto pt-8">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                 <MessageSquare className="text-indigo-500" />
@@ -230,14 +252,40 @@ export default function FeedbackDashboard() {
                 {feedbacks.length} retours reçus au total
               </p>
             </div>
-            <button
-              onClick={fetchFeedbacks}
-              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors self-start md:self-auto"
-            >
-              <RefreshCw
-                className={`w-5 h-5 text-white ${loading ? "animate-spin" : ""}`}
-              />
-            </button>
+            
+            <div className="flex flex-col sm:flex-row items-center gap-4 self-start lg:self-auto">
+              {/* Stats Cards */}
+              <div className="flex gap-3">
+                <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/10 rounded-lg">
+                    <Activity className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs font-medium uppercase">Cette semaine</p>
+                    <p className="text-white font-bold text-lg leading-tight">{feedbacksThisWeek}</p>
+                  </div>
+                </div>
+                <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/10 rounded-lg">
+                    <Calendar className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs font-medium uppercase">Ce mois-ci</p>
+                    <p className="text-white font-bold text-lg leading-tight">{feedbacksThisMonth}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={fetchFeedbacks}
+                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-colors"
+                title="Rafraîchir"
+              >
+                <RefreshCw
+                  className={`w-5 h-5 text-white ${loading ? "animate-spin" : ""}`}
+                />
+              </button>
+            </div>
           </div>
 
           {/* Filtres */}
