@@ -127,6 +127,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
       {!isMobile && isAdmin && (
         <>
           <SidebarIcon
+            emoji="📈"
+            active={pathname === "/admin/dashboard"}
+            onClick={() => router.push("/admin/dashboard")}
+          />
+          <SidebarIcon
             emoji="📢"
             active={pathname === "/feedback"}
             onClick={() => router.push("/feedback")}
