@@ -9,5 +9,8 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "serwist": "^9.5.6"
+  },
+  "devDependencies": {
+    "supabase": "^2.98.2"
   }
 }

@@ -25,8 +25,10 @@ interface Profile {
   role: string;
   avatar_id: string;
   avatar_color: string;
-  notif_pwa: boolean;
-  notif_email: boolean;
+  notif_push_duels: boolean;
+  notif_push_daily: boolean;
+  notif_email_duels: boolean;
+  notif_email_daily: boolean;
   notif_newsletter: boolean;
 }
 

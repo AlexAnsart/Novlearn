@@ -90,8 +90,10 @@ class DuelActionRequest(BaseModel):
 
 
 class NotificationPreferencesRequest(BaseModel):
-    notif_pwa: bool
-    notif_email: bool
+    notif_push_duels: bool
+    notif_push_daily: bool
+    notif_email_duels: bool
+    notif_email_daily: bool
     notif_newsletter: bool
 
 
@@ -652,7 +654,7 @@ async def create_duel(request: CreateDuelRequest, user: dict = Depends(verify_to
         # Récupérer le prénom du challenger pour les notifications
         challenger_profile = (
             supabase.table("profiles")
-            .select("first_name, email, notif_email")
+            .select("first_name, email, notif_email_duels")
             .eq("id", user_id)
             .maybe_single()
             .execute()
@@ -676,14 +678,14 @@ async def create_duel(request: CreateDuelRequest, user: dict = Depends(verify_to
         try:
             opponent_profile = (
                 supabase.table("profiles")
-                .select("email, notif_email")
+                .select("email, notif_email_duels")
                 .eq("id", request.friend_id)
                 .maybe_single()
                 .execute()
             )
             if (
                 opponent_profile.data
-                and opponent_profile.data.get("notif_email")
+                and opponent_profile.data.get("notif_email_duels")
                 and opponent_profile.data.get("email")
             ):
                 subject, html = email_duel_challenge(challenger_name)
@@ -1125,7 +1127,7 @@ async def get_notification_preferences(user: dict = Depends(verify_token)):
         user_id = user["user_id"]
         result = (
             supabase.table("profiles")
-            .select("notif_pwa, notif_email, notif_newsletter")
+            .select("notif_push_duels, notif_push_daily, notif_email_duels, notif_email_daily, notif_newsletter")
             .eq("id", user_id)
             .maybe_single()
             .execute()
@@ -1150,8 +1152,10 @@ async def update_notification_preferences(
         supabase = get_supabase_client()
         user_id = user["user_id"]
         supabase.table("profiles").update({
-            "notif_pwa": body.notif_pwa,
-            "notif_email": body.notif_email,
+            "notif_push_duels": body.notif_push_duels,
+            "notif_push_daily": body.notif_push_daily,
+            "notif_email_duels": body.notif_email_duels,
+            "notif_email_daily": body.notif_email_daily,
             "notif_newsletter": body.notif_newsletter,
         }).eq("id", user_id).execute()
         return {"message": "Préférences mises à jour"}
