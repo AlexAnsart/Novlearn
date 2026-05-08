@@ -32,6 +32,7 @@ from email.mime.text import MIMEText
 from pywebpush import WebPushException, webpush
 
 logger = logging.getLogger(__name__)
+_scheduler = None
 
 
 # ============================================
@@ -194,10 +195,25 @@ def setup_scheduler(supabase_factory) -> None:
     Configure et démarre le scheduler APScheduler.
     Appeler depuis le lifespan de FastAPI en passant une factory qui retourne un client Supabase.
     """
+    enabled = os.getenv("SCHEDULER_ENABLED", "true").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not enabled:
+        logger.info("[Scheduler] Disabled via SCHEDULER_ENABLED")
+        return None
+
+    global _scheduler
+    if _scheduler and getattr(_scheduler, "running", False):
+        logger.info("[Scheduler] Already running, skipping start")
+        return _scheduler
+
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
 
-        scheduler = BackgroundScheduler()
+        scheduler = BackgroundScheduler(job_defaults={"coalesce": True, "max_instances": 1})
 
         def daily_reminder_job() -> None:
             """Envoie un rappel push + email à 8h à tous les utilisateurs qui l'ont activé."""
@@ -244,11 +260,33 @@ def setup_scheduler(supabase_factory) -> None:
             except Exception as exc:
                 logger.error("[Scheduler] Erreur rappel quotidien: %s", exc)
 
-        scheduler.add_job(daily_reminder_job, "cron", hour=17, minute=0)
+        scheduler.add_job(
+            daily_reminder_job,
+            "cron",
+            hour=17,
+            minute=0,
+            id="daily_reminder",
+            replace_existing=True,
+        )
         scheduler.start()
+        _scheduler = scheduler
         logger.info("[Scheduler] Démarré — rappel quotidien à 17:00")
         return scheduler
 
     except ImportError:
         logger.warning("[Scheduler] APScheduler non installé — rappels désactivés")
         return None
+
+
+def shutdown_scheduler() -> None:
+    """Stop the scheduler if it is running."""
+    global _scheduler
+    if not _scheduler:
+        return
+    try:
+        _scheduler.shutdown(wait=False)
+        logger.info("[Scheduler] Stopped")
+    except Exception as exc:
+        logger.warning("[Scheduler] Stop error: %s", exc)
+    finally:
+        _scheduler = None
