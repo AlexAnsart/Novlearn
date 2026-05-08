@@ -149,7 +149,7 @@ def email_duel_challenge(challenger_name: str) -> tuple[str, str]:
         Voir le défi
       </a>
       <div style="margin-top:40px;text-align:center;">
-        <img src="https://novlearn.fr/logo.png" alt="Novlearn" style="height:40px;width:auto;">
+        <img src="https://novlearn.fr/logo.png" alt="Novlearn" style="height:80px;width:auto;">
       </div>
       <p style="color:#888;font-size:12px;margin-top:24px;text-align:center;">
         Tu reçois cet email car tu as activé les notifications par email sur Novlearn.<br>
@@ -175,7 +175,7 @@ def email_daily_reminder(first_name: str, streak: int) -> tuple[str, str]:
         S'entraîner maintenant
       </a>
       <div style="margin-top:40px;text-align:center;">
-        <img src="https://novlearn.fr/logo.png" alt="Novlearn" style="height:40px;width:auto;">
+        <img src="https://novlearn.fr/logo.png" alt="Novlearn" style="height:80px;width:auto;">
       </div>
       <p style="color:#888;font-size:12px;margin-top:24px;text-align:center;">
         Tu reçois cet email car tu as activé les notifications par email sur Novlearn.<br>

@@ -48,6 +48,7 @@ jobs:
           echo "DEBUG=False" >> backend/.env
           echo "HOST=0.0.0.0" >> backend/.env
           echo "PORT=8011" >> backend/.env
+          echo "SCHEDULER_ENABLED=false" >> backend/.env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> backend/.env
           echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> backend/.env
           echo "SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> backend/.env
