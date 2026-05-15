@@ -64,7 +64,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
       const { error } = await supabase.from("feedbacks").insert({
         exercise_id: exerciseId ? Number(exerciseId) : null,
-        user_id: user?.id,
+        user_id: user?.id ?? null,
         category,
         message,
         difficulty_rating: category === "difficulty" ? difficultyRating : null,

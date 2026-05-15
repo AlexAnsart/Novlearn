@@ -494,7 +494,7 @@ export default function FeedbackDashboard() {
                         <span className="text-white text-sm font-medium">
                           {item.profiles?.first_name
                             ? `${item.profiles.first_name} ${item.profiles.last_name || ""}`
-                            : "Anonyme"}
+                            : "Inconnu"}
                         </span>
                       </div>
                     </div>

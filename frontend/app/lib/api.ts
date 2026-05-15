@@ -9,149 +9,70 @@ import { supabase } from "./supabase";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-/**
- * Get authorization header with Supabase token
- */
 async function getAuthHeaders(): Promise<HeadersInit> {
-  try {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
 
-    if (error) {
-      console.error("[api.ts] Session error:", error.message);
-      throw new Error("Not authenticated");
-    }
-
-    if (!session?.access_token) {
-      console.error("[api.ts] No session or access token");
-      throw new Error("Not authenticated");
-    }
-
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    };
-  } catch (error) {
-    console.error("[api.ts] getAuthHeaders error:", error);
-    throw error;
+  if (error || !session?.access_token) {
+    throw new Error("Not authenticated");
   }
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  };
 }
 
-/**
- * Make authenticated API request
- */
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const requestId = `${endpoint}_${Date.now()}`;
-  console.log(`[api.ts] apiRequest: Starting ${endpoint}`, {
-    requestId,
-    method: options.method || "GET",
-  });
+  const headers = await getAuthHeaders();
+  const url = `${API_URL}${endpoint}`;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let response: Response;
   try {
-    console.log(`[api.ts] apiRequest: Getting auth headers for ${endpoint}`);
-    const headers = await getAuthHeaders();
-    console.log(`[api.ts] apiRequest: Auth headers obtained for ${endpoint}`, {
-      hasAuth: !!(headers as any)["Authorization"],
+    response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
     });
-
-    const url = `${API_URL}${endpoint}`;
-    console.log(`[api.ts] apiRequest: Making fetch request to ${endpoint}`, {
-      url,
-      apiUrl: API_URL,
-    });
-
-    // Create AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.log(`[api.ts] apiRequest: Timeout triggered for ${endpoint}`);
-      controller.abort();
-    }, 10000); // 10 second timeout
-
-    let response: Response;
-    const fetchStartTime = Date.now();
-    try {
-      response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-        headers: {
-          ...headers,
-          ...options.headers,
-        },
-      });
-      const fetchDuration = Date.now() - fetchStartTime;
-      console.log(`[api.ts] apiRequest: Fetch completed for ${endpoint}`, {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        duration: `${fetchDuration}ms`,
-      });
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      const fetchDuration = Date.now() - fetchStartTime;
-      console.error(`[api.ts] apiRequest: Fetch error for ${endpoint}`, {
-        error: fetchError.message,
-        name: fetchError.name,
-        duration: `${fetchDuration}ms`,
-      });
-
-      if (fetchError.name === "AbortError") {
-        console.error(`[api.ts] Timeout on ${endpoint}`);
-        throw new Error(
-          "Request timeout: Le serveur ne répond pas. Vérifiez que le backend est lancé sur http://localhost:8010",
-        );
-      }
-      throw fetchError;
-    }
+  } catch (fetchError: any) {
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.log(
-        `[api.ts] apiRequest: Response not OK for ${endpoint}, parsing error`,
+    if (fetchError.name === "AbortError") {
+      throw new Error(
+        "Request timeout: Le serveur ne répond pas. Vérifiez que le backend est lancé sur http://localhost:8010",
       );
-      const error = await response
-        .json()
-        .catch(() => ({ detail: "Unknown error" }));
-      console.error(`[api.ts] ${endpoint} error:`, error);
-      throw new Error(error.detail || `HTTP ${response.status}`);
     }
-
-    console.log(`[api.ts] apiRequest: Parsing JSON response for ${endpoint}`);
-    const jsonStartTime = Date.now();
-    const result = await response.json();
-    const jsonDuration = Date.now() - jsonStartTime;
-    console.log(`[api.ts] apiRequest: Success for ${endpoint}`, {
-      hasResult: !!result,
-      jsonDuration: `${jsonDuration}ms`,
-      resultKeys: result ? Object.keys(result) : [],
-    });
-
-    return result;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[api.ts] apiRequest: Error for ${endpoint}`, {
-      error: errorMessage,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-    });
-
-    // Provide more helpful error messages
     if (
-      errorMessage.includes("Failed to fetch") ||
-      errorMessage.includes("NetworkError") ||
-      errorMessage.includes("Network request failed")
+      fetchError.message?.includes("Failed to fetch") ||
+      fetchError.message?.includes("NetworkError") ||
+      fetchError.message?.includes("Network request failed")
     ) {
-      console.error(`[api.ts] Network error on ${endpoint}`);
       throw new Error(
         "Impossible de se connecter au backend. Vérifiez que le serveur est lancé sur http://localhost:8010",
       );
     }
-
-    throw error;
+    throw fetchError;
   }
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Unknown error" }));
+    throw new Error(error.detail || `HTTP ${response.status}`);
+  }
+
+  return response.json();
 }
 
 // ============================================
@@ -181,13 +102,7 @@ export async function getRecommendedExercise(
     const endpoint = chapter
       ? `/api/recommend-exercise?chapter=${encodeURIComponent(chapter)}`
       : "/api/recommend-exercise";
-    const res = await apiRequest<RecommendExerciseResponse>(endpoint);
-    if (res?.mode) {
-      console.log(
-        `[Exercise] Recommendation: mode=${res.mode}${res.chapter ? ` chapter=${res.chapter}` : ""} exo=${res.exercise_id}`,
-      );
-    }
-    return res;
+    return await apiRequest<RecommendExerciseResponse>(endpoint);
   } catch {
     return null;
   }
@@ -213,21 +128,13 @@ export async function postChapterTestNext(
   lastSuccess: boolean,
 ): Promise<ChapterTestNextResponse | null> {
   try {
-    const res = await apiRequest<ChapterTestNextResponse>(
+    return await apiRequest<ChapterTestNextResponse>(
       "/api/chapter-test/next",
       {
         method: "POST",
         body: JSON.stringify({ chapter, last_success: lastSuccess }),
       },
     );
-    if (res?.completed) {
-      console.log(`[Exercise] Chapter test completed for chapter=${chapter}`);
-    } else if (res?.exercise_id) {
-      console.log(
-        `[Exercise] Chapter test next: exo=${res.exercise_id} (lastSuccess=${lastSuccess})`,
-      );
-    }
-    return res;
   } catch {
     return null;
   }
@@ -261,27 +168,10 @@ export interface FriendRequest {
 }
 
 export const friendsApi = {
-  /**
-   * Get or generate friend code for current user
-   */
   async getFriendCode(): Promise<FriendCode> {
-    console.log("[friendsApi] getFriendCode: Starting");
-    try {
-      const result = await apiRequest<FriendCode>("/api/friends/code");
-      console.log("[friendsApi] getFriendCode: Success", {
-        hasCode: !!result?.code,
-        hasInviteLink: !!result?.invite_link,
-      });
-      return result;
-    } catch (error) {
-      console.error("[friendsApi] getFriendCode: Error", error);
-      throw error;
-    }
+    return apiRequest<FriendCode>("/api/friends/code");
   },
 
-  /**
-   * Add friend using their invite code
-   */
   async addFriendByCode(code: string): Promise<{ message: string }> {
     return apiRequest("/api/friends/add-by-code", {
       method: "POST",
@@ -289,46 +179,26 @@ export const friendsApi = {
     });
   },
 
-  /**
-   * Get list of friends
-   */
   async getFriends(): Promise<{ friends: Friend[] }> {
-    const result = await apiRequest<{ friends: Friend[] }>("/api/friends");
-    console.log(
-      "[friendsApi] getFriends: count=",
-      result?.friends?.length ?? 0,
-    );
-    return result;
+    return apiRequest<{ friends: Friend[] }>("/api/friends");
   },
 
-  /**
-   * Get pending friend requests
-   */
   async getFriendRequests(): Promise<{ requests: FriendRequest[] }> {
     return apiRequest("/api/friends/requests");
   },
 
-  /**
-   * Accept friend request
-   */
   async acceptFriendRequest(requestId: number): Promise<{ message: string }> {
     return apiRequest(`/api/friends/requests/${requestId}/accept`, {
       method: "POST",
     });
   },
 
-  /**
-   * Decline friend request
-   */
   async declineFriendRequest(requestId: number): Promise<{ message: string }> {
     return apiRequest(`/api/friends/requests/${requestId}/decline`, {
       method: "POST",
     });
   },
 
-  /**
-   * Remove a friend
-   */
   async removeFriend(friendId: string): Promise<{ message: string }> {
     return apiRequest(`/api/friends/${encodeURIComponent(friendId)}`, {
       method: "DELETE",
@@ -371,7 +241,6 @@ export interface DuelHistoryItem {
 }
 
 export const duelsApi = {
-  /** Create a duel challenge (friend must exist). */
   async createDuel(
     friendId: string,
   ): Promise<{ message: string; duel_id: number; duel: DuelLobby }> {
@@ -381,36 +250,24 @@ export const duelsApi = {
     });
   },
 
-  /**
-   * Accept a duel — marks it "active" in DB so player1 gets the Supabase Realtime
-   * notification and navigates to /duel/active/[id].
-   * Both players then connect to the Colyseus room for the actual game.
-   */
   async acceptDuel(
     duelId: number,
   ): Promise<{ message: string; duel: DuelLobby }> {
     return apiRequest(`/api/duels/${duelId}/accept`, { method: "POST" });
   },
 
-  /** Decline / cancel a pending duel. */
   async declineDuel(duelId: number): Promise<{ message: string }> {
     return apiRequest(`/api/duels/${duelId}/decline`, { method: "POST" });
   },
 
-  /** Pending duels waiting for the current user to accept/decline. */
   async getPendingDuels(): Promise<{ duels: DuelRequest[] }> {
     return apiRequest("/api/duels/pending");
   },
 
-  /**
-   * Active duels (used as fallback redirect check by DuelAcceptedRedirect).
-   * The real game state lives in the Colyseus room, not here.
-   */
   async getActiveDuels(): Promise<{ duels: DuelLobby[] }> {
     return apiRequest("/api/duels/active");
   },
 
-  /** Finished duels history for the current user. */
   async getHistory(): Promise<{ history: DuelHistoryItem[] }> {
     return apiRequest("/api/duels/history");
   },
@@ -450,7 +307,6 @@ export interface DSRecommendation {
 }
 
 export const dsApi = {
-  /** Crée un nouveau DS. */
   async createDS(
     title: string,
     deadline: string,
@@ -466,29 +322,24 @@ export const dsApi = {
     });
   },
 
-  /** Liste tous les DS de l'utilisateur. */
   async getDSList(): Promise<{ ds: DS[] }> {
     return apiRequest("/api/ds");
   },
 
-  /** Détail d'un DS avec scores par compétence. */
   async getDSDetail(dsId: string): Promise<DSDetail> {
     return apiRequest(`/api/ds/${encodeURIComponent(dsId)}`);
   },
 
-  /** Recommande un exercice dans le contexte du DS. */
   async getDSRecommendation(dsId: string): Promise<DSRecommendation> {
     return apiRequest(`/api/ds/${encodeURIComponent(dsId)}/recommend`);
   },
 
-  /** Supprime un DS. */
   async deleteDS(dsId: string): Promise<{ message: string }> {
     return apiRequest(`/api/ds/${encodeURIComponent(dsId)}`, {
       method: "DELETE",
     });
   },
 
-  /** Soumet une réponse dans le contexte du DS. */
   async submitDSAnswer(
     dsId: string,
     exerciseId: string,
