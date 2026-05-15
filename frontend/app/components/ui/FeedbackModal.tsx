@@ -62,9 +62,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         data: { user },
       } = await supabase.auth.getUser();
 
+      // Les utilisateurs anonymes (mode invité) n'ont pas de profil → on n'enregistre pas leur UUID
+      const isAnonymous = (user as any)?.is_anonymous === true;
+      const userId = user && !isAnonymous ? user.id : null;
+
       const { error } = await supabase.from("feedbacks").insert({
         exercise_id: exerciseId ? Number(exerciseId) : null,
-        user_id: user?.id ?? null,
+        user_id: userId,
         category,
         message,
         difficulty_rating: category === "difficulty" ? difficultyRating : null,
