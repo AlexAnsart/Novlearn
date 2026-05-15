@@ -16,7 +16,13 @@ import random
 
 from config import settings
 from auth import verify_token, get_supabase_client
-from notifications import send_push_to_user, send_email, email_duel_challenge, setup_scheduler
+from notifications import (
+    send_push_to_user,
+    send_email,
+    email_duel_challenge,
+    setup_scheduler,
+    shutdown_scheduler,
+)
 from recommandation import recommander_exercice
 from ds import (
     initialiser_scores_ds,
@@ -46,8 +52,11 @@ logging.getLogger("auth").setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_scheduler(get_supabase_client)
-    yield
+    app.state.scheduler = setup_scheduler(get_supabase_client)
+    try:
+        yield
+    finally:
+        shutdown_scheduler()
 
 
 # Création de l'application FastAPI

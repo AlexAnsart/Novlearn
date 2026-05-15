@@ -70,8 +70,11 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   const isSettings = pathname === "/parametres";
   const isAccount = pathname === "/compte";
 
-  // Vérification du rôle admin (cast as any si le type n'est pas encore mis à jour partout)
-  const isAdmin = (profile as any)?.role === "admin";
+  // Vérification des rôles (admin ou tuteur)
+  const userRole = (profile as any)?.role;
+  const isAdmin = userRole === "admin";
+  const isTuteur = userRole === "tuteur";
+  const hasDashboardAccess = isAdmin || isTuteur;
 
   const openConversionModal = () => setShowConversionModal(true);
 
@@ -124,27 +127,31 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
       {!isMobile && <div className="flex-1" />}
 
       {/* --- SECTION ADMIN (PC UNIQUEMENT) --- */}
-      {!isMobile && isAdmin && (
+      {!isMobile && hasDashboardAccess && (
         <>
+          {isAdmin && (
+            <>
+              <SidebarIcon
+                emoji="📢"
+                active={pathname === "/feedback"}
+                onClick={() => router.push("/feedback")}
+              />
+              <SidebarIcon
+                emoji="🗂️"
+                active={pathname === "/flashcards"}
+                onClick={() => router.push("/flashcards")}
+              />
+              <SidebarIcon
+                emoji="🤖"
+                active={pathname === "/validation"}
+                onClick={() => router.push("/validation")}
+              />
+            </>
+          )}
           <SidebarIcon
             emoji="📈"
             active={pathname === "/admin/dashboard"}
             onClick={() => router.push("/admin/dashboard")}
-          />
-          <SidebarIcon
-            emoji="📢"
-            active={pathname === "/feedback"}
-            onClick={() => router.push("/feedback")}
-          />
-          <SidebarIcon
-            emoji="🗂️"
-            active={pathname === "/flashcards"}
-            onClick={() => router.push("/flashcards")}
-          />
-          <SidebarIcon
-            emoji="🤖"
-            active={pathname === "/validation"}
-            onClick={() => router.push("/validation")}
           />
         </>
       )}
