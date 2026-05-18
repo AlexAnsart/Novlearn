@@ -197,17 +197,18 @@ export function MonthlyLeaderboard({
         result_limit: limit,
         sort_by: activeTab as "score" | "streak",
       });
-      if (error) throw error;
-      if (data) {
-        setLeaderboard(data);
-        if (user) {
-          setUserRank(
-            data.find((e: LeaderboardEntry) => e.user_id === user.id) || null,
-          );
-        }
+      if (error) {
+        console.error("Erreur classement hebdomadaire:", error.message, error.code, error.details);
+        return;
+      }
+      setLeaderboard(data ?? []);
+      if (user && data) {
+        setUserRank(
+          data.find((e: LeaderboardEntry) => e.user_id === user.id) ?? null,
+        );
       }
     } catch (err) {
-      console.error("Erreur classement hebdomadaire:", err);
+      console.error("Erreur classement hebdomadaire (inattendue):", err);
     } finally {
       setLoading(false);
     }
@@ -220,17 +221,18 @@ export function MonthlyLeaderboard({
         "get_success_rate_leaderboard",
         { week_start: getWeekStart(), min_attempts: 10, result_limit: limit },
       );
-      if (error) throw error;
-      if (data) {
-        setSuccessRateLeaderboard(data);
-        if (user) {
-          setUserSuccessRank(
-            data.find((e: SuccessRateEntry) => e.user_id === user.id) || null,
-          );
-        }
+      if (error) {
+        console.error("Erreur classement taux de réussite:", error.message, error.code, error.details);
+        return;
+      }
+      setSuccessRateLeaderboard(data ?? []);
+      if (user && data) {
+        setUserSuccessRank(
+          data.find((e: SuccessRateEntry) => e.user_id === user.id) ?? null,
+        );
       }
     } catch (err) {
-      console.error("Erreur classement taux de réussite:", err);
+      console.error("Erreur classement taux de réussite (inattendue):", err);
     } finally {
       setLoading(false);
     }
