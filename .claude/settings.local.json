@@ -6,7 +6,9 @@
       "mcp__claude_ai_Supabase__apply_migration",
       "mcp__claude_ai_Supabase__list_tables",
       "Bash(xargs grep -l \"leaderboard\\\\|getLeaderboardData\")",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const fs=require\\('fs'\\);const c=fs.readFileSync\\('app/components/Exercise/ExerciseLoader.tsx','utf8'\\);['attemptIdRef.current = null','is_abandoned: true','is_abandoned: false','.delete\\(\\).eq\\(\\\\\"id\\\\\", idToDelete\\)'].forEach\\(s=>console.log\\(c.includes\\(s\\)?'OK  '+s:'MISSING '+s\\)\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const c=fs.readFileSync\\('app/components/Exercise/ExerciseLoader.tsx','utf8'\\);['idToDelete','delete'].forEach\\(s=>console.log\\(c.includes\\(s\\)?'OK  '+s:'MISSING '+s\\)\\)\")"
     ]
   }
 }

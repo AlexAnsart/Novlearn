@@ -90,6 +90,11 @@ interface ExerciseLoaderProps {
   ) => void;
   onError?: (error: Error) => void;
   shouldCountPoints?: boolean;
+  /** Si true, enregistre immédiatement une tentative fausse au chargement.
+   *  Quitter sans finir conserve ce false en base (abandon = faux).
+   *  Compléter l'exercice met à jour la ligne avec le vrai résultat.
+   *  Cliquer "Passer" supprime la ligne (le skip ne compte pas). */
+  trackAbandon?: boolean;
   mode?: "test" | "recommendation";
   onNextClick?: (hasErrors: boolean) => Promise<void>;
   onGuestLimitReached?: () => void;
@@ -103,6 +108,7 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   onElementSubmit,
   onError,
   shouldCountPoints = false,
+  trackAbandon = false,
   mode,
   onNextClick,
   onGuestLimitReached,
@@ -144,6 +150,9 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
   const slowTimerRef = useRef<NodeJS.Timeout | null>(null);
   const feedbackPendingRef = useRef(false);
   const exerciseSavedRef = useRef(false); // Empêche les doubles sauvegardes
+  // ID de la ligne exercise_attempts insérée au chargement (mode trackAbandon).
+  // null = pas encore insérée ou déjà traitée.
+  const attemptIdRef = useRef<number | null>(null);
 
   const totalQuestions = useMemo(() => {
     if (!exercise) return 0;
@@ -171,7 +180,8 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       setCompletedElements(new Set());
       setHasErrors(false);
       setLastSaveStatus("idle");
-      exerciseSavedRef.current = false; // Réinitialiser pour le nouvel exercice
+      exerciseSavedRef.current = false;
+      attemptIdRef.current = null;
 
       slowTimerRef.current = setTimeout(() => {
         if (!abortController.signal.aborted) setIsTakingLong(true);
@@ -241,6 +251,30 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
         setExercise(fullExercise);
         setVariables(generateVariables(fullExercise.variables));
         if (onLoad) onLoad(fullExercise);
+
+        // Enregistre une tentative "abandonnée" dès le chargement.
+        // Elle sera mise à jour si l'utilisateur complète l'exercice,
+        // ou supprimée s'il clique "Passer".
+        if (trackAbandon && !isGuest) {
+          const exerciseIdNum = Number(fullExercise.id);
+          if (!Number.isNaN(exerciseIdNum)) {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser) {
+              const { data: insertedRow } = await supabase
+                .from("exercise_attempts")
+                .insert({
+                  user_id: currentUser.id,
+                  exercise_id: exerciseIdNum,
+                  is_correct: false,
+                  is_abandoned: true,
+                  is_guest: false,
+                })
+                .select("id")
+                .single();
+              attemptIdRef.current = insertedRow?.id ?? null;
+            }
+          }
+        }
       } catch (err) {
         if (abortController.signal.aborted) return;
         const msg = err instanceof Error ? err.message : "Erreur de chargement";
@@ -302,17 +336,32 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
       // L'exercice est correct uniquement si TOUTES les questions sont justes
       const isExerciseCorrect = !hasErrors;
 
-      const { error } = await supabase.from("exercise_attempts").insert({
-        user_id: currentUser.id,
-        exercise_id: exerciseIdNum,
-        is_correct: isExerciseCorrect,
-        time_spent: null,
-        is_guest: isGuest,
-      });
-      setLastSaveStatus(error ? "error" : "saved");
+      let saveError: unknown = null;
+
+      if (attemptIdRef.current !== null) {
+        // Ligne déjà insérée au chargement (trackAbandon) → on la met à jour
+        const { error } = await supabase
+          .from("exercise_attempts")
+          .update({ is_correct: isExerciseCorrect, is_abandoned: false })
+          .eq("id", attemptIdRef.current);
+        saveError = error;
+        attemptIdRef.current = null;
+      } else {
+        // Pas de ligne pré-insérée → INSERT classique
+        const { error } = await supabase.from("exercise_attempts").insert({
+          user_id: currentUser.id,
+          exercise_id: exerciseIdNum,
+          is_correct: isExerciseCorrect,
+          time_spent: null,
+          is_guest: isGuest,
+        });
+        saveError = error;
+      }
+
+      setLastSaveStatus(saveError ? "error" : "saved");
 
       // Vérifier si l'invité a atteint sa limite
-      if (isGuest && !error) {
+      if (isGuest && !saveError) {
         const count = await getGuestAttemptCount();
         if (count >= GUEST_EXERCISE_LIMIT) {
           onGuestLimitReached?.();
@@ -479,11 +528,22 @@ export const ExerciseLoader: React.FC<ExerciseLoaderProps> = ({
           {!isExerciseFinished && (
             <button
               onClick={async () => {
-                // Passe à l'exercice suivant sans compter faux
+                // Supprime la tentative pré-insérée : "Passer" ne compte pas faux
+                if (attemptIdRef.current !== null) {
+                  const idToDelete = attemptIdRef.current;
+                  attemptIdRef.current = null;
+                  // fire & forget — pas d'await pour ne pas bloquer la navigation
+                  supabase
+                    .from("exercise_attempts")
+                    .delete()
+                    .eq("id", idToDelete)
+                    .then(() => {});
+                }
+
                 if (onNextClick) {
                   setIsNextLoading(true);
                   try {
-                    await onNextClick(hasErrors); // conserve l'état actuel
+                    await onNextClick(hasErrors);
                   } catch (e) {
                     console.error(e);
                   } finally {
