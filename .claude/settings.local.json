@@ -8,7 +8,9 @@
       "Bash(xargs grep -l \"leaderboard\\\\|getLeaderboardData\")",
       "Bash(npx tsc *)",
       "Bash(node -e \"const fs=require\\('fs'\\);const c=fs.readFileSync\\('app/components/Exercise/ExerciseLoader.tsx','utf8'\\);['attemptIdRef.current = null','is_abandoned: true','is_abandoned: false','.delete\\(\\).eq\\(\\\\\"id\\\\\", idToDelete\\)'].forEach\\(s=>console.log\\(c.includes\\(s\\)?'OK  '+s:'MISSING '+s\\)\\)\")",
-      "Bash(node -e \"const fs=require\\('fs'\\);const c=fs.readFileSync\\('app/components/Exercise/ExerciseLoader.tsx','utf8'\\);['idToDelete','delete'].forEach\\(s=>console.log\\(c.includes\\(s\\)?'OK  '+s:'MISSING '+s\\)\\)\")"
+      "Bash(node -e \"const fs=require\\('fs'\\);const c=fs.readFileSync\\('app/components/Exercise/ExerciseLoader.tsx','utf8'\\);['idToDelete','delete'].forEach\\(s=>console.log\\(c.includes\\(s\\)?'OK  '+s:'MISSING '+s\\)\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20)"
     ]
   }
 }
