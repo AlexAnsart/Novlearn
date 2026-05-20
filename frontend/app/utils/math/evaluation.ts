@@ -226,11 +226,16 @@ const normalizeExpression = (expr: string): string => {
 
 const detectFreeVariables = (expr: string): string[] => {
   const variables: Set<string> = new Set();
-  let cleaned = expr.replace(/\\[a-zA-Z]+/g, " ").replace(/[{}()\[\]]/g, " ");
+  // On retire les variables template "@xxx" avant la détection pour éviter
+  // que le "u" de "@u" soit confondu avec la variable libre u.
+  let cleaned = expr
+    .replace(/@[a-zA-Z]\w*/g, " ")
+    .replace(/\\[a-zA-Z]+/g, " ")
+    .replace(/[{}()\[\]]/g, " ");
 
   const commonVars = ["n", "x", "t", "k", "i", "j", "m", "p", "u", "v"];
   for (const v of commonVars) {
-    if (new RegExp(`(?<![a-zA-Z])${v}(?![a-zA-Z])`, "g").test(cleaned)) {
+    if (new RegExp(`(?<![a-zA-Z@])${v}(?![a-zA-Z])`, "g").test(cleaned)) {
       variables.add(v);
     }
   }
@@ -252,8 +257,9 @@ const safeEvaluateWithVars = (
   const allVars = { ...baseVariables, ...testVars };
   let safeExpr = expr;
   for (const [varName, value] of Object.entries(testVars)) {
+    // Le lookbehind exclut "@" pour ne pas casser les variables template "@u".
     safeExpr = safeExpr.replace(
-      new RegExp(`(?<![a-zA-Z])${varName}(?![a-zA-Z])`, "g"),
+      new RegExp(`(?<![a-zA-Z@])${varName}(?![a-zA-Z])`, "g"),
       `(${value})`,
     );
   }
