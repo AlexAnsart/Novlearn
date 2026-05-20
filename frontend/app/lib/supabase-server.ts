@@ -72,7 +72,7 @@ export async function getServerProfile() {
 }
 
 /**
- * Interface pour les entrées du classement
+ * Interface pour les entrées du classement hebdomadaire (score / streak)
  */
 export interface LeaderboardEntry {
   user_id: string;
@@ -80,6 +80,21 @@ export interface LeaderboardEntry {
   last_name: string | null;
   score: number;
   best_streak: number;
+  rank: number;
+  crown_count: number;
+  star_count: number;
+}
+
+/**
+ * Interface pour les entrées du classement taux de réussite (all-time)
+ */
+export interface SuccessRateEntry {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  success_rate: number;
+  total_attempts: number;
+  correct_attempts: number;
   rank: number;
   crown_count: number;
   star_count: number;
@@ -115,6 +130,40 @@ export async function getLeaderboardData(
 
   if (error) {
     console.error("[Server] Erreur leaderboard:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
+ * Récupère le classement taux de réussite de la semaine en cours (min 10 exercices).
+ */
+export async function getSuccessRateLeaderboard(
+  minAttempts: number = 10,
+  limit: number = 20,
+): Promise<SuccessRateEntry[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const firstDayOfWeek = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysFromMonday,
+    ),
+  ).toISOString();
+
+  const { data, error } = await supabase.rpc("get_success_rate_leaderboard", {
+    week_start: firstDayOfWeek,
+    min_attempts: minAttempts,
+    result_limit: limit,
+  });
+
+  if (error) {
+    console.error("[Server] Erreur success rate leaderboard:", error);
     return [];
   }
 

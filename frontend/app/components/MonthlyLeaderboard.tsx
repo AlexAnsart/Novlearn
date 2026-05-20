@@ -7,6 +7,7 @@ import {
   Flame,
   Loader2,
   Medal,
+  Percent,
   Star,
   Trophy,
 } from "lucide-react";
@@ -21,6 +22,18 @@ interface LeaderboardEntry {
   last_name: string | null;
   score: number;
   best_streak: number;
+  rank: number;
+  crown_count: number;
+  star_count: number;
+}
+
+interface SuccessRateEntry {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  success_rate: number;
+  total_attempts: number;
+  correct_attempts: number;
   rank: number;
   crown_count: number;
   star_count: number;
@@ -52,42 +65,63 @@ function RewardBadges({
   );
 }
 
+/** Barre de progression colorée selon le taux */
+function SuccessRateBar({ rate }: { rate: number }) {
+  const color =
+    rate >= 80
+      ? "bg-emerald-500"
+      : rate >= 60
+        ? "bg-yellow-500"
+        : "bg-red-500";
+  return (
+    <div className="w-20 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+      <div
+        className={`h-full rounded-full ${color} transition-all`}
+        style={{ width: `${Math.min(rate, 100)}%` }}
+      />
+    </div>
+  );
+}
+
 interface MonthlyLeaderboardProps {
   compact?: boolean;
   limit?: number;
-  /** Données pré-chargées côté serveur (optionnel - optimisation SSR) */
   initialData?: LeaderboardEntry[];
-  /** Tri initial quand des données sont pré-chargées */
   initialSortBy?: "score" | "streak";
+  initialSuccessRateData?: SuccessRateEntry[];
 }
 
-type LeaderboardTab = "score" | "streak";
+type LeaderboardTab = "score" | "streak" | "success_rate";
 
 export function MonthlyLeaderboard({
   compact = false,
   limit = 10,
   initialData,
   initialSortBy = "score",
+  initialSuccessRateData,
 }: MonthlyLeaderboardProps) {
-  // Utilise les données initiales si fournies (SSR), sinon démarre vide
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(
     initialData || [],
   );
-  // Si des données initiales sont fournies, pas de chargement initial
+  const [successRateLeaderboard, setSuccessRateLeaderboard] = useState<
+    SuccessRateEntry[]
+  >(initialSuccessRateData || []);
+
   const [loading, setLoading] = useState(!initialData);
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
+  const [userSuccessRank, setUserSuccessRank] =
+    useState<SuccessRateEntry | null>(null);
   const [activeTab, setActiveTab] = useState<LeaderboardTab>(initialSortBy);
-
   const [timeUntilReset, setTimeUntilReset] = useState("");
 
   const { user, isGuest } = useAuth();
   const router = useRouter();
 
-  // Compteur de temps avant réinitialisation (dimanche 23:59 UTC)
+  // Compteur avant réinitialisation (dimanche 23:59 UTC)
   useEffect(() => {
     const computeTimeLeft = () => {
       const now = new Date();
-      const dayOfWeek = now.getUTCDay(); // 0=Dim
+      const dayOfWeek = now.getUTCDay();
       const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
       const nextSunday = new Date(
         Date.UTC(
@@ -118,61 +152,87 @@ export function MonthlyLeaderboard({
     return () => clearInterval(interval);
   }, []);
 
-  // Initialise le rang utilisateur si données pré-chargées
+  // Initialise le rang utilisateur depuis les données SSR
   useEffect(() => {
     if (initialData && user) {
-      const currentUserEntry = initialData.find((e) => e.user_id === user.id);
-      setUserRank(currentUserEntry || null);
+      setUserRank(initialData.find((e) => e.user_id === user.id) || null);
     }
-  }, [initialData, user]);
+    if (initialSuccessRateData && user) {
+      setUserSuccessRank(
+        initialSuccessRateData.find((e) => e.user_id === user.id) || null,
+      );
+    }
+  }, [initialData, initialSuccessRateData, user]);
 
   useEffect(() => {
-    // Skip le premier fetch si on a des données initiales et qu'on est sur le même onglet
-    if (initialData && activeTab === initialSortBy && leaderboard.length > 0) {
-      return;
+    if (activeTab === "success_rate") {
+      if (initialSuccessRateData && successRateLeaderboard.length > 0) return;
+      fetchSuccessRateLeaderboard();
+    } else {
+      if (initialData && activeTab === initialSortBy && leaderboard.length > 0)
+        return;
+      fetchWeeklyLeaderboard();
     }
-    fetchLeaderboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeTab]); // Recharger quand l'onglet change
+  }, [user, activeTab]);
 
-  const fetchLeaderboard = async () => {
+  const getWeekStart = () => {
+    const now = new Date();
+    const dayOfWeek = now.getUTCDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    return new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - daysFromMonday,
+      ),
+    ).toISOString();
+  };
+
+  const fetchWeeklyLeaderboard = async () => {
     try {
       setLoading(true);
-
-      const now = new Date();
-      // Force UTC pour éviter le bug de timezone
-      // Semaine commence le lundi (ISO 8601)
-      const dayOfWeek = now.getUTCDay(); // 0=Dim, 1=Lun, ...
-      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const firstDayOfWeek = new Date(
-        Date.UTC(
-          now.getUTCFullYear(),
-          now.getUTCMonth(),
-          now.getUTCDate() - daysFromMonday,
-        ),
-      ).toISOString();
-
       const { data, error } = await supabase.rpc("get_weekly_leaderboard", {
-        week_start: firstDayOfWeek,
+        week_start: getWeekStart(),
         result_limit: limit,
-        sort_by: activeTab,
+        sort_by: activeTab as "score" | "streak",
       });
-
-      if (error) throw error;
-
-      if (data) {
-        setLeaderboard(data);
-
-        // Trouver le rang de l'utilisateur actuel dans ce classement spécifique
-        if (user) {
-          const currentUserEntry = data.find(
-            (e: LeaderboardEntry) => e.user_id === user.id,
-          );
-          setUserRank(currentUserEntry || null);
-        }
+      if (error) {
+        console.error("Erreur classement hebdomadaire:", error.message, error.code, error.details);
+        return;
+      }
+      setLeaderboard(data ?? []);
+      if (user && data) {
+        setUserRank(
+          data.find((e: LeaderboardEntry) => e.user_id === user.id) ?? null,
+        );
       }
     } catch (err) {
-      console.error("Erreur lors du chargement du classement:", err);
+      console.error("Erreur classement hebdomadaire (inattendue):", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSuccessRateLeaderboard = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.rpc(
+        "get_success_rate_leaderboard",
+        { week_start: getWeekStart(), min_attempts: 10, result_limit: limit },
+      );
+      if (error) {
+        console.error("Erreur classement taux de réussite:", error.message, error.code, error.details);
+        return;
+      }
+      setSuccessRateLeaderboard(data ?? []);
+      if (user && data) {
+        setUserSuccessRank(
+          data.find((e: SuccessRateEntry) => e.user_id === user.id) ?? null,
+        );
+      }
+    } catch (err) {
+      console.error("Erreur classement taux de réussite (inattendue):", err);
     } finally {
       setLoading(false);
     }
@@ -208,7 +268,13 @@ export function MonthlyLeaderboard({
     }
   };
 
-  const getDisplayName = (entry: LeaderboardEntry) => {
+  const getSuccessRateColor = (rate: number) => {
+    if (rate >= 80) return "text-emerald-400";
+    if (rate >= 60) return "text-yellow-400";
+    return "text-red-400";
+  };
+
+  const getDisplayName = (entry: { first_name: string | null; last_name: string | null }) => {
     if (entry.first_name && entry.last_name) {
       return `${entry.first_name} ${entry.last_name.charAt(0)}.`;
     }
@@ -228,12 +294,13 @@ export function MonthlyLeaderboard({
     return `Semaine du ${fmt(monday)} au ${fmt(sunday)}`;
   };
 
-  // --- RENDU DES ONGLETS (Tabs) ---
-  const renderTabs = () => (
+  // ── TABS ─────────────────────────────────────────────────────────────────
+
+  const renderTabs = (includeSuccessRate = true) => (
     <div className="flex p-1 bg-slate-900/50 rounded-xl mb-4 border border-slate-700/50">
       <button
         onClick={() => setActiveTab("score")}
-        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
+        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
           activeTab === "score"
             ? "bg-slate-700 text-white shadow-sm"
             : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
@@ -244,15 +311,28 @@ export function MonthlyLeaderboard({
       </button>
       <button
         onClick={() => setActiveTab("streak")}
-        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
+        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
           activeTab === "streak"
             ? "bg-slate-700 text-white shadow-sm"
             : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
         }`}
       >
         <Flame className="w-4 h-4 text-orange-500" />
-        Série (Streak)
+        Série
       </button>
+      {includeSuccessRate && (
+        <button
+          onClick={() => setActiveTab("success_rate")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "success_rate"
+              ? "bg-slate-700 text-white shadow-sm"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+          }`}
+        >
+          <Percent className="w-4 h-4 text-emerald-400" />
+          Réussite
+        </button>
+      )}
     </div>
   );
 
@@ -266,8 +346,14 @@ export function MonthlyLeaderboard({
     );
   }
 
-  // --- VERSION COMPACTE (Widget Dashboard) ---
+  // ── VERSION COMPACTE ─────────────────────────────────────────────────────
+
   if (compact) {
+    const displayList =
+      activeTab === "success_rate"
+        ? successRateLeaderboard.slice(0, 3)
+        : leaderboard.slice(0, 3);
+
     return (
       <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50 flex flex-col h-full">
         <div className="flex items-center justify-between mb-4">
@@ -275,20 +361,33 @@ export function MonthlyLeaderboard({
             <h3 className="text-white font-semibold text-sm flex items-center gap-2">
               {activeTab === "score" ? (
                 <Trophy className="w-4 h-4 text-yellow-400" />
-              ) : (
+              ) : activeTab === "streak" ? (
                 <Flame className="w-4 h-4 text-orange-500" />
+              ) : (
+                <Percent className="w-4 h-4 text-emerald-400" />
               )}
-              Top {activeTab === "score" ? "Points" : "Série"} de la semaine
+              {activeTab === "score"
+                ? "Top Points"
+                : activeTab === "streak"
+                  ? "Top Série"
+                  : "Taux de réussite"}{" "}
+              {activeTab !== "success_rate" && "de la semaine"}
             </h3>
-            {timeUntilReset && (
+            {activeTab !== "success_rate" && timeUntilReset && (
               <p className="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
                 <CalendarClock className="w-3 h-3" />
                 {timeUntilReset}
               </p>
             )}
+            {activeTab === "success_rate" && (
+              <p className="text-slate-500 text-xs mt-0.5">min. 10 exercices</p>
+            )}
           </div>
           {isGuest ? (
-            <span className="text-slate-600 text-xs flex items-center gap-1 cursor-not-allowed" title="Crée un compte pour accéder au classement complet">
+            <span
+              className="text-slate-600 text-xs flex items-center gap-1 cursor-not-allowed"
+              title="Crée un compte pour accéder au classement complet"
+            >
               Voir tout <ChevronRight className="w-4 h-4" />
             </span>
           ) : (
@@ -301,10 +400,10 @@ export function MonthlyLeaderboard({
           )}
         </div>
 
-        {renderTabs()}
+        {renderTabs(true)}
 
         <div className="space-y-2 flex-1 overflow-hidden">
-          {leaderboard.slice(0, 3).map((entry) => (
+          {displayList.map((entry) => (
             <div
               key={entry.user_id}
               className={`flex items-center gap-3 p-2 rounded-lg border ${getRankBgColor(entry.rank)} ${
@@ -321,25 +420,30 @@ export function MonthlyLeaderboard({
                   star_count={entry.star_count}
                 />
               </div>
-
               <div className="text-right">
                 {activeTab === "score" ? (
                   <span className="text-indigo-300 text-sm font-bold">
-                    {entry.score} pts
+                    {(entry as LeaderboardEntry).score} pts
                   </span>
-                ) : (
+                ) : activeTab === "streak" ? (
                   <div className="flex items-center gap-1 text-orange-400">
                     <Flame className="w-3 h-3 fill-orange-400" />
                     <span className="text-sm font-bold">
-                      {entry.best_streak}
+                      {(entry as LeaderboardEntry).best_streak}
                     </span>
                   </div>
+                ) : (
+                  <span
+                    className={`text-sm font-bold ${getSuccessRateColor((entry as SuccessRateEntry).success_rate)}`}
+                  >
+                    {(entry as SuccessRateEntry).success_rate}%
+                  </span>
                 )}
               </div>
             </div>
           ))}
 
-          {leaderboard.length === 0 && (
+          {displayList.length === 0 && (
             <p className="text-slate-400 text-xs text-center py-4">
               Aucune donnée
             </p>
@@ -349,7 +453,21 @@ export function MonthlyLeaderboard({
     );
   }
 
-  // --- VERSION COMPLÈTE (Page Classement) ---
+  // ── VERSION COMPLÈTE ─────────────────────────────────────────────────────
+
+  const isSuccessRateTab = activeTab === "success_rate";
+  const currentList = isSuccessRateTab ? successRateLeaderboard : leaderboard;
+
+  const tabTitle = {
+    score: "Points de la semaine",
+    streak: "Séries de la semaine",
+    success_rate: "Taux de réussite de la semaine",
+  }[activeTab];
+
+  const tabSubtitle = isSuccessRateTab
+    ? `${getCurrentWeekRange()} • Minimum 10 exercices`
+    : getCurrentWeekRange();
+
   return (
     <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/50">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -357,17 +475,18 @@ export function MonthlyLeaderboard({
           <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
             {activeTab === "score" ? (
               <Trophy className="w-6 h-6 text-white" />
-            ) : (
+            ) : activeTab === "streak" ? (
               <Flame className="w-6 h-6 text-white" />
+            ) : (
+              <Percent className="w-6 h-6 text-white" />
             )}
           </div>
           <div>
             <h2 className="text-white font-bold text-xl">
-              Classement {activeTab === "score" ? "Points" : "Séries"} de la
-              semaine
+              Classement {tabTitle}
             </h2>
-            <p className="text-slate-400 text-sm">{getCurrentWeekRange()}</p>
-            {timeUntilReset && (
+            <p className="text-slate-400 text-sm">{tabSubtitle}</p>
+            {!isSuccessRateTab && timeUntilReset && (
               <p className="text-slate-500 text-xs flex items-center gap-1 mt-1">
                 <CalendarClock className="w-3 h-3" />
                 {timeUntilReset} (dim. 23h59)
@@ -375,80 +494,143 @@ export function MonthlyLeaderboard({
             )}
           </div>
         </div>
-
-        <div className="w-full md:w-64">{renderTabs()}</div>
+        <div className="w-full md:w-72">{renderTabs(true)}</div>
       </div>
+
+      {/* Position de l'utilisateur courant (si pas dans le top) */}
+      {!isSuccessRateTab && userRank && !currentList.find((e) => e.user_id === user?.id) && (
+        <div className="mb-4 p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 flex items-center gap-4">
+          <div className="w-8 flex justify-center">
+            {getRankIcon(userRank.rank)}
+          </div>
+          <div className="flex-1 text-white font-medium">Votre position</div>
+          <span className="text-indigo-300 font-bold">
+            #{userRank.rank}
+          </span>
+        </div>
+      )}
+      {isSuccessRateTab && userSuccessRank && !currentList.find((e) => e.user_id === user?.id) && (
+        <div className="mb-4 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-4">
+          <div className="w-8 flex justify-center">
+            {getRankIcon(userSuccessRank.rank)}
+          </div>
+          <div className="flex-1 text-white font-medium">Votre position</div>
+          <span className={`font-bold ${getSuccessRateColor(userSuccessRank.success_rate)}`}>
+            {userSuccessRank.success_rate}% (#{userSuccessRank.rank})
+          </span>
+        </div>
+      )}
 
       <div className="space-y-2">
-        {leaderboard.map((entry) => (
-          <div
-            key={entry.user_id}
-            className={`flex items-center gap-4 p-3 rounded-xl border transition-all hover:scale-[1.01] ${getRankBgColor(entry.rank)} ${
-              user?.id === entry.user_id ? "ring-2 ring-indigo-500/50" : ""
-            }`}
-          >
-            <div className="w-8 flex justify-center">
-              {getRankIcon(entry.rank)}
-            </div>
-
-            <div className="flex-1 flex items-center gap-3 min-w-0">
-              <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-2">
-                <span className="text-white font-medium truncate">
-                  {user?.id === entry.user_id ? "Vous" : getDisplayName(entry)}
-                </span>
-                <RewardBadges
-                  crown_count={entry.crown_count}
-                  star_count={entry.star_count}
-                />
+        {currentList.map((entry) =>
+          isSuccessRateTab ? (
+            // ── Ligne taux de réussite ──────────────────────────────────────
+            <div
+              key={entry.user_id}
+              className={`flex items-center gap-4 p-3 rounded-xl border transition-all hover:scale-[1.01] ${getRankBgColor(entry.rank)} ${
+                user?.id === entry.user_id ? "ring-2 ring-indigo-500/50" : ""
+              }`}
+            >
+              <div className="w-8 flex justify-center">
+                {getRankIcon(entry.rank)}
               </div>
-            </div>
-
-            <div className="text-right flex items-center gap-6">
-              {/* On affiche les deux infos, mais on met en valeur celle de l'onglet actif */}
-
-              {/* Info Série */}
-              <div
-                className={`flex items-center gap-1 ${activeTab === "streak" ? "opacity-100 scale-110" : "opacity-50"} transition-all`}
-              >
-                <Flame
-                  className={`w-4 h-4 ${activeTab === "streak" ? "text-orange-500 fill-orange-500" : "text-slate-400"}`}
-                />
+              <div className="flex-1 flex items-center gap-3 min-w-0">
+                <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                  <span className="text-white font-medium truncate">
+                    {user?.id === entry.user_id
+                      ? "Vous"
+                      : getDisplayName(entry)}
+                  </span>
+                  <RewardBadges
+                    crown_count={entry.crown_count}
+                    star_count={entry.star_count}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
                 <span
-                  className={`font-bold ${activeTab === "streak" ? "text-orange-400" : "text-slate-400"}`}
+                  className={`font-bold text-lg ${getSuccessRateColor((entry as SuccessRateEntry).success_rate)}`}
                 >
-                  {entry.best_streak}
+                  {(entry as SuccessRateEntry).success_rate}%
                 </span>
-              </div>
-
-              {/* Info Points */}
-              <div
-                className={`w-20 text-right ${activeTab === "score" ? "opacity-100" : "opacity-60"}`}
-              >
-                <span
-                  className={`font-bold text-lg ${activeTab === "score" ? "text-indigo-300" : "text-slate-400"}`}
-                >
-                  {entry.score}
+                <SuccessRateBar rate={(entry as SuccessRateEntry).success_rate} />
+                <span className="text-slate-500 text-xs">
+                  {(entry as SuccessRateEntry).correct_attempts}/
+                  {(entry as SuccessRateEntry).total_attempts} exercices
                 </span>
-                <span className="text-slate-500 text-xs ml-1">pts</span>
               </div>
             </div>
-          </div>
-        ))}
+          ) : (
+            // ── Ligne score / streak ────────────────────────────────────────
+            <div
+              key={entry.user_id}
+              className={`flex items-center gap-4 p-3 rounded-xl border transition-all hover:scale-[1.01] ${getRankBgColor(entry.rank)} ${
+                user?.id === entry.user_id ? "ring-2 ring-indigo-500/50" : ""
+              }`}
+            >
+              <div className="w-8 flex justify-center">
+                {getRankIcon(entry.rank)}
+              </div>
+              <div className="flex-1 flex items-center gap-3 min-w-0">
+                <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                  <span className="text-white font-medium truncate">
+                    {user?.id === entry.user_id
+                      ? "Vous"
+                      : getDisplayName(entry)}
+                  </span>
+                  <RewardBadges
+                    crown_count={(entry as LeaderboardEntry).crown_count}
+                    star_count={(entry as LeaderboardEntry).star_count}
+                  />
+                </div>
+              </div>
+              <div className="text-right flex items-center gap-6">
+                <div
+                  className={`flex items-center gap-1 ${activeTab === "streak" ? "opacity-100 scale-110" : "opacity-50"} transition-all`}
+                >
+                  <Flame
+                    className={`w-4 h-4 ${activeTab === "streak" ? "text-orange-500 fill-orange-500" : "text-slate-400"}`}
+                  />
+                  <span
+                    className={`font-bold ${activeTab === "streak" ? "text-orange-400" : "text-slate-400"}`}
+                  >
+                    {(entry as LeaderboardEntry).best_streak}
+                  </span>
+                </div>
+                <div
+                  className={`w-20 text-right ${activeTab === "score" ? "opacity-100" : "opacity-60"}`}
+                >
+                  <span
+                    className={`font-bold text-lg ${activeTab === "score" ? "text-indigo-300" : "text-slate-400"}`}
+                  >
+                    {(entry as LeaderboardEntry).score}
+                  </span>
+                  <span className="text-slate-500 text-xs ml-1">pts</span>
+                </div>
+              </div>
+            </div>
+          ),
+        )}
       </div>
 
-      {leaderboard.length === 0 && (
+      {currentList.length === 0 && (
         <div className="text-center py-12 bg-slate-900/20 rounded-xl border border-dashed border-slate-700">
-          {activeTab === "score" ? (
+          {isSuccessRateTab ? (
+            <Percent className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          ) : activeTab === "score" ? (
             <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           ) : (
             <Flame className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           )}
           <p className="text-slate-400">
-            Aucun classement {activeTab === "streak" ? "de série" : ""}{" "}
-            disponible cette semaine
+            {isSuccessRateTab
+              ? "Aucun utilisateur n'a encore réalisé 10 exercices"
+              : `Aucun classement ${activeTab === "streak" ? "de série" : ""} disponible cette semaine`}
           </p>
           <p className="text-slate-500 text-sm mt-1">
-            Soyez le premier à apparaître ici !
+            {isSuccessRateTab
+              ? "Faites au moins 10 exercices pour apparaître ici !"
+              : "Soyez le premier à apparaître ici !"}
           </p>
         </div>
       )}

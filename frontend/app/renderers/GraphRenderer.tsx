@@ -7,8 +7,8 @@ import { evaluate, toMathJsSyntax } from "../utils/math/evaluation";
 import { substituteVariables } from "../utils/math/parsing";
 import { simplifyLatexExpression } from "../utils/math/simplication";
 
-// Rapport hauteur / largeur du graphe
-const ASPECT = 4 / 5;
+// Rapport hauteur / largeur du graphe (paysage mathématique standard)
+const ASPECT = 2 / 3;
 
 const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
   content,
@@ -18,34 +18,36 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
   const staticRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [hoverX, setHoverX] = useState<number | null>(null);
-  // Largeur CSS du conteneur, mise à jour par le ResizeObserver
   const [containerWidth, setContainerWidth] = useState(0);
 
-  /** Résout une borne qui peut être un nombre ou une formule avec variables. */
+
+  /** Résout une borne qui peut être un nombre ou une expression avec variables. */
   const resolveBound = useCallback(
     (val: number | string): number => {
       if (typeof val === "number") return val;
-      const result = evaluate(val, variables ?? {});
+      const result = evaluate(toMathJsSyntax(val), variables ?? {});
       return isFinite(result) ? result : 0;
     },
     [variables],
   );
 
-  // ─── ResizeObserver : suit la largeur du conteneur ───────────────────────
+  // ─── ResizeObserver : suit la largeur du conteneur ────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setContainerWidth(entry.contentRect.width);
-    });
+
+    const updateWidth = () => {
+      const w = container.getBoundingClientRect().width;
+      if (w > 0) setContainerWidth(w);
+    };
+
+    const ro = new ResizeObserver(updateWidth);
     ro.observe(container);
-    setContainerWidth(container.clientWidth);
+    updateWidth();
     return () => ro.disconnect();
   }, []);
 
-  // ─── Dessin statique (courbe + axes) ────────────────────────────────────
-  // Se déclenche quand le conteneur change de taille OU quand le contenu change.
-  // Synchronise aussi les dimensions des deux canvas (DPR-aware) avant de dessiner.
+  // ─── Dessin statique (fond + grille + axes + courbes) ─────────────────────
   useEffect(() => {
     const sc = staticRef.current;
     const oc = overlayRef.current;
@@ -54,10 +56,10 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const cssW = containerWidth;
+    const cssW = Math.floor(containerWidth);
     const cssH = Math.round(cssW * ASPECT);
 
-    // Redimensionne les deux canvas (remet également l'overlay à blanc)
+    // Redimensionne les deux canvas (DPR-aware)
     for (const c of [sc, oc]) {
       c.width = Math.round(cssW * dpr);
       c.height = Math.round(cssH * dpr);
@@ -69,23 +71,27 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     const xMax = resolveBound(content.xMax);
     const yMin = resolveBound(content.yMin);
     const yMax = resolveBound(content.yMax);
+
+    // Garde-fou : bornes invalides → ne rien dessiner
+    if (xMax <= xMin || yMax <= yMin) return;
+
     const { showGrid, functions } = content;
 
     ctx.save();
-    ctx.scale(dpr, dpr); // tout le dessin se fait en coordonnées CSS pixels
+    ctx.scale(dpr, dpr);
 
     const scaleX = cssW / (xMax - xMin);
     const scaleY = cssH / (yMax - yMin);
     const toX = (x: number) => (x - xMin) * scaleX;
     const toY = (y: number) => cssH - (y - yMin) * scaleY;
 
-    // Fond
+    // ── Fond ──────────────────────────────────────────────────────────────
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, cssW, cssH);
 
-    // Grille
+    // ── Grille ────────────────────────────────────────────────────────────
     if (showGrid) {
-      ctx.strokeStyle = "#f3f4f6";
+      ctx.strokeStyle = "#f0f0f0";
       ctx.lineWidth = 1;
       for (let x = Math.ceil(xMin); x <= xMax; x++) {
         ctx.beginPath();
@@ -103,65 +109,107 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
 
     const yZero = toY(0);
     const xZero = toX(0);
+    const ARROW = 8; // longueur des flèches (px)
 
-    // Axes
+    // ── Axes ──────────────────────────────────────────────────────────────
     ctx.strokeStyle = "#374151";
-    ctx.lineWidth = 2;
+    ctx.fillStyle = "#374151";
+    ctx.lineWidth = 1.5;
+
+    // Axe X
     if (yZero >= 0 && yZero <= cssH) {
       ctx.beginPath();
       ctx.moveTo(0, yZero);
-      ctx.lineTo(cssW, yZero);
+      ctx.lineTo(cssW - ARROW, yZero);
       ctx.stroke();
+      // Flèche droite
+      ctx.beginPath();
+      ctx.moveTo(cssW, yZero);
+      ctx.lineTo(cssW - ARROW, yZero - ARROW / 2);
+      ctx.lineTo(cssW - ARROW, yZero + ARROW / 2);
+      ctx.closePath();
+      ctx.fill();
     }
+
+    // Axe Y
     if (xZero >= 0 && xZero <= cssW) {
       ctx.beginPath();
       ctx.moveTo(xZero, cssH);
-      ctx.lineTo(xZero, 0);
+      ctx.lineTo(xZero, ARROW);
       ctx.stroke();
+      // Flèche haute
+      ctx.beginPath();
+      ctx.moveTo(xZero, 0);
+      ctx.lineTo(xZero - ARROW / 2, ARROW);
+      ctx.lineTo(xZero + ARROW / 2, ARROW);
+      ctx.closePath();
+      ctx.fill();
     }
 
-    // Graduations et labels
-    ctx.font = "12px sans-serif";
+    // ── Labels des axes ───────────────────────────────────────────────────
+    ctx.font = "11px sans-serif";
     ctx.fillStyle = "#6b7280";
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "#374151";
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = "#9ca3af";
 
+    // Graduations X
     if (yZero >= 0 && yZero <= cssH) {
       ctx.textAlign = "center";
-      ctx.textBaseline = "top";
+      // Baseline : au-dessus si l'axe est en bas, en dessous sinon
+      const labelBelow = yZero < cssH * 0.85;
+      ctx.textBaseline = labelBelow ? "top" : "bottom";
+      const labelOffsetY = labelBelow ? 5 : -5;
+
       for (let x = Math.ceil(xMin); x <= xMax; x++) {
         if (x === 0) continue;
         const cx = toX(x);
+        if (cx < 4 || cx > cssW - 4) continue;
+        ctx.strokeStyle = "#9ca3af";
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(cx, yZero - 4);
         ctx.lineTo(cx, yZero + 4);
         ctx.stroke();
-        ctx.fillText(x.toString(), cx, yZero + 8);
+        ctx.fillStyle = "#6b7280";
+        ctx.fillText(x.toString(), cx, yZero + labelOffsetY);
       }
     }
+
+    // Graduations Y
     if (xZero >= 0 && xZero <= cssW) {
-      ctx.textAlign = "right";
+      const labelRight = xZero > cssW * 0.15;
+      ctx.textAlign = labelRight ? "right" : "left";
       ctx.textBaseline = "middle";
+      const labelOffsetX = labelRight ? -6 : 6;
+
       for (let y = Math.ceil(yMin); y <= yMax; y++) {
         if (y === 0) continue;
         const cy = toY(y);
+        if (cy < 4 || cy > cssH - 4) continue;
+        ctx.strokeStyle = "#9ca3af";
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(xZero - 4, cy);
         ctx.lineTo(xZero + 4, cy);
         ctx.stroke();
-        ctx.fillText(y.toString(), xZero - 8, cy);
+        ctx.fillStyle = "#6b7280";
+        ctx.fillText(y.toString(), xZero + labelOffsetX, cy);
       }
+
+      // Origine "O" si les deux axes sont visibles
       if (yZero >= 0 && yZero <= cssH) {
-        ctx.textAlign = "right";
+        ctx.textAlign = labelRight ? "right" : "left";
         ctx.textBaseline = "top";
-        ctx.fillText("0", xZero - 8, yZero + 8);
+        ctx.fillStyle = "#6b7280";
+        ctx.fillText("O", xZero + labelOffsetX, yZero + 4);
       }
     }
 
-    // Courbes
-    functions.forEach((fn) => {
-      // Pré-traitement : substitution des variables puis conversion LaTeX→mathjs
-      // Une seule fois par courbe, pas à chaque pixel.
+    // ── Courbes ───────────────────────────────────────────────────────────
+    // Marge verticale pour éviter les artefacts de clipping
+    const yMargin = (yMax - yMin) * 0.5;
+
+    functions?.forEach((fn) => {
       const mathJsExpr = toMathJsSyntax(
         substituteVariables(fn.expression, variables ?? {}),
       );
@@ -171,20 +219,28 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
       ctx.lineJoin = "round";
       ctx.beginPath();
       let started = false;
+      let prevY: number | null = null;
+
       for (let px = 0; px <= cssW; px++) {
         const x = xMin + px / scaleX;
         const y = evaluate(mathJsExpr, { x });
-        const valid = !isNaN(y) && isFinite(y);
-        const inBounds = y >= yMin - (yMax - yMin) && y <= yMax + (yMax - yMin);
-        if (valid && inBounds) {
-          if (!started) {
+        const valid = typeof y === "number" && !isNaN(y) && isFinite(y);
+        const inBounds = valid && y >= yMin - yMargin && y <= yMax + yMargin;
+
+        if (inBounds) {
+          // Détecte les discontinuités verticales (saut > 1/3 de la fenêtre)
+          const jump =
+            prevY !== null && Math.abs(y - prevY) > (yMax - yMin) * 0.33;
+          if (!started || jump) {
             ctx.moveTo(toX(x), toY(y));
             started = true;
           } else {
             ctx.lineTo(toX(x), toY(y));
           }
+          prevY = y;
         } else {
           started = false;
+          prevY = null;
         }
       }
       ctx.stroke();
@@ -193,9 +249,7 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     ctx.restore();
   }, [containerWidth, content, variables, resolveBound]);
 
-  // ─── Overlay interactif (curseur + bulles de coordonnées) ───────────────
-  // Ne redimensionne PAS les canvas (déjà fait par l'effet statique).
-  // Utilise canvas.width / DPR pour retrouver les dimensions CSS exactes.
+  // ─── Overlay interactif (curseur + bulles) ────────────────────────────────
   useEffect(() => {
     const canvas = overlayRef.current;
     if (!canvas || !containerWidth) return;
@@ -206,14 +260,14 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (hoverX === null) return;
 
-    // Dimensions CSS déduites des pixels physiques
     const cssW = canvas.width / dpr;
     const cssH = canvas.height / dpr;
-
     const xMin = resolveBound(content.xMin);
     const xMax = resolveBound(content.xMax);
     const yMin = resolveBound(content.yMin);
     const yMax = resolveBound(content.yMax);
+    if (xMax <= xMin || yMax <= yMin) return;
+
     const scaleX = cssW / (xMax - xMin);
     const scaleY = cssH / (yMax - yMin);
     const toX = (x: number) => (x - xMin) * scaleX;
@@ -225,7 +279,7 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     const cx = toX(hoverX);
 
     // Ligne verticale en pointillés
-    ctx.strokeStyle = "rgba(107,114,128,0.45)";
+    ctx.strokeStyle = "rgba(107,114,128,0.4)";
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);
     ctx.beginPath();
@@ -234,13 +288,12 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    content.functions.forEach((fn) => {
-      // Même pré-traitement que pour le dessin statique
+    content.functions?.forEach((fn) => {
       const mathJsExpr = toMathJsSyntax(
         substituteVariables(fn.expression, variables ?? {}),
       );
       const y = evaluate(mathJsExpr, { x: hoverX });
-      if (isNaN(y) || !isFinite(y)) return;
+      if (typeof y !== "number" || isNaN(y) || !isFinite(y)) return;
       const cy = toY(y);
       if (cy < -10 || cy > cssH + 10) return;
 
@@ -292,9 +345,7 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
     ctx.restore();
   }, [hoverX, containerWidth, content, variables, resolveBound]);
 
-  // ─── Gestion souris ──────────────────────────────────────────────────────
-  // getBoundingClientRect() de l'overlay lui-même : toujours exact,
-  // quelle que soit la taille CSS affichée.
+  // ─── Gestion souris ───────────────────────────────────────────────────────
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -308,11 +359,16 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
 
   const handleMouseLeave = useCallback(() => setHoverX(null), []);
 
+  // ── Légende : seules les fonctions avec showExpression !== false ──────────
+  const visibleFunctions =
+    content.functions?.filter((fn) => fn.showExpression !== false) ?? [];
+
+  const showLegend = visibleFunctions.length > 0;
+
   return (
     <div className="p-5 bg-white rounded-2xl shadow-sm border border-gray-100">
-      {/* Taille limitée — graphe compact */}
-      <div className="max-w-sm mx-auto">
-        {/* Conteneur à rapport d'aspect fixe — les canvas s'adaptent via ResizeObserver */}
+      <div className="max-w-lg mx-auto">
+        {/* Canvas — rapport d'aspect fixe via padding-bottom */}
         <div
           ref={containerRef}
           className="relative overflow-hidden rounded-xl border border-gray-200 bg-white"
@@ -326,33 +382,39 @@ const GraphRenderer: React.FC<RendererProps<GraphContent>> = ({
             onMouseLeave={handleMouseLeave}
           />
         </div>
-        {/* Légende des fonctions — expressions rendues en LaTeX */}
-        {content.functions && content.functions.length > 0 && (
-          <div className="text-center text-sm mt-4 font-medium flex flex-wrap gap-4 justify-center">
-            {content.functions.map((fn, idx) => (
-              <span
-                key={idx}
-                className="flex items-center gap-1.5"
-                style={{ color: fn.color }}
-              >
+
+        {/* Légende + bouton révéler */}
+        {showLegend && (
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            {/* Expressions visibles */}
+            {visibleFunctions.map((fn, idx) => {
+              const globalIdx = content.functions.indexOf(fn);
+              return (
                 <span
-                  className="w-3 h-3 rounded-full block flex-shrink-0"
-                  style={{ backgroundColor: fn.color }}
-                />
-                <span className="text-gray-600">
-                  {content.functions.length > 1 ? (
-                    <>
-                      f<sub>{idx + 1}</sub>(x) ={" "}
-                    </>
-                  ) : (
-                    <>f(x) = </>
-                  )}
+                  key={globalIdx}
+                  className="flex items-center gap-1.5 text-sm font-medium"
+                  style={{ color: fn.color }}
+                >
+                  <span
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: fn.color }}
+                  />
+                  <span className="text-gray-600">
+                    {content.functions.length > 1 ? (
+                      <>
+                        f<sub>{globalIdx + 1}</sub>(x) ={" "}
+                      </>
+                    ) : (
+                      <>f(x) = </>
+                    )}
+                  </span>
+                  <Latex>
+                    {simplifyLatexExpression(fn.expression, variables ?? {})}
+                  </Latex>
                 </span>
-                <Latex>
-                  {simplifyLatexExpression(fn.expression, variables ?? {})}
-                </Latex>
-              </span>
-            ))}
+              );
+            })}
+
           </div>
         )}
       </div>

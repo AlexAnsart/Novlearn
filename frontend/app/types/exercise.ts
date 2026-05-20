@@ -48,6 +48,10 @@ export interface VariationTableContent {
 export type GraphFunction = {
   color: string;
   expression: string;
+  /** Si false, la formule n'est pas affichée dans la légende par défaut.
+   *  Utile pour les exercices "identifier la courbe".
+   *  L'étudiant peut la révéler via le bouton dédié. */
+  showExpression?: boolean;
 };
 
 export interface GraphContent {

@@ -237,6 +237,7 @@ function ExercisePageContent() {
             onError={handleError}
             onElementSubmit={handleElementSubmit}
             shouldCountPoints={!idFromUrl && (mode === undefined || mode === 'recommendation')}
+            trackAbandon={!idFromUrl}
             mode={mode}
             onNextClick={!idFromUrl ? handleNextClick : undefined}
             onGuestLimitReached={isGuest ? () => { setGuestLimitReached(true); setShowConversionModal(true); } : undefined}

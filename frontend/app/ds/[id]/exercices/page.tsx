@@ -200,6 +200,7 @@ function DSExercicesPage() {
               competenceId={recommendation.competence_id}
               competences={recommendation.competences}
               shouldCountPoints={false}
+              trackAbandon={true}
               mode="recommendation"
               onNextClick={handleNextClick}
               onLoad={(exercise) =>
