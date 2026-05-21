@@ -54,11 +54,15 @@ export type GraphFunction = {
   showExpression?: boolean;
 };
 
+/** Borne d'un graphe : un nombre, une expression avec variables (ex: "@a - 1"),
+ *  ou "auto" pour un calcul automatique basé sur les fonctions. */
+export type GraphBound = number | string | "auto";
+
 export interface GraphContent {
-  xMin: number | string;
-  xMax: number | string;
-  yMin: number | string;
-  yMax: number | string;
+  xMin: GraphBound;
+  xMax: GraphBound;
+  yMin: GraphBound;
+  yMax: GraphBound;
   showGrid: boolean;
   functions: GraphFunction[];
 }
