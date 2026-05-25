@@ -9,23 +9,61 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // ── Couleurs de structure (s'adaptent au thème) ──
+        // ─────────────────────────────────────────────────────────────
+        // TOKENS SÉMANTIQUES — s'adaptent automatiquement au thème
+        // Voir globals.css pour les valeurs HSL claires / sombres.
+        // ─────────────────────────────────────────────────────────────
+
+        // Couleurs de structure (backgrounds, surfaces, bordures)
         // Usage : bg-app-bg, bg-app-surface, border-app-border…
         app: {
-          bg: "hsl(var(--color-bg) / <alpha-value>)",
+          // Backgrounds de page (utilisés pour le gradient principal)
+          "bg-deep": "hsl(var(--color-bg-deep) / <alpha-value>)",
+          "bg-mid": "hsl(var(--color-bg-mid) / <alpha-value>)",
+          "bg-soft": "hsl(var(--color-bg-soft) / <alpha-value>)",
+          // Alias pour rétro-compatibilité (ancien token bg)
+          bg: "hsl(var(--color-bg-soft) / <alpha-value>)",
+
+          // Surfaces (cartes, sidebar, modales)
           surface: "hsl(var(--color-surface) / <alpha-value>)",
+          "surface-elevated":
+            "hsl(var(--color-surface-elevated) / <alpha-value>)",
+          "surface-sunken": "hsl(var(--color-surface-sunken) / <alpha-value>)",
+          "surface-overlay":
+            "hsl(var(--color-surface-overlay) / <alpha-value>)",
+
+          // Bordures
+          "border-subtle": "hsl(var(--color-border-subtle) / <alpha-value>)",
           border: "hsl(var(--color-border) / <alpha-value>)",
+          "border-strong": "hsl(var(--color-border-strong) / <alpha-value>)",
+
+          // Accents de marque
           primary: "hsl(var(--color-primary) / <alpha-value>)",
           "primary-hover": "hsl(var(--color-primary-hover) / <alpha-value>)",
-        },
-        // ── Couleurs de texte (s'adaptent au thème) ──
-        // Usage : text-content-main, text-content-muted
-        content: {
-          main: "hsl(var(--color-text-main) / <alpha-value>)",
-          muted: "hsl(var(--color-text-muted) / <alpha-value>)",
+          "primary-soft": "hsl(var(--color-primary-soft) / <alpha-value>)",
+          accent: "hsl(var(--color-accent) / <alpha-value>)",
+          accent2: "hsl(var(--color-accent2) / <alpha-value>)",
+
+          // États
+          "icon-bg": "hsl(var(--color-icon-bg) / <alpha-value>)",
+          "icon-bg-hover": "hsl(var(--color-icon-bg-hover) / <alpha-value>)",
+          danger: "hsl(var(--color-danger) / <alpha-value>)",
+          success: "hsl(var(--color-success) / <alpha-value>)",
+          warning: "hsl(var(--color-warning) / <alpha-value>)",
         },
 
-        // ── Palette fixe (charte graphique, ne change pas avec le thème) ──
+        // Textes — usage : text-content-strong, text-content-main, etc.
+        content: {
+          strong: "hsl(var(--color-text-strong) / <alpha-value>)",
+          main: "hsl(var(--color-text-main) / <alpha-value>)",
+          muted: "hsl(var(--color-text-muted) / <alpha-value>)",
+          subtle: "hsl(var(--color-text-subtle) / <alpha-value>)",
+        },
+
+        // ─────────────────────────────────────────────────────────────
+        // PALETTE FIXE (charte graphique — ne change pas avec le thème)
+        // Utiliser pour les couleurs sémantiques (succès, danger, etc.)
+        // ─────────────────────────────────────────────────────────────
         primary: {
           50: "#f0f9ff",
           100: "#dbeafe",
@@ -55,6 +93,10 @@ module.exports = {
           900: "#0f172a",
           950: "#020617",
         },
+      },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        "card-sm": "var(--shadow-card-sm)",
       },
     },
   },

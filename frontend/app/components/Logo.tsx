@@ -36,13 +36,13 @@ export function Logo({ small = false }: LogoProps) {
       {!small && (
         <div className="flex flex-col">
           <h1
-            className="text-5xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
+            className="text-5xl tracking-tight bg-gradient-to-r from-content-strong via-app-primary to-content-strong bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(59,130,246,0.5)]"
             style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700 }}
           >
             NovLearn
           </h1>
           <p
-            className="text-xs text-blue-200 -mt-1 drop-shadow-md"
+            className="text-xs text-app-primary -mt-1"
             style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 500 }}
           >
             Maths Bac

@@ -33,7 +33,7 @@ function LockedSidebarIcon({
         <SidebarIcon emoji={emoji} active={false} onClick={() => {}} />
       </div>
       <div className="absolute inset-0 flex items-center justify-center">
-        <Lock className="w-4 h-4 text-white/60" />
+        <Lock className="w-4 h-4 text-content-strong/60" />
       </div>
     </div>
   );
@@ -184,12 +184,12 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-app-bg-deep via-app-bg-mid to-app-bg-soft flex flex-col">
       {/* Desktop Layout */}
       {!isMobile && (
         <div className="flex flex-1 min-h-screen">
           {/* Sidebar */}
-          <div className="w-24 bg-slate-900/60 backdrop-blur-sm p-4 flex flex-col items-center gap-6 pt-8 fixed h-full z-10 border-r border-slate-800/50">
+          <div className="w-24 bg-app-surface-overlay/70 backdrop-blur-sm p-4 flex flex-col items-center gap-6 pt-8 fixed h-full z-10 border-r border-app-border/60">
             {sidebarContent}
           </div>
 
@@ -226,7 +226,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                 ) : user ? (
                   <button
                     onClick={() => router.push("/compte")}
-                    className="tour-account flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer relative"
+                    className="tour-account flex items-center gap-3 bg-app-surface/80 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-card-sm hover:bg-app-surface-elevated/90 transition-all cursor-pointer relative border border-app-border/40"
                   >
                     <AvatarDisplay
                       avatarId={profile?.avatar_id}
@@ -234,7 +234,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                       size="sm"
                     />
                     <span
-                      className="text-white"
+                      className="text-content-strong"
                       style={{
                         fontFamily: "'Fredoka', sans-serif",
                         fontWeight: 600,
@@ -251,13 +251,13 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
                 ) : !loading ? (
                   <button
                     onClick={() => router.push("/auth/login")}
-                    className="flex items-center gap-3 bg-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg hover:bg-slate-700/60 transition-all cursor-pointer"
+                    className="flex items-center gap-3 bg-app-surface/80 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-card-sm hover:bg-app-surface-elevated/90 transition-all cursor-pointer border border-app-border/40"
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center">
                       <User className="w-7 h-7 text-white" />
                     </div>
                     <span
-                      className="text-white"
+                      className="text-content-strong"
                       style={{
                         fontFamily: "'Fredoka', sans-serif",
                         fontWeight: 600,
@@ -304,7 +304,7 @@ export function Layout({ children, isFullScreen = false }: LayoutProps) {
 
           {/* Bottom Navigation Bar */}
           {!isFullScreen && (
-            <div className="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md p-4 flex items-center justify-around gap-2 border-t border-slate-800/50 z-50">
+            <div className="fixed bottom-0 left-0 right-0 bg-app-surface-overlay/90 backdrop-blur-md p-4 flex items-center justify-around gap-2 border-t border-app-border/60 z-50">
               {sidebarContent}
             </div>
           )}
