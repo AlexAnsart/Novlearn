@@ -30,7 +30,7 @@ export function Footer() {
             </p>
             <div className="flex gap-4 pt-2">
               <SocialLink
-                href="https://instagram.com/ton_compte_ici"
+                href="https://www.instagram.com/novlearn.fr/"
                 icon={<Instagram size={20} />}
                 label="Instagram"
               />
