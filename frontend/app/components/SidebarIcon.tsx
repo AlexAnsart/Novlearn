@@ -29,8 +29,8 @@ export function SidebarIcon({
         hover:scale-110 active:scale-95
         ${
           active
-            ? "bg-blue-600/80 shadow-lg shadow-blue-500/30"
-            : "bg-slate-700/50 hover:bg-slate-600/60"
+            ? "bg-app-primary/85 shadow-lg shadow-app-primary/30"
+            : "bg-app-icon-bg/50 hover:bg-app-icon-bg-hover/70"
         }
         ${className}
       `}
@@ -38,7 +38,7 @@ export function SidebarIcon({
       {typeof emoji === "string" ? (
         <span className="text-2xl">{emoji}</span>
       ) : (
-        <div className="text-white">{emoji}</div>
+        <div className="text-content-strong">{emoji}</div>
       )}
     </button>
   );

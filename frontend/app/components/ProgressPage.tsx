@@ -230,14 +230,15 @@ export function ProgressPage() {
         const correctAnswers = chapterAttempts.filter(
           (a) => a.is_correct,
         ).length;
-        // Radar shows success rate (% correct answers), not exercise count
-        const successRate =
-          totalAnswers > 0
-            ? Math.round((correctAnswers / totalAnswers) * 100)
-            : 0;
+        // Progress = competence mastery (points earned / max points)
+        const totalCompPoints = competences.reduce((sum, c) => sum + c.points, 0);
+        const totalCompMax = competences.reduce((sum, c) => sum + c.max_points, 0);
+        const masteryPct = totalCompMax > 0
+          ? Math.round((totalCompPoints / totalCompMax) * 100)
+          : 0;
         return {
           subject,
-          progress: successRate,
+          progress: masteryPct,
           history,
           totalAnswers,
           correctAnswers,
