@@ -124,6 +124,8 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Default appleboy command_timeout is 10m; npm install + pip install exceed it.
+          command_timeout: 30m
           script: |
             set -e
             sudo mkdir -p /opt/novlearn-staging
@@ -271,6 +273,13 @@ jobs:
           NEXT_PUBLIC_GA_ID: ${{ secrets.NEXT_PUBLIC_GA_ID }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ADMIN_API_SECRET: ${{ secrets.ADMIN_API_SECRET }}
+
+      # Build duel-server in CI so the VPS only installs prod deps (no tsc, no devDeps).
+      - name: Build duel-server
+        working-directory: ./duel-server
+        run: |
+          npm install --prefer-offline --no-audit
+          npm run build
 
       - name: Create .env file for backend
         run: |
@@ -449,6 +458,8 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Default appleboy command_timeout is 10m; deploy.sh (pip + npm ci + duel-server build) exceeds it.
+          command_timeout: 30m
           script: |
             sudo mkdir -p /opt/novlearn
             sudo chown -R $USER:$USER /opt/novlearn

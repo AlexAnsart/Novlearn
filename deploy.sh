@@ -95,9 +95,12 @@ fi
 # Aller dans le répertoire frontend
 cd "$FRONTEND_DIR"
 
-# Installer les dépendances npm (le build .next est déployé depuis la CI)
+# Installer les dépendances npm (le build .next est déployé depuis la CI).
+# Le build étant déjà fait en CI, `next start` n'a besoin que des deps de prod :
+# --omit=dev évite de réinstaller typescript/eslint/tailwind…, --prefer-offline
+# réutilise node_modules existant (incrémental) au lieu de tout réinstaller comme `npm ci`.
 echo "📦 Installation des dépendances Node.js..."
-npm ci --production=false
+npm install --prefer-offline --no-audit --omit=dev
 
 # Démarrer/redémarrer le service systemd frontend
 echo "🔄 Démarrage/redémarrage du service frontend..."
@@ -132,13 +135,17 @@ echo "📦 Déploiement du duel-server (Colyseus)..."
 if [ -d "$DUEL_DIR" ]; then
     cd "$DUEL_DIR"
 
-    # Installer les dépendances Node.js pour le duel-server
-    echo "📦 Installation des dépendances duel-server..."
-    npm install --production=false
-
-    # Build TypeScript -> dist/
-    echo "🔨 Build du duel-server..."
-    npm run build
+    # Si dist/ a été buildé en CI, on n'installe que les deps de prod (pas de tsc/typescript).
+    # Sinon, fallback : install complète + build sur le VPS.
+    if [ -d dist ]; then
+        echo "📦 dist/ présent (buildé en CI) — installation des deps de prod uniquement..."
+        npm install --prefer-offline --no-audit --omit=dev
+    else
+        echo "📦 Pas de dist/ — installation complète + build sur le VPS..."
+        npm install --prefer-offline --no-audit
+        echo "🔨 Build du duel-server..."
+        npm run build
+    fi
 
     # Créer le fichier .env si nécessaire (les variables sont déjà copiées par le workflow)
     if [ ! -f ".env" ]; then
