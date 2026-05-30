@@ -7,7 +7,6 @@ import {
   Flame,
   LogOut,
   Mail,
-  Palette,
   Pencil,
   Star,
   Trash2,
@@ -18,7 +17,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabase";
-import { ThemeToggle } from "../ThemeToggle";
 import AvatarCustomizer from "./AvatarCustomizer";
 import AvatarDisplay from "./AvatarDisplay";
 import DeleteAccountModal from "./DeleteAccountModal";
@@ -305,29 +303,6 @@ export default function ProfileTab() {
             <TrendingUp className="w-5 h-5" />
             Voir ma progression
           </button>
-        </div>
-      </div>
-
-      {/* Préférences : thème clair / sombre / système */}
-      <div className="bg-app-surface/80 backdrop-blur-sm rounded-3xl p-6 md:p-8 shadow-card-sm border border-app-border/40">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-app-primary/15 flex items-center justify-center">
-              <Palette className="w-5 h-5 text-app-primary" />
-            </div>
-            <div>
-              <p
-                className="text-content-strong text-lg"
-                style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 600 }}
-              >
-                Apparence
-              </p>
-              <p className="text-content-muted text-sm">
-                Choisis le thème qui te convient le mieux.
-              </p>
-            </div>
-          </div>
-          <ThemeToggle />
         </div>
       </div>
 
