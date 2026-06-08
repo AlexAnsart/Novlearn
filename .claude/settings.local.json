@@ -27,7 +27,9 @@
       "PowerShell($venv = \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\.venv\\\\Scripts\\\\python.exe\"; Set-Location \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\backend\"; & $venv -m pytest tests/ --collect-only -q 2>&1)",
       "PowerShell($venv = \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\.venv\\\\Scripts\\\\python.exe\"; Set-Location \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\backend\"; & $venv -m pytest tests/ --collect-only -q 2>&1 | Select-Object -Last 20)",
       "PowerShell($venv = \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\.venv\\\\Scripts\\\\python.exe\"; Set-Location \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\backend\"; & $venv -m pytest tests/ -v --tb=short 2>&1)",
-      "PowerShell($venv = \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\.venv\\\\Scripts\\\\python.exe\"; Set-Location \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\backend\"; & $venv -m pytest tests/ -q --tb=short 2>&1 | Select-Object -Last 10)"
+      "PowerShell($venv = \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\.venv\\\\Scripts\\\\python.exe\"; Set-Location \"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\backend\"; & $venv -m pytest tests/ -q --tb=short 2>&1 | Select-Object -Last 10)",
+      "Bash(\"c:\\\\Users\\\\balth\\\\OneDrive\\\\Bureau\\\\Cours\\\\1ere annee\\\\PE\\\\Novlearn\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest tests/ --cov=. --cov-report=term-missing --cov-config=pytest.ini -q)",
+      "Bash(npx vitest *)"
     ]
   }
 }
