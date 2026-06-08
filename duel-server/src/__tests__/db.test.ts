@@ -205,7 +205,7 @@ function setExercisesResult(exercises: unknown[], error: unknown = null) {
       Promise.resolve(result).catch(onRejected),
     finally: (cb: () => void) => Promise.resolve(result).finally(cb),
   };
-  mockFrom.mockReturnValue(chain);
+  mockFrom.mockReturnValue(chain as any);
 }
 
 describe("getRandomExercise", () => {
