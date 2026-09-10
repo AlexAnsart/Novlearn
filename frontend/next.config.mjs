@@ -1,3 +1,6 @@
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import withSerwist from "@serwist/next";
 
 const withSerwistConfig = withSerwist({
@@ -9,6 +12,10 @@ const withSerwistConfig = withSerwist({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Le package.json racine (CLI supabase + scripts) produit un second
+  // lockfile. Sans cette ligne, Next remonte a la racine du monorepo pour
+  // inferer le workspace et emet un avertissement a chaque build.
+  outputFileTracingRoot: dirname(fileURLToPath(import.meta.url)),
   async redirects() {
     return [
       {
