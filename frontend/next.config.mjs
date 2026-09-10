@@ -26,11 +26,11 @@ const nextConfig = {
       return [
         {
           source: "/api/:path*",
-          destination: "http://localhost:8000/api/:path*",
+          destination: "http://localhost:8010/api/:path*",
         },
       ];
     }
-    // En production, les rewrites sont gérés par Nginx
+    // En production, les rewrites sont gérés par Apache (reverse proxy)
     return [];
   },
 };
