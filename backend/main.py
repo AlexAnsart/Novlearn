@@ -44,12 +44,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("auth").setLevel(logging.WARNING)
 
-# ============================================
-# CONSTANTS
-# ============================================
-
-# duel_settings no longer needed — game logic moved to Colyseus duel-server
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.scheduler = setup_scheduler(get_supabase_client)
