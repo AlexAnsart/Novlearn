@@ -9,6 +9,16 @@ const withSerwistConfig = withSerwist({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async redirects() {
+    return [
+      {
+        // Ancienne URL de la politique de confidentialité.
+        source: "/privacy",
+        destination: "/politique-confidentialite",
+        permanent: true,
+      },
+    ];
+  },
   // Configuration pour le développement local et la production
   async rewrites() {
     // En développement, proxy vers localhost
