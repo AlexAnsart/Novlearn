@@ -174,3 +174,9 @@ Balthazar · Charles · Yoan · Timothée · Alexandre
 ## Licence
 
 Projet académique — École Centrale de Lyon (PE69).
+
+## Synchronisation du catalogue
+
+Pour copier les exercices et la taxonomie de production vers le staging : [guide et commandes](docs/catalog-sync.md).
+
+Pour initialiser les deux projets Supabase et configurer Auth, les secrets et Realtime : [guide des environnements](docs/supabase-environments.md).

@@ -8,6 +8,7 @@ jobs:
   # ---- STAGING: only on push to develop ----
   deploy_staging:
     runs-on: ubuntu-latest
+    environment: staging
     # Avoid running staging deploy for PR checks / merge refs.
     # We only deploy staging on direct pushes to the develop branch.
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
@@ -242,6 +243,7 @@ jobs:
   # ---- PRODUCTION: only on push to main ----
   deploy_production:
     runs-on: ubuntu-latest
+    environment: production
     # Avoid running production deploy for PR checks / merge refs.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
