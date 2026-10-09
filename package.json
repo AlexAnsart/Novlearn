@@ -15,7 +15,13 @@
     "test:coverage:duel": "cd duel-server && npm run test:coverage",
     "test:coverage:frontend": "cd frontend && npm run test:coverage",
     "db:sync:catalog": "node scripts/sync-catalog.mjs",
-    "test:catalog-sync": "node --test scripts/sync-catalog.test.mjs"
+    "test:catalog-sync": "node --test scripts/sync-catalog.test.mjs",
+    "test:correction": "npm run test:correction:backend && npm run test:frontend && npm run test:duel && npm run test:correction:scripts",
+    "test:correction:backend": "node scripts/correction-backend-tests.mjs",
+    "test:correction:scripts": "node --test scripts/correction-catalog.test.mjs scripts/correction-triggers.test.mjs",
+    "correction:catalog:export": "node scripts/correction-catalog.mjs --export",
+    "correction:catalog:verify": "node scripts/correction-catalog.mjs --verify",
+    "correction:catalog:replay": "node scripts/correction-replay.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

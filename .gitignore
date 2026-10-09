@@ -49,3 +49,6 @@ htmlcov/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Private exercise correction corpus (L0)
+/.local/exercise-correction/
